@@ -14,4 +14,7 @@ module.exports = {
   // Integration specs share one test database; run serially so their
   // per-test truncations don't race across parallel workers.
   maxWorkers: 1,
+  // Socket.IO / DB connections can keep handles briefly alive after tests pass;
+  // exit cleanly rather than warning.
+  forceExit: true,
 };

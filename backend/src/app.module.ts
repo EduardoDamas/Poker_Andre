@@ -4,6 +4,7 @@ import { APP_PIPE } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { WalletModule } from './wallet/wallet.module';
 import { AuthModule } from './auth/auth.module';
+import { RealtimeModule } from './realtime/realtime.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -12,8 +13,9 @@ import { HealthController } from './health.controller';
     PrismaModule,
     WalletModule,
     AuthModule,
+    RealtimeModule,
     // Feature modules added as they are built:
-    //   PokerModule (engine + gateway), AdminModule
+    //   AdminModule
   ],
   controllers: [HealthController],
   providers: [

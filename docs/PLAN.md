@@ -142,10 +142,11 @@ Run gates from `backend/` unless noted.
 ## MILESTONE D — Realtime multiplayer
 > Now wrap the proven engine in Socket.IO. The engine is already trusted by gates above.
 
-### STEP D1 — Authenticated socket connect ⬜
-- **Build:** Socket.IO gateway; handshake requires a valid JWT.
-- **Gate:** e2e socket test: connect with valid token succeeds; bad/no token disconnected.
+### STEP D1 — Authenticated socket connect ✅
+- **Build:** `GameGateway` (Socket.IO) — handshake auth via `auth.token` or Bearer header, verifies JWT, attaches user to `socket.data`, emits `connected`; rejects + disconnects otherwise. `RealtimeModule` wired into `AppModule`.
+- **Gate:** 4 e2e socket tests — valid JWT connects (userId echoed) ✅, no token rejected ✅, garbage token rejected ✅, wrong-secret token rejected ✅.
 - **Command:** `npx jest socket-auth`
+- **Status:** PASSED — 4/4 (added `forceExit` for clean socket teardown). Full suite 141/141; build green.
 
 ### STEP D2 — Table join/leave + seating ⬜
 - **Build:** join table room, take a seat, leave; broadcast public table state.
