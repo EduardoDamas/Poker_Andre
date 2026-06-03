@@ -165,6 +165,23 @@ model OtpCode {
 }
 
 // ---------------------------------------------------------------------
+// AUDIT — immutable trail of sensitive (money / admin) actions
+// ---------------------------------------------------------------------
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String // user who performed the action (e.g. the admin)
+  action     String // e.g. "withdrawal.approve"
+  targetType String // e.g. "withdrawal"
+  targetId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([action])
+}
+
+// ---------------------------------------------------------------------
 // POKER DOMAIN (Texas Hold'em)
 // ---------------------------------------------------------------------
 

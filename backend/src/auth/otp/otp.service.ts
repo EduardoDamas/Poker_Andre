@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomInt } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -6,6 +11,9 @@ import { DevOtpProvider } from './otp-provider';
 
 const CODE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_ATTEMPTS = 5;
+// Rate limit: cap OTP *requests* per phone (sending SMS costs money / can be abused).
+const MAX_REQUESTS_PER_WINDOW = 5;
+const REQUEST_WINDOW_MS = 60 * 1000; // 1 minute
 
 export interface AuthToken {
   accessToken: string;
@@ -14,11 +22,30 @@ export interface AuthToken {
 
 @Injectable()
 export class OtpService {
+  // In-memory sliding window of recent request timestamps per phone.
+  private readonly recentRequests = new Map<string, number[]>();
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly delivery: DevOtpProvider,
   ) {}
+
+  // Throttle OTP requests per phone; throws 429 when the window limit is hit.
+  private enforceRateLimit(phone: string): void {
+    const now = Date.now();
+    const recent = (this.recentRequests.get(phone) ?? []).filter(
+      (t) => now - t < REQUEST_WINDOW_MS,
+    );
+    if (recent.length >= MAX_REQUESTS_PER_WINDOW) {
+      throw new HttpException(
+        'Too many code requests. Please wait a minute and try again.',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    recent.push(now);
+    this.recentRequests.set(phone, recent);
+  }
 
   // Codes are bound to the phone before hashing so a code can't be replayed for
   // a different number.
@@ -28,6 +55,7 @@ export class OtpService {
 
   /** Generate, store (hashed) and deliver a 6-digit login code. */
   async request(phone: string): Promise<void> {
+    this.enforceRateLimit(phone);
     const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
     await this.prisma.otpCode.create({
       data: {

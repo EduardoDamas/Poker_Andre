@@ -210,8 +210,12 @@ Run gates from `backend/` unless noted.
 - **Gate:** 4 tests — healthy → ok ✅; detects corrupted cache row (diff reported, ledger truth intact) ✅; repair fixes drift ✅; detects an unbalanced/injected ledger entry (system imbalance) ✅.
 - **Command:** `npx jest reconciliation`
 - **Status:** PASSED — 4/4. Full suite 175/175; build green.
-### STEP G3 — Rate limiting, audit log, error tracking (Sentry) ⬜
-- **Gate:** abuse test (rapid OTP / action spam) is throttled.
+### STEP G3 — Rate limiting + audit log ✅  (error tracking = deploy config)
+- **Build:** per-phone OTP request rate limit (5/min sliding window → 429); `AuditLog` model + migration + `AuditService`; admin approve/reject now write an immutable audit record (actor, action, target, amount).
+- **Gate:** 4 e2e tests — 6th rapid OTP → 429 ✅, limit is per-phone ✅, approve writes audit record ✅, reject writes audit record ✅.
+- **Command:** `npx jest g3-hardening`
+- **Status:** PASSED — 4/4. Full suite 179/179; build green.
+- **Note:** Sentry/error-tracking is a deploy-time wiring (DSN + init), not unit-testable here — add at deployment. A global HTTP throttler (@nestjs/throttler) is also recommended for prod breadth.
 ### STEP G4 — Full system e2e + load smoke ⬜
 - **Gate:** scripted multi-table game run clean; CI green on the whole suite.
 
