@@ -78,10 +78,14 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest register.e2e`
 - **Status:** PASSED — 7/7 (fixed supertest default-import). Full suite 48/48; build green.
 
-### STEP B4 — Phone OTP login + JWT ⬜
-- **Build:** `POST /auth/otp/request` (dev provider logs the code), `POST /auth/otp/verify` → issues JWT.
-- **Gate:** e2e: request returns 200; verify with correct code → JWT; wrong/expired code → 401.
-- **Command:** `npx jest otp`
+### STEP B4 — Phone OTP login + JWT ✅
+- **Build:** `OtpCode` model + migration; `OtpService` (6-digit code, sha256-hashed & phone-bound,
+  5-min TTL, max 5 attempts, single-use); `DevOtpProvider` (logs code, exposes last code for tests);
+  `POST /auth/otp/request` + `POST /auth/otp/verify` → JWT; verify activates PENDING→ACTIVE.
+- **Gate:** 7 e2e tests — request → 200 + code ✅, correct code → valid JWT (sub==userId) + ACTIVE ✅,
+  wrong code → 401 ✅, expired → 401 ✅, single-use/replay → 401 ✅, unregistered phone → 401 ✅, malformed → 400 ✅.
+- **Command:** `npx jest otp.e2e`
+- **Status:** PASSED — 7/7 (fixed JwtModule expiresIn typing). Full suite 55/55; build green.
 
 ### STEP B5 — JWT guard ⬜
 - **Build:** `JwtAuthGuard`, apply to a protected sample route.

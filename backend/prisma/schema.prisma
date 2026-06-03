@@ -147,6 +147,24 @@ enum WithdrawalStatus {
 }
 
 // ---------------------------------------------------------------------
+// AUTH — phone OTP challenges
+// ---------------------------------------------------------------------
+
+// One-time login code sent to a phone. The plaintext code is never stored —
+// only a hash. Short-lived; limited verification attempts.
+model OtpCode {
+  id         String    @id @default(uuid())
+  phone      String
+  codeHash   String
+  expiresAt  DateTime
+  consumedAt DateTime?
+  attempts   Int       @default(0)
+  createdAt  DateTime  @default(now())
+
+  @@index([phone])
+}
+
+// ---------------------------------------------------------------------
 // POKER DOMAIN (Texas Hold'em)
 // ---------------------------------------------------------------------
 
