@@ -107,11 +107,11 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest dealer`
 - **Status:** PASSED — 12/12. Full suite 71/71; build green.
 
-### STEP C2 — Hand evaluator (7 → best 5) ⬜
-- **Build:** `evaluate(cards7)` → category + tie-break ranks.
-- **Gate:** unit test table covering all 9 categories, ordering (royal > straight flush > quads > … > high card),
-  wheel straight (A-2-3-4-5), and tie-breakers (kickers, split pots). This is the **most important gate** — be exhaustive.
-- **Command:** `npx jest evaluator`
+### STEP C2 — Hand evaluator (7 → best 5) ✅
+- **Build:** `evaluate(cards)` → `{category, name, key:[category,...tieBreakers]}`; `compareKeys`/`compareHands` for lexicographic comparison (equal = split). Handles wheel (Ace low).
+- **Gate:** 34 tests — all 9 categories detected ✅, full ordering ladder (SF > quads > … > high card) ✅, A-2-3-4-5 wheel ✅, broadway > king-high ✅, SF not mistaken for straight ✅, every tie-breaker (pair/kicker/two-pair/full-house/flush/quads) ✅, split-pot ties ✅, best-5-of-7 incl. two-trips full house ✅, <5 cards rejected ✅.
+- **Command:** `npx jest hand-evaluator`
+- **Status:** PASSED — 34/34. Full suite 105/105; build green.
 
 ### STEP C3 — Betting round ⬜
 - **Build:** blinds, turn order, legal actions (fold/check/call/bet/raise), min-raise rules, pot accrual.
