@@ -87,10 +87,11 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest otp.e2e`
 - **Status:** PASSED — 7/7 (fixed JwtModule expiresIn typing). Full suite 55/55; build green.
 
-### STEP B5 — JWT guard ⬜
-- **Build:** `JwtAuthGuard`, apply to a protected sample route.
-- **Gate:** e2e: protected route without token → 401; with valid token → 200.
-- **Command:** `npx jest guard`
+### STEP B5 — JWT guard ✅
+- **Build:** `JwtAuthGuard` (Bearer extraction + verify, attaches `req.user`), `@CurrentUser()` decorator, protected `GET /auth/me`.
+- **Gate:** 4 e2e tests — no token → 401 ✅, malformed header → 401 ✅, garbage token → 401 ✅, valid token → 200 + profile ✅.
+- **Command:** `npx jest jwt-guard`
+- **Status:** PASSED — 4/4 (added @types/express). Full suite 59/59; build green. **Milestone B (auth & compliance) COMPLETE.**
 
 > Facebook login is deferred to the end of Milestone B (optional for first playable build);
 > same gate pattern when added.

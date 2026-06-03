@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { Prisma, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -56,6 +57,13 @@ export class AuthService {
       }
       throw err;
     }
+  }
+
+  /** The current user's public profile (for GET /auth/me). */
+  async me(userId: string): Promise<PublicUser> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('User no longer exists.');
+    return this.toPublic(user);
   }
 
   private toPublic(user: User): PublicUser {

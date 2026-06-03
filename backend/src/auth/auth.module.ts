@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { OtpService } from './otp/otp.service';
 import { DevOtpProvider } from './otp/otp-provider';
+import { JwtAuthGuard } from './jwt-auth.guard';
 
 @Module({
   imports: [
@@ -22,8 +23,8 @@ import { DevOtpProvider } from './otp/otp-provider';
       }),
     }),
   ],
-  providers: [AuthService, OtpService, DevOtpProvider],
+  providers: [AuthService, OtpService, DevOtpProvider, JwtAuthGuard],
   controllers: [AuthController],
-  exports: [AuthService, OtpService, JwtModule],
+  exports: [AuthService, OtpService, JwtModule, JwtAuthGuard],
 })
 export class AuthModule {}
