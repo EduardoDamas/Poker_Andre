@@ -11,4 +11,7 @@ module.exports = {
   setupFiles: ['<rootDir>/test-utils/set-test-env.ts'],
   // DB-backed tests need a little more headroom than the default 5s.
   testTimeout: 20000,
+  // Integration specs share one test database; run serially so their
+  // per-test truncations don't race across parallel workers.
+  maxWorkers: 1,
 };

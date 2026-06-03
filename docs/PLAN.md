@@ -35,10 +35,11 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest ledger`
 - **Status:** PASSED — 6/6 (full suite 11/11, build green).
 
-### STEP A2 — Wallet service: deposit & balance ⬜
-- **Build:** `WalletService.deposit()` (EXTERNAL → PLAYER), `getBalance(userId)`. Account auto-created on user create.
-- **Gate:** test: deposit R$100 → balance is exactly 10000 cents; two deposits accumulate; balance never goes via float.
-- **Command:** `npx jest wallet`
+### STEP A2 — Wallet service: deposit & balance ✅
+- **Build:** `WalletService.deposit()` (EXTERNAL → PLAYER), `getBalance(userId)`, `ensurePlayerAccount()` (race-safe upsert). Wired into `WalletModule` + `AppModule`.
+- **Gate:** deposit R$100 → exactly 10000 cents ✅; multiple deposits accumulate to the cent ✅; zero/negative rejected ✅; no-account → 0 ✅; EXTERNAL stays a single mirror ✅; balance is always `bigint` (no floats) ✅.
+- **Command:** `npx jest wallet.service`
+- **Status:** PASSED — 6/6 (full suite 17/17, build green). Note: added `maxWorkers: 1` so DB specs run serially.
 
 ### STEP A3 — Withdrawal lifecycle (manual Pix) ⬜
 - **Build:** `request` (PLAYER → WITHDRAWAL_CLEARING, status REQUESTED),
