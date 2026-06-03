@@ -69,11 +69,14 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest age`
 - **Status:** PASSED — 9/9. Full suite 41/41; build green.
 
-### STEP B3 — Registration ⬜
-- **Build:** `POST /auth/register` — phone + displayName + CPF + birthDate. Enforces B1 + B2,
-  unique phone/CPF, creates User (PENDING) + PLAYER account.
-- **Gate:** e2e: valid payload → 201; invalid CPF → 400; under-18 → 400; duplicate phone → 409.
-- **Command:** `npx jest register` (uses Nest test app + test DB)
+### STEP B3 — Registration ✅
+- **Build:** `POST /auth/register` (AuthModule/Service/Controller + RegisterDto). Enforces B1+B2,
+  unique phone/CPF, stores CPF normalised, creates User (PENDING) + PLAYER account. Global
+  `APP_PIPE` ValidationPipe so prod and e2e validate identically.
+- **Gate:** 7 e2e tests — valid → 201 + wallet created ✅, CPF stored digits-only & not leaked ✅,
+  invalid CPF → 400 ✅, under-18 → 400 ✅, dup phone → 409 ✅, dup CPF → 409 ✅, malformed → 400 ✅.
+- **Command:** `npx jest register.e2e`
+- **Status:** PASSED — 7/7 (fixed supertest default-import). Full suite 48/48; build green.
 
 ### STEP B4 — Phone OTP login + JWT ⬜
 - **Build:** `POST /auth/otp/request` (dev provider logs the code), `POST /auth/otp/verify` → issues JWT.
