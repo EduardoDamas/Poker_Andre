@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config.dart';
 
 /// Result of a successful OTP verification.
 class AuthSession {
@@ -24,8 +25,9 @@ class AuthApi {
   final String baseUrl;
   final http.Client _client;
 
-  AuthApi({this.baseUrl = 'http://10.0.2.2:3000', http.Client? client})
-      : _client = client ?? http.Client();
+  AuthApi({String? baseUrl, http.Client? client})
+      : baseUrl = baseUrl ?? AppConfig.apiBase,
+        _client = client ?? http.Client();
 
   Uri _u(String path) => Uri.parse('$baseUrl$path');
 

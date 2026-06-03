@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config.dart';
 import '../models/table_info.dart';
 import 'auth_api.dart' show AuthException;
 
@@ -8,8 +9,9 @@ class TablesApi {
   final String baseUrl;
   final http.Client _client;
 
-  TablesApi({this.baseUrl = 'http://10.0.2.2:3000', http.Client? client})
-      : _client = client ?? http.Client();
+  TablesApi({String? baseUrl, http.Client? client})
+      : baseUrl = baseUrl ?? AppConfig.apiBase,
+        _client = client ?? http.Client();
 
   Future<List<TableInfo>> fetchTables(String token) async {
     final res = await _client.get(
