@@ -38,6 +38,9 @@ dependencies:
   # HTTP client for talking to the CAPA CONTEST backend.
   http: ^1.2.2
 
+  # Realtime gameplay over Socket.IO.
+  socket_io_client: ^2.0.3+1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

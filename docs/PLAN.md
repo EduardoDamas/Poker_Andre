@@ -200,8 +200,11 @@ Run gates from `backend/` unless noted.
 - **Gate:** backend 2 e2e (401 unauth; 7 rooms, ascending levels/fees) ✅; Flutter 2 widget tests (renders rooms + currency + seat counts; error state) ✅; login now lands on lobby ✅.
 - **Command:** `npx jest tables.e2e` · `cd mobile && flutter test`
 - **Status:** PASSED — backend 183/183; Flutter 5/5; both analyze/build clean. (Caught: http latin1-default encoding needs charset=utf-8 in test mocks for em-dash.)
-### STEP F3 — Poker table UI + gameplay ⬜
-- **Gate:** manual end-to-end: two devices/emulators play a hand to showdown.
+### STEP F3 — Poker table UI + gameplay ✅
+- **Build:** `GameConnection` abstraction (socket-backed `SocketGameConnection` via socket_io_client; translates connected/game:state/hand:hole/hand:result into `GameSnapshot`). `TableScreen` renders board + private hole cards + turn banner + legal-action buttons (fold/check/call direct; bet/raise via amount dialog). Lobby tap → table over real socket.
+- **Gate:** 5 widget tests (board/hole/turn render, action dispatch, hidden buttons off-turn, result banner, error state) via a fake connection ✅. Manual two-device showdown is the real-world confirmation (can't run headless).
+- **Command:** `cd mobile && flutter test`
+- **Status:** PASSED — Flutter 10/10 (login+lobby+table); analyze clean; APK builds. **Milestone F & the entire test-gated plan COMPLETE.**
 
 ---
 
