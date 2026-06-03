@@ -119,10 +119,11 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest betting-round`
 - **Status:** PASSED — 14/14. Full suite 119/119; build green.
 
-### STEP C4 — Side pots (all-ins) ⬜
-- **Build:** side-pot construction for multiple all-ins at different stack sizes.
-- **Gate:** unit test with scripted multi-all-in scenarios; **every chip in == every chip awarded** (conservation).
-- **Command:** `npx jest sidepot`
+### STEP C4 — Side pots (all-ins) ✅
+- **Build:** `buildSidePots(contributions, folded)` → `{pots, refunds}`. Layer-by-contribution-level construction, eligibility excludes folded, adjacent equal-eligibility pots merged, **uncalled-bet refund** (lone top contributor capped to 2nd-highest).
+- **Gate:** 7 tests — single pot ✅, main+side on short all-in ✅, uncalled-bet refund ✅, three stacked all-ins ✅, folded chips stay but unwinnable ✅, conservation across mixed scenarios (Σpots+Σrefunds==Σcontrib, every pot has an eligible) ✅, empty hand ✅.
+- **Command:** `npx jest side-pots`
+- **Status:** PASSED — 7/7. Caught & implemented uncalled-bet refunds (real betting can produce a lone top contributor). Full suite 126/126; build green.
 
 ### STEP C5 — Full hand state machine ⬜
 - **Build:** preflop → flop → turn → river → showdown; determine winner(s), split correctly.
