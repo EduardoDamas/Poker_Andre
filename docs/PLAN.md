@@ -125,10 +125,11 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest side-pots`
 - **Status:** PASSED — 7/7. Caught & implemented uncalled-bet refunds (real betting can produce a lone top contributor). Full suite 126/126; build green.
 
-### STEP C5 — Full hand state machine ⬜
-- **Build:** preflop → flop → turn → river → showdown; determine winner(s), split correctly.
-- **Gate:** simulate complete scripted hands; assert correct winners & payouts; commit-reveal seed verifies.
-- **Command:** `npx jest hand`
+### STEP C5 — Full hand state machine ✅
+- **Build:** `PokerHand` orchestrator — deal → preflop/flop/turn/river betting (carrying contributions, skipping streets when all-in) → side pots → showdown → award (split + odd-chip to earliest seat) + uncalled refunds. Positional rules documented.
+- **Gate:** 6 scripted full hands — AA>KK whole pot ✅, fold-preflop wins blinds (+refund) ✅, split pot even ✅, odd chip to earliest seat ✅, all-in main+side pot (short wins main, side decided between others) ✅, lifecycle guards ✅; every scenario asserts winners, exact payouts, **chip conservation**, and seed verifies.
+- **Command:** `npx jest hand.spec`
+- **Status:** PASSED — 6/6. Full suite 132/132; build green.
 
 ### STEP C6 — Settlement into the ledger ⬜
 - **Build:** buy-in (PLAYER → table chips), payout (winnings → PLAYER), rake (→ HOUSE_RAKE), all via `LedgerService`.
