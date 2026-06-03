@@ -103,6 +103,19 @@ export class TableService {
     return { table, position };
   }
 
+  /**
+   * Re-associate a reconnecting player's seat with a new socket. The hand is
+   * never abandoned on disconnect, so the player resumes exactly where they were.
+   */
+  reconnect(id: string, userId: string, socketId: string): { table: Table; position: number } {
+    const table = this.tables.get(id);
+    if (!table) throw new Error('Table not found.');
+    const position = table.seats.findIndex((s) => s?.userId === userId);
+    if (position === -1) throw new Error('Not seated at this table.');
+    table.seats[position]!.socketId = socketId;
+    return { table, position };
+  }
+
   leave(id: string, userId: string): Table | null {
     const table = this.tables.get(id);
     if (!table) return null;

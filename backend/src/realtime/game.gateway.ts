@@ -125,6 +125,26 @@ export class GameGateway implements OnGatewayConnection {
     }
   }
 
+  @SubscribeMessage('table:rejoin')
+  onRejoin(@ConnectedSocket() client: Socket, @MessageBody() body: { tableId: string }): Ack {
+    const user = (client.data as SocketData).user;
+    try {
+      const { table, position } = this.tables.reconnect(body.tableId, user.sub, client.id);
+      client.join(room(body.tableId));
+
+      // Restore this player's full view — to this socket only.
+      client.emit('table:state', this.tables.publicState(table));
+      const hole = this.tables.holeFor(table, user.sub);
+      if (hole) client.emit('hand:hole', { cards: hole });
+      const state = this.tables.gameState(table);
+      if (state) client.emit('game:state', state);
+
+      return { ok: true, position };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
   @SubscribeMessage('table:leave')
   onLeave(@ConnectedSocket() client: Socket, @MessageBody() body: { tableId: string }): Ack {
     const user = (client.data as SocketData).user;
