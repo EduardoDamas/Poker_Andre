@@ -190,8 +190,11 @@ Run gates from `backend/` unless noted.
 ## MILESTONE F — Mobile app (Flutter, Android)
 > Requires installing the Flutter SDK first (not yet on this machine).
 
-### STEP F1 — Flutter project + login ⬜
-- **Gate:** `flutter test` (widget) green; app builds; login screen calls OTP API against local backend.
+### STEP F1 — Flutter project + login ✅
+- **Build:** Flutter SDK 3.44.1 + JDK 17 + Android SDK 36 installed (`~/.capa_flutter_env.sh`). `mobile/` app: brand theme from design tokens, injectable `AuthApi` (→ backend `/auth/otp/*`), two-step phone-OTP `LoginScreen` → `HomeScreen`.
+- **Gate:** `flutter analyze` clean ✅; `flutter test` 3/3 (valid OTP→home, wrong code→error, 429→friendly msg, offline via MockClient) ✅; `flutter build apk --debug` → real installable `app-debug.apk` ✅.
+- **Command:** `cd mobile && flutter test`
+- **Status:** PASSED — 3/3 + APK built. ⚠️ No `/dev/kvm` here, so emulator can't run in this env; APK runs on a real device. Backend reachable at `10.0.2.2:3000` (emulator) / host LAN IP (device).
 ### STEP F2 — Lobby + table list ⬜
 - **Gate:** widget test; manual run shows tables from backend.
 ### STEP F3 — Poker table UI + gameplay ⬜
