@@ -1,0 +1,202 @@
+// CAPA CONTEST — Phase 1 database schema
+// =====================================================================
+// MONEY RULES (do not violate):
+//   * All amounts are stored as INTEGER CENTS (BigInt). NEVER floats.
+//   * Balances are NEVER updated in place. The balance of an account is the
+//     SUM of its ledger entries. Money moves only by inserting balanced
+//     LedgerTransactions whose entries sum to exactly zero (double-entry).
+//   * Every money movement is immutable and auditable.
+// =====================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------
+// IDENTITY & COMPLIANCE
+// ---------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  phone        String   @unique // E.164, login by OTP
+  facebookId   String?  @unique
+  displayName  String
+  cpf          String   @unique // validated (check digits) before insert
+  birthDate    DateTime // 18+ enforced at registration
+  role         Role     @default(PLAYER)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  account      Account?
+  withdrawals  Withdrawal[]
+  seats        Seat[]
+
+  @@index([status])
+}
+
+enum Role {
+  PLAYER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  BLOCKED     // e.g. self-exclusion, fraud, KYC fail
+  PENDING     // registered, not yet verified
+}
+
+// ---------------------------------------------------------------------
+// DOUBLE-ENTRY WALLET
+// ---------------------------------------------------------------------
+
+// An Account is a balance container. Players have one PLAYER account each;
+// the platform owns system accounts (house rake, prize pool, escrow, etc.).
+model Account {
+  id        String      @id @default(uuid())
+  type      AccountType
+  user      User?       @relation(fields: [userId], references: [id])
+  userId    String?     @unique // null for system accounts
+  // Cached balance for fast reads — reconciled against SUM(entries) by a job.
+  // Source of truth is ALWAYS the ledger, never this column.
+  balanceCents BigInt   @default(0)
+  createdAt DateTime    @default(now())
+
+  entries   LedgerEntry[]
+
+  @@index([type])
+}
+
+enum AccountType {
+  PLAYER         // a user's credit wallet
+  HOUSE_RAKE     // platform commission
+  PRIZE_POOL     // tournament prize escrow
+  WITHDRAWAL_CLEARING // funds reserved for a pending Pix payout
+  EXTERNAL       // counter-account for deposits/withdrawals to the outside world
+}
+
+// A balanced group of entries. The sum of entry.amountCents MUST be 0.
+model LedgerTransaction {
+  id          String        @id @default(uuid())
+  kind        TxnKind
+  // Idempotency: a game hand / withdrawal can only post once.
+  referenceId String?       @unique
+  memo        String?
+  createdAt   DateTime      @default(now())
+
+  entries     LedgerEntry[]
+
+  @@index([kind])
+}
+
+enum TxnKind {
+  DEPOSIT
+  TOURNAMENT_BUYIN
+  TOURNAMENT_PAYOUT
+  RAKE
+  WITHDRAWAL
+  ADJUSTMENT      // admin correction (audited)
+}
+
+// One signed posting against one account. Positive = credit in, negative = out.
+model LedgerEntry {
+  id            String  @id @default(uuid())
+  transaction   LedgerTransaction @relation(fields: [transactionId], references: [id])
+  transactionId String
+  account       Account @relation(fields: [accountId], references: [id])
+  accountId     String
+  amountCents   BigInt  // signed; entries within a transaction sum to 0
+  createdAt     DateTime @default(now())
+
+  @@index([accountId])
+  @@index([transactionId])
+}
+
+// ---------------------------------------------------------------------
+// WITHDRAWALS (Phase 1 = manual Pix, marked by admin)
+// ---------------------------------------------------------------------
+
+model Withdrawal {
+  id            String           @id @default(uuid())
+  user          User             @relation(fields: [userId], references: [id])
+  userId        String
+  amountCents   BigInt
+  pixKey        String           // player's Pix key (CPF/email/phone/random)
+  status        WithdrawalStatus @default(REQUESTED)
+  // When REQUESTED, funds move PLAYER -> WITHDRAWAL_CLEARING (reserved).
+  // When PAID, admin confirms the manual Pix; CLEARING -> EXTERNAL.
+  // When REJECTED, funds return CLEARING -> PLAYER.
+  requestTxnId  String?
+  settleTxnId   String?
+  adminNote     String?
+  requestedAt   DateTime         @default(now())
+  settledAt     DateTime?
+
+  @@index([status])
+}
+
+enum WithdrawalStatus {
+  REQUESTED
+  PAID
+  REJECTED
+}
+
+// ---------------------------------------------------------------------
+// POKER DOMAIN (Texas Hold'em)
+// ---------------------------------------------------------------------
+
+model Table {
+  id          String   @id @default(uuid())
+  name        String
+  maxSeats    Int      @default(8)
+  level       Int      @default(1) // tournament level 1..7 (prize table)
+  status      TableStatus @default(WAITING)
+  createdAt   DateTime @default(now())
+
+  seats       Seat[]
+  hands       Hand[]
+}
+
+enum TableStatus {
+  WAITING
+  RUNNING
+  CLOSED
+}
+
+model Seat {
+  id        String  @id @default(uuid())
+  table     Table   @relation(fields: [tableId], references: [id])
+  tableId   String
+  user      User    @relation(fields: [userId], references: [id])
+  userId    String
+  position  Int     // 0..maxSeats-1
+  stackCents BigInt @default(0) // chips in front of player (in-game)
+  joinedAt  DateTime @default(now())
+
+  @@unique([tableId, position])
+  @@index([userId])
+}
+
+// A single dealt hand. The server records the authoritative outcome.
+// The deck/seed is stored for audit & dispute resolution.
+model Hand {
+  id            String   @id @default(uuid())
+  table         Table    @relation(fields: [tableId], references: [id])
+  tableId       String
+  handNumber    Int
+  // Commit-reveal anti-fraud: server commits to a hashed seed before the hand,
+  // reveals the seed after, so the shuffle can be independently verified.
+  seedHash      String   // SHA-256 of the server seed (published pre-deal)
+  seedReveal    String?  // the seed itself (published post-hand)
+  boardCards    String?  // e.g. "Ah Kd Qc 7s 2h"
+  potCents      BigInt   @default(0)
+  result        Json?    // winners, amounts, hand ranks — authoritative
+  createdAt     DateTime @default(now())
+
+  @@unique([tableId, handNumber])
+}
