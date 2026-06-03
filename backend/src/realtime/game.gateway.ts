@@ -10,6 +10,7 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { JwtPayload } from '../auth/jwt-auth.guard';
+import { Action } from '../poker/betting-round';
 import { TableService } from './table.service';
 
 const room = (tableId: string) => `table:${tableId}`;
@@ -80,18 +81,45 @@ export class GameGateway implements OnGatewayConnection {
       const { table, position } = this.tables.join(body.tableId, user.sub, client.id, body.maxSeats);
       client.join(room(body.tableId));
 
-      const started = this.tables.startHandIfReady(table);
+      const started =
+        !table.handInProgress && this.tables.seatedCount(table) >= 2
+          ? this.tables.startHand(table)
+          : false;
 
       // Public state to the whole room — never contains hole cards.
       this.server.to(room(body.tableId)).emit('table:state', this.tables.publicState(table));
 
-      // Private hole cards: delivered only to each owner's own socket.
       if (started) {
+        // Private hole cards: delivered only to each owner's own socket.
         for (const p of this.tables.seatedPlayers(table)) {
-          if (p.hole) this.server.to(p.socketId).emit('hand:hole', { cards: p.hole });
+          const hole = this.tables.holeFor(table, p.userId);
+          if (hole) this.server.to(p.socketId).emit('hand:hole', { cards: hole });
         }
+        this.broadcastGameState(body.tableId);
       }
       return { ok: true, position };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  @SubscribeMessage('hand:action')
+  async onAction(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: { tableId: string; action: Action },
+  ): Promise<Ack> {
+    const user = (client.data as SocketData).user;
+    try {
+      const res = await this.tables.act(body.tableId, user.sub, body.action);
+      if (res.complete) {
+        this.server.to(room(body.tableId)).emit('hand:result', res.result);
+        // Reflect the finished hand in the seating state.
+        const table = this.tables.getTable(body.tableId);
+        if (table) this.server.to(room(body.tableId)).emit('table:state', this.tables.publicState(table));
+      } else {
+        this.broadcastGameState(body.tableId);
+      }
+      return { ok: true };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }
@@ -106,5 +134,12 @@ export class GameGateway implements OnGatewayConnection {
       this.server.to(room(body.tableId)).emit('table:state', this.tables.publicState(table));
     }
     return { ok: true };
+  }
+
+  private broadcastGameState(tableId: string): void {
+    const table = this.tables.getTable(tableId);
+    if (!table) return;
+    const state = this.tables.gameState(table);
+    if (state) this.server.to(room(tableId)).emit('game:state', state);
   }
 }

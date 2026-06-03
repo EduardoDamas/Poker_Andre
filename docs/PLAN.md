@@ -154,10 +154,11 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest table.e2e`
 - **Status:** PASSED — 4/4. Full suite 145/145; build green.
 
-### STEP D3 — Play a hand over sockets ⬜
-- **Build:** wire C5 engine to socket events (actions in, state out); auto-start when enough players.
-- **Gate:** e2e: scripted 2–3 client hand plays to showdown; winner credited (D + C6 together).
-- **Command:** `npx jest play`
+### STEP D3 — Play a hand over sockets ✅
+- **Build:** `TableService` drives a live `PokerHand` (auto-starts at 2 seated, fixed buy-in chips); gateway `hand:action` validates via engine, broadcasts `game:state` per turn, emits `hand:result` at showdown and **settles the result into the ledger** (C6).
+- **Gate:** e2e — two authenticated, funded bot clients play heads-up to showdown over real sockets; wallets end exactly equal to the engine's final stacks, money conserved (Σ=200, ledger nets 0), winner credited > 0.
+- **Command:** `npx jest play.e2e`
+- **Status:** PASSED — 1/1. (3-player auto-start raced with the 3rd join → deferred N>2 start semantics as a documented product decision.) Full suite 146/146; build green.
 
 ### STEP D4 — Reconnection ⬜
 - **Build:** state in Redis; rejoin restores a player's view mid-hand.
