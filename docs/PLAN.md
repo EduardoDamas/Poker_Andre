@@ -101,10 +101,11 @@ Run gates from `backend/` unless noted.
 ## MILESTONE C — Poker engine (pure, server-authoritative)
 > All pure functions. This is where most bugs hide → heaviest test coverage.
 
-### STEP C1 — Deal hole + community cards ⬜
-- **Build:** deal N hole cards + flop/turn/river off the shuffled deck (with burn cards).
-- **Gate:** test: no card dealt twice across hole+board+burn; counts correct for 2..8 players.
-- **Command:** `npx jest deal`
+### STEP C1 — Deal hole + community cards ✅
+- **Build:** `dealHand(numPlayers, deck?)` — hole cards + flop/turn/river with burns, casino order; accepts a fixed deck for deterministic tests; surfaces commit-reveal material.
+- **Gate:** 12 tests — no duplicates across hole+board+burns for 2–8 players ✅, correct counts ✅, board = flop+turn+river ✅, valid card format ✅, commit-reveal exposed ✅, invalid counts rejected ✅, deterministic with fixed deck ✅.
+- **Command:** `npx jest dealer`
+- **Status:** PASSED — 12/12. Full suite 71/71; build green.
 
 ### STEP C2 — Hand evaluator (7 → best 5) ⬜
 - **Build:** `evaluate(cards7)` → category + tie-break ranks.
