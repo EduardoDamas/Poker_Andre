@@ -113,10 +113,11 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest hand-evaluator`
 - **Status:** PASSED — 34/34. Full suite 105/105; build green.
 
-### STEP C3 — Betting round ⬜
-- **Build:** blinds, turn order, legal actions (fold/check/call/bet/raise), min-raise rules, pot accrual.
-- **Gate:** unit test: illegal actions rejected; betting closes when all matched; pot equals sum of contributions.
-- **Command:** `npx jest betting`
+### STEP C3 — Betting round ✅
+- **Build:** `BettingRound` (preflop/postflop factories) — blinds, turn order, BB option, legal-action validation, min-raise rule, all-in (partial call / short bet), reopen-on-raise, completion detection, contribution/pot snapshot.
+- **Gate:** 14 tests — blinds & first-to-act ✅, BB option ✅, out-of-turn rejected ✅, illegal check/call/bet rejected ✅, min opening bet ✅, min-raise enforced ✅, legal raise reopens action ✅, closes when matched ✅, fold-to-one ✅, pot == Σ contributions ✅, short all-in call ✅, all-in bet below min ✅.
+- **Command:** `npx jest betting-round`
+- **Status:** PASSED — 14/14. Full suite 119/119; build green.
 
 ### STEP C4 — Side pots (all-ins) ⬜
 - **Build:** side-pot construction for multiple all-ins at different stack sizes.
