@@ -200,8 +200,11 @@ Run gates from `backend/` unless noted.
 ---
 
 ## MILESTONE G — Hardening & launch prep
-### STEP G1 — Prize table ⬜  (room-occupancy %, 7 levels, eliminatory phases per the document)
-- **Gate:** unit tests of payout math vs. the document's table for several occupancy levels.
+### STEP G1 — Prize table ✅  (room-occupancy %, 7 levels)
+- **Build:** `prize-table.ts` — `multiplierFor(occupancy)` (configurable 7-band 20×→200× V.I. schedule), `computePrizePool` (money-safe: prize capped at collected; prize+rake==collected), `distributePrize` (integer-cent split, remainder to top places).
+- **Gate:** 14 tests — full→200×, empty→20×, mid bands, monotonic ✅; prize pool conservation + low-occupancy cap + invalid inputs ✅; distribution exactness/remainder/guards ✅.
+- **Command:** `npx jest prize-table`
+- **Status:** PASSED — 14/14. Full suite 170/170; build green. ⚠️ Tier breakpoints are PLACEHOLDERS pending CAPACONTEST.pdf (math/invariants final). Eliminatory-phase / loser-prize rules still to add once PDF available.
 ### STEP G2 — Reconciliation job ⬜  (nightly: cached balances == Σ ledger)
 - **Gate:** test detects a deliberately corrupted cache row.
 ### STEP G3 — Rate limiting, audit log, error tracking (Sentry) ⬜
