@@ -3,9 +3,10 @@ import { LedgerService } from './ledger.service';
 import { WalletService } from './wallet.service';
 import { WithdrawalService } from './withdrawal.service';
 import { SettlementService } from './settlement.service';
+import { ReconciliationService } from './reconciliation.service';
 
 @Module({
-  providers: [LedgerService, WalletService, WithdrawalService, SettlementService],
-  exports: [LedgerService, WalletService, WithdrawalService, SettlementService],
+  providers: [LedgerService, WalletService, WithdrawalService, SettlementService, ReconciliationService],
+  exports: [LedgerService, WalletService, WithdrawalService, SettlementService, ReconciliationService],
 })
 export class WalletModule {}

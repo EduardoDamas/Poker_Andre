@@ -205,8 +205,11 @@ Run gates from `backend/` unless noted.
 - **Gate:** 14 tests — full→200×, empty→20×, mid bands, monotonic ✅; prize pool conservation + low-occupancy cap + invalid inputs ✅; distribution exactness/remainder/guards ✅.
 - **Command:** `npx jest prize-table`
 - **Status:** PASSED — 15/15. Full suite 171/171; build green. ✅ REAL CAPACONTEST.pdf tiers now locked in (10 bands 20×→200×, <10%→0 flagged). Full ruleset (capacity, eliminatory phases, loser %, entry fees, prize-share %) recorded in [PRIZE_RULES.md](PRIZE_RULES.md). Eliminatory/loser/subscription engines deferred to their own modules (data captured).
-### STEP G2 — Reconciliation job ⬜  (nightly: cached balances == Σ ledger)
-- **Gate:** test detects a deliberately corrupted cache row.
+### STEP G2 — Reconciliation job ✅  (cached balances == Σ ledger; system nets 0)
+- **Build:** `ReconciliationService` — `checkAccounts` (cache vs ledger sum), `checkSystemBalance` (Σ entries == 0), `run` (full report + error log), `repairCachedBalances` (reset cache to ledger truth). Wire to a nightly cron/admin button at deploy.
+- **Gate:** 4 tests — healthy → ok ✅; detects corrupted cache row (diff reported, ledger truth intact) ✅; repair fixes drift ✅; detects an unbalanced/injected ledger entry (system imbalance) ✅.
+- **Command:** `npx jest reconciliation`
+- **Status:** PASSED — 4/4. Full suite 175/175; build green.
 ### STEP G3 — Rate limiting, audit log, error tracking (Sentry) ⬜
 - **Gate:** abuse test (rapid OTP / action spam) is throttled.
 ### STEP G4 — Full system e2e + load smoke ⬜
