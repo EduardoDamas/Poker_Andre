@@ -5,4 +5,10 @@ module.exports = {
   rootDir: 'src',
   testRegex: '.*\\.spec\\.ts$',
   moduleFileExtensions: ['ts', 'js', 'json'],
+  // Create + migrate the test database once before the suite.
+  globalSetup: '<rootDir>/test-utils/global-setup.ts',
+  // Point Prisma at the test DB before any client is created.
+  setupFiles: ['<rootDir>/test-utils/set-test-env.ts'],
+  // DB-backed tests need a little more headroom than the default 5s.
+  testTimeout: 20000,
 };

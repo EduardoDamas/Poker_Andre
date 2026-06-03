@@ -23,14 +23,17 @@ Run gates from `backend/` unless noted.
 ## MILESTONE A — Money core (double-entry wallet)
 > Build the riskiest thing first. Pure DB logic, fully testable before any UI exists.
 
-### STEP A1 — Ledger invariants ⬜
+### STEP A1 — Ledger invariants ✅
 - **Build:** finalize `LedgerService.post()` / `balanceOf()`. Add a test DB helper.
-- **Gate:** integration test `ledger.spec.ts` proves:
-  - a balanced 2-leg transaction posts and both balances move;
-  - an **unbalanced** transaction is **rejected** (sum ≠ 0 throws);
-  - `balanceOf()` (sum of entries) equals the cached `balanceCents`;
-  - posting the same `referenceId` twice fails (idempotency).
+- **Gate:** integration test `ledger.service.spec.ts` proves:
+  - a balanced 2-leg transaction posts and both balances move; ✅
+  - an **unbalanced** transaction is **rejected** (sum ≠ 0 throws); ✅
+  - at least two legs required; ✅
+  - `balanceOf()` (sum of entries) equals the cached `balanceCents`; ✅
+  - posting the same `referenceId` twice fails (idempotency); ✅
+  - whole-system money conservation (Σ all entries == 0). ✅
 - **Command:** `npx jest ledger`
+- **Status:** PASSED — 6/6 (full suite 11/11, build green).
 
 ### STEP A2 — Wallet service: deposit & balance ⬜
 - **Build:** `WalletService.deposit()` (EXTERNAL → PLAYER), `getBalance(userId)`. Account auto-created on user create.
