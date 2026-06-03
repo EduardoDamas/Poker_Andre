@@ -131,10 +131,11 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest hand.spec`
 - **Status:** PASSED — 6/6. Full suite 132/132; build green.
 
-### STEP C6 — Settlement into the ledger ⬜
-- **Build:** buy-in (PLAYER → table chips), payout (winnings → PLAYER), rake (→ HOUSE_RAKE), all via `LedgerService`.
-- **Gate:** integration test: run a full hand; assert money **conserved** end-to-end and matches game result.
+### STEP C6 — Settlement into the ledger ✅
+- **Build:** `SettlementService.settleHand()` — one balanced double-entry txn per hand: buy-in (PLAYER → PRIZE_POOL escrow), final stack return (escrow → PLAYER), rake (escrow → HOUSE_RAKE). Idempotent per hand; balances against engine result.
+- **Gate:** 5 tests — real engine hand settles + wallets match result + escrow → 0 ✅; rake to house + conservation ✅; unbalanced rejected ✅; insufficient buy-in rejected ✅; settle-once idempotency ✅. Whole-system Σ entries == 0.
 - **Command:** `npx jest settlement`
+- **Status:** PASSED — 5/5. Full suite 137/137; build green. **Milestone C (poker engine) COMPLETE.**
 
 ---
 
