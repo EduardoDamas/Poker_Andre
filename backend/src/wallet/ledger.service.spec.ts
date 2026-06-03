@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { LedgerService } from './ledger.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { resetDb } from '../test-utils/reset-db';
 
 /**
  * STEP A1 gate — double-entry ledger invariants.
@@ -24,10 +25,7 @@ describe('LedgerService (double-entry invariants)', () => {
 
   // Clean slate before each test, then create the two accounts we post between.
   beforeEach(async () => {
-    await prisma.ledgerEntry.deleteMany();
-    await prisma.ledgerTransaction.deleteMany();
-    await prisma.account.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDb(prisma);
 
     const external = await prisma.account.create({ data: { type: 'EXTERNAL' } });
     const player = await prisma.account.create({ data: { type: 'PLAYER' } });

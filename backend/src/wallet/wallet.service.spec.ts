@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { LedgerService } from './ledger.service';
 import { WalletService } from './wallet.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { resetDb } from '../test-utils/reset-db';
 
 /**
  * STEP A2 gate — wallet deposit & balance.
@@ -24,10 +25,7 @@ describe('WalletService (deposit & balance)', () => {
   });
 
   beforeEach(async () => {
-    await prisma.ledgerEntry.deleteMany();
-    await prisma.ledgerTransaction.deleteMany();
-    await prisma.account.deleteMany();
-    await prisma.user.deleteMany();
+    await resetDb(prisma);
 
     // A user with a unique phone/CPF per test (compliance fields validated later).
     counter += 1;

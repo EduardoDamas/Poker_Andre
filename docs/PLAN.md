@@ -41,13 +41,16 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest wallet.service`
 - **Status:** PASSED — 6/6 (full suite 17/17, build green). Note: added `maxWorkers: 1` so DB specs run serially.
 
-### STEP A3 — Withdrawal lifecycle (manual Pix) ⬜
-- **Build:** `request` (PLAYER → WITHDRAWAL_CLEARING, status REQUESTED),
-  `approve`/markPaid (CLEARING → EXTERNAL, PAID), `reject` (CLEARING → PLAYER, REJECTED).
-  Reject double-spend (can't withdraw more than balance).
-- **Gate:** integration test covering all three paths + insufficient-funds rejection +
-  **conservation**: after any sequence, `Σ all account balances == total deposited`.
+### STEP A3 — Withdrawal lifecycle (manual Pix) ✅
+- **Build:** `WithdrawalService` — `request` (PLAYER → WITHDRAWAL_CLEARING, REQUESTED),
+  `approve` (CLEARING → EXTERNAL, PAID), `reject` (CLEARING → PLAYER, REJECTED).
+  Funds reserved on request; settle-once state guard.
+- **Gate:** 8 tests — all three paths ✅, insufficient-funds rejected ✅, reserved funds
+  can't be re-withdrawn (double-spend blocked) ✅, settle-once ✅, Pix key required ✅,
+  **money conservation** (Σ all entries == 0) across a mixed sequence ✅.
 - **Command:** `npx jest withdrawal`
+- **Status:** PASSED — 8/8. Added shared `resetDb()` (FK-safe TRUNCATE) used by all
+  specs. Full suite 25/25; build green. **Milestone A (money core) COMPLETE.**
 
 ---
 
