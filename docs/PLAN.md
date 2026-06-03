@@ -171,9 +171,11 @@ Run gates from `backend/` unless noted.
 ---
 
 ## MILESTONE E — Admin panel (React-Admin, web)
-### STEP E1 — Admin auth + read views ⬜
-- **Build:** admin login (ADMIN role), list players / wallets / withdrawals.
-- **Gate:** smoke test: admin logs in, lists pending withdrawals; non-admin blocked (403).
+### STEP E1 — Admin auth + read views ✅
+- **Build:** `AdminGuard` (DB-backed ADMIN role check, runs after JwtAuthGuard); `AdminService`/`AdminController` — `GET /admin/players` (with balances) and `GET /admin/withdrawals?status=` (amounts as strings, BigInt-safe). `AdminModule` wired in.
+- **Gate:** 4 e2e tests — admin lists players+balances ✅, admin lists pending withdrawals ✅, non-admin → 403 ✅, no token → 401 ✅.
+- **Command:** `npx jest admin.e2e`
+- **Status:** PASSED — 4/4. Full suite 152/152; build green.
 
 ### STEP E2 — Mark withdrawal paid/rejected ⬜
 - **Build:** admin action calls A3 approve/reject.

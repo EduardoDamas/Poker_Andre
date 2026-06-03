@@ -5,6 +5,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { WalletModule } from './wallet/wallet.module';
 import { AuthModule } from './auth/auth.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { AdminModule } from './admin/admin.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -14,8 +15,7 @@ import { HealthController } from './health.controller';
     WalletModule,
     AuthModule,
     RealtimeModule,
-    // Feature modules added as they are built:
-    //   AdminModule
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [
