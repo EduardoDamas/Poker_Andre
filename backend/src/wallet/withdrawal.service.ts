@@ -3,6 +3,7 @@ import { Withdrawal } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from './ledger.service';
 import { WalletService } from './wallet.service';
+import { ensureAccount } from './account-util';
 
 // Singleton system account that holds funds reserved for pending payouts.
 const CLEARING_ACCOUNT_ID = '00000000-0000-0000-0000-000000000002';
@@ -27,11 +28,11 @@ export class WithdrawalService {
   ) {}
 
   private async clearingAccountId(): Promise<string> {
-    const account = await this.prisma.account.upsert({
-      where: { id: CLEARING_ACCOUNT_ID },
-      update: {},
-      create: { id: CLEARING_ACCOUNT_ID, type: 'WITHDRAWAL_CLEARING' },
-    });
+    const account = await ensureAccount(
+      this.prisma,
+      { id: CLEARING_ACCOUNT_ID },
+      { id: CLEARING_ACCOUNT_ID, type: 'WITHDRAWAL_CLEARING' },
+    );
     return account.id;
   }
 

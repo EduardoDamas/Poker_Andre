@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { Account } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from './ledger.service';
+import { ensureAccount } from './account-util';
 
 // Fixed id for the singleton EXTERNAL account (the "outside world" counter-account
 // for deposits/withdrawals). A constant id makes the upsert race-safe.
@@ -20,20 +21,16 @@ export class WalletService {
    * unique constraint on Account.userId.
    */
   async ensurePlayerAccount(userId: string): Promise<Account> {
-    return this.prisma.account.upsert({
-      where: { userId },
-      update: {},
-      create: { type: 'PLAYER', userId },
-    });
+    return ensureAccount(this.prisma, { userId }, { type: 'PLAYER', userId });
   }
 
   /** The single EXTERNAL system account, created on first use. */
   private async externalAccountId(): Promise<string> {
-    const account = await this.prisma.account.upsert({
-      where: { id: EXTERNAL_ACCOUNT_ID },
-      update: {},
-      create: { id: EXTERNAL_ACCOUNT_ID, type: 'EXTERNAL' },
-    });
+    const account = await ensureAccount(
+      this.prisma,
+      { id: EXTERNAL_ACCOUNT_ID },
+      { id: EXTERNAL_ACCOUNT_ID, type: 'EXTERNAL' },
+    );
     return account.id;
   }
 

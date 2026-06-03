@@ -41,35 +41,71 @@ export class LedgerService {
       throw new BadRequestException(`Unbalanced transaction: legs sum to ${sum}, must be 0.`);
     }
 
-    return this.prisma.$transaction(
-      async (tx) => {
-        const txn = await tx.ledgerTransaction.create({
-          data: {
-            kind,
-            referenceId,
-            memo,
-            entries: {
-              create: postings.map((p) => ({
-                accountId: p.accountId,
-                amountCents: p.amountCents,
-              })),
-            },
+    return this.postWithRetry({ kind, postings, referenceId, memo });
+  }
+
+  // Serializable transactions on shared accounts (EXTERNAL, PRIZE_POOL, ...) can
+  // conflict when many tables settle at once. A write-conflict is transient, so
+  // we retry with small randomised backoff. A unique-constraint failure
+  // (duplicate referenceId) is NOT retried — it is a real idempotency rejection.
+  private async postWithRetry(params: {
+    kind: TxnKind;
+    postings: Posting[];
+    referenceId?: string;
+    memo?: string;
+  }): Promise<string> {
+    const { kind, postings, referenceId, memo } = params;
+    const MAX_ATTEMPTS = 6;
+
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await this.prisma.$transaction(
+          async (tx) => {
+            const txn = await tx.ledgerTransaction.create({
+              data: {
+                kind,
+                referenceId,
+                memo,
+                entries: {
+                  create: postings.map((p) => ({
+                    accountId: p.accountId,
+                    amountCents: p.amountCents,
+                  })),
+                },
+              },
+            });
+
+            // Maintain the cached balance column. Source of truth remains the
+            // ledger; this is a denormalised read accelerator, reconciled by a job.
+            for (const p of postings) {
+              await tx.account.update({
+                where: { id: p.accountId },
+                data: { balanceCents: { increment: p.amountCents } },
+              });
+            }
+
+            return txn.id;
           },
-        });
-
-        // Maintain the cached balance column. Source of truth remains the
-        // ledger; this is a denormalised read accelerator, reconciled by a job.
-        for (const p of postings) {
-          await tx.account.update({
-            where: { id: p.accountId },
-            data: { balanceCents: { increment: p.amountCents } },
-          });
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (e) {
+        if (this.isWriteConflict(e) && attempt < MAX_ATTEMPTS) {
+          await this.backoff(attempt);
+          continue;
         }
+        throw e;
+      }
+    }
+  }
 
-        return txn.id;
-      },
-      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
-    );
+  // Postgres serialization failure / deadlock surfaces as Prisma P2034.
+  private isWriteConflict(e: unknown): boolean {
+    return e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2034';
+  }
+
+  private backoff(attempt: number): Promise<void> {
+    const ms = attempt * 10 + Math.floor(Math.random() * 15);
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   /**

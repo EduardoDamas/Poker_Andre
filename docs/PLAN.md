@@ -216,8 +216,11 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest g3-hardening`
 - **Status:** PASSED — 4/4. Full suite 179/179; build green.
 - **Note:** Sentry/error-tracking is a deploy-time wiring (DSN + init), not unit-testable here — add at deployment. A global HTTP throttler (@nestjs/throttler) is also recommended for prod breadth.
-### STEP G4 — Full system e2e + load smoke ⬜
-- **Gate:** scripted multi-table game run clean; CI green on the whole suite.
+### STEP G4 — Full system e2e + load smoke ✅
+- **Build:** end-to-end test through real public interfaces (register/OTP/admin via HTTP, gameplay via sockets). Concurrency hardening it surfaced: race-safe `ensureAccount` (P2002 fallback for singleton system accounts) + retry-on-write-conflict (P2034) in `LedgerService.post`.
+- **Gate:** 2 e2e tests — full journey (register → OTP login → JWT → join → play hand → settle → reconcile → admin views) ✅; load smoke (4 concurrent tables all settle, system reconciles, total wallets == total deposited) ✅.
+- **Command:** `npx jest system.e2e`
+- **Status:** PASSED — 2/2. Full suite 181/181; build green. **Milestone G & the entire backend plan COMPLETE.**
 
 ---
 

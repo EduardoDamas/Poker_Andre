@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from './ledger.service';
 import { WalletService } from './wallet.service';
+import { ensureAccount } from './account-util';
 
 // Singleton system accounts.
 const PRIZE_POOL_ID = '00000000-0000-0000-0000-000000000003'; // chips escrowed on the table
@@ -32,11 +33,7 @@ export class SettlementService {
   ) {}
 
   private async systemAccount(id: string, type: 'PRIZE_POOL' | 'HOUSE_RAKE'): Promise<string> {
-    const account = await this.prisma.account.upsert({
-      where: { id },
-      update: {},
-      create: { id, type },
-    });
+    const account = await ensureAccount(this.prisma, { id }, { id, type });
     return account.id;
   }
 
