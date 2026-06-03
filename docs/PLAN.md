@@ -148,11 +148,11 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest socket-auth`
 - **Status:** PASSED — 4/4 (added `forceExit` for clean socket teardown). Full suite 141/141; build green.
 
-### STEP D2 — Table join/leave + seating ⬜
-- **Build:** join table room, take a seat, leave; broadcast public table state.
-  **Hole cards sent only to their owner.**
-- **Gate:** e2e: two clients join; each receives only its own hole cards; seat conflicts rejected.
-- **Command:** `npx jest table`
+### STEP D2 — Table join/leave + seating ✅
+- **Build:** `TableService` (in-memory seats, deals hole cards when ≥2 seated, public state with `hasCards` only); gateway `table:join`/`table:leave` — joins room, broadcasts public `table:state`, sends `hand:hole` privately to each owner's socket.
+- **Gate:** 4 e2e tests — two clients seated, private hole cards (all 4 distinct), **public state never contains any hole card** ✅; full table rejected ✅; same-user double-seat rejected ✅; leave frees the seat ✅.
+- **Command:** `npx jest table.e2e`
+- **Status:** PASSED — 4/4. Full suite 145/145; build green.
 
 ### STEP D3 — Play a hand over sockets ⬜
 - **Build:** wire C5 engine to socket events (actions in, state out); auto-start when enough players.
