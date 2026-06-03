@@ -1,0 +1,42 @@
+# Render.com blueprint for the CAPA CONTEST backend.
+# Deploy: push to GitHub → Render → New → Blueprint → pick this repo.
+# Adjust plans (free tiers expire / sleep) before real use.
+
+databases:
+  - name: capa-postgres
+    plan: free
+    databaseName: capa_contest
+    user: capa
+
+services:
+  # Managed Redis (Render "Key Value") for live game state / socket scale.
+  - type: redis
+    name: capa-redis
+    plan: free
+    ipAllowList: [] # internal access only
+
+  - type: web
+    name: capa-contest-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true # Render generates a strong secret
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: OTP_PROVIDER
+        value: dev # swap to twilio/zenvia + add credentials for real SMS
+      - key: DATABASE_URL
+        fromDatabase:
+          name: capa-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: capa-redis
+          type: redis
+          property: connectionString
