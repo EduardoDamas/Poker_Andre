@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import '../api/auth_api.dart';
+import '../api/tables_api.dart';
 import '../theme.dart';
-import 'home_screen.dart';
+import 'lobby_screen.dart';
 
 /// Phone-OTP login. Two steps: enter phone → request code; enter code → verify.
 class LoginScreen extends StatefulWidget {
   final AuthApi api;
-  const LoginScreen({super.key, required this.api});
+  /// Optional, passed through to the lobby (injectable for tests).
+  final TablesApi? tablesApi;
+  const LoginScreen({super.key, required this.api, this.tablesApi});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -45,7 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final session = await widget.api.verifyOtp(_phone.text.trim(), _code.text.trim());
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => HomeScreen(session: session)),
+        MaterialPageRoute(builder: (_) => LobbyScreen(session: session, api: widget.tablesApi)),
       );
     } on AuthException catch (e) {
       setState(() => _error = e.message);

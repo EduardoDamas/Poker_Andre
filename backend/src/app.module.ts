@@ -6,6 +6,7 @@ import { WalletModule } from './wallet/wallet.module';
 import { AuthModule } from './auth/auth.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { AdminModule } from './admin/admin.module';
+import { TablesModule } from './tables/tables.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -16,6 +17,7 @@ import { HealthController } from './health.controller';
     AuthModule,
     RealtimeModule,
     AdminModule,
+    TablesModule,
   ],
   controllers: [HealthController],
   providers: [

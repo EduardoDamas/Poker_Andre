@@ -7,5 +7,6 @@ import { TableService } from './table.service';
 @Module({
   imports: [AuthModule, WalletModule], // JwtService + SettlementService
   providers: [GameGateway, TableService],
+  exports: [TableService], // lobby reads live seat counts
 })
 export class RealtimeModule {}

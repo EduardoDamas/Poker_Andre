@@ -5,15 +5,18 @@ import 'package:http/testing.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:capa_contest/api/auth_api.dart';
+import 'package:capa_contest/api/tables_api.dart';
 import 'package:capa_contest/screens/login_screen.dart';
 import 'package:capa_contest/theme.dart';
 
 /// F1 gate — phone-OTP login flow (offline, with a mocked backend).
 void main() {
-  Widget appWith(AuthApi api) =>
-      MaterialApp(theme: buildCapaTheme(), home: LoginScreen(api: api));
+  Widget appWith(AuthApi api, {TablesApi? tablesApi}) => MaterialApp(
+        theme: buildCapaTheme(),
+        home: LoginScreen(api: api, tablesApi: tablesApi),
+      );
 
-  testWidgets('login: phone → code → home on valid OTP', (tester) async {
+  testWidgets('login: phone → code → lobby on valid OTP', (tester) async {
     final mock = MockClient((req) async {
       if (req.url.path == '/auth/otp/request') return http.Response('{}', 200);
       if (req.url.path == '/auth/otp/verify') {
@@ -27,8 +30,10 @@ void main() {
       }
       return http.Response('not found', 404);
     });
+    // Lobby fetch returns an empty list (we only assert we reached the lobby).
+    final tablesMock = MockClient((req) async => http.Response('[]', 200));
 
-    await tester.pumpWidget(appWith(AuthApi(client: mock)));
+    await tester.pumpWidget(appWith(AuthApi(client: mock), tablesApi: TablesApi(client: tablesMock)));
 
     // Step 1: phone.
     expect(find.byKey(const Key('phoneField')), findsOneWidget);
@@ -42,8 +47,8 @@ void main() {
     await tester.tap(find.byKey(const Key('verifyBtn')));
     await tester.pumpAndSettle();
 
-    // Logged in → home greets the user.
-    expect(find.text('Bem-vindo, Eduardo'), findsOneWidget);
+    // Logged in → lobby (the "Mesas" app bar).
+    expect(find.text('Mesas'), findsOneWidget);
   });
 
   testWidgets('login: shows an error on a wrong code', (tester) async {
