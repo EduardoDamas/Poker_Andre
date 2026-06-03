@@ -1,0 +1,187 @@
+# CAPA CONTEST — Phase 1 Build Plan (test-gated)
+
+**Rule of the road:** every step ends with a **test gate**. We do not start the next
+step until the current gate is **green**. If a gate fails, we fix *in place* and re-run
+until it passes. This keeps errors from compounding.
+
+Legend: ⬜ not started · 🟦 in progress · ✅ gate passed
+
+Each step lists **Build** (what to write) and **Gate** (how we prove it works).
+Run gates from `backend/` unless noted.
+
+---
+
+## STEP 0 — Environment ✅ (done)
+
+- **Build:** monorepo, NestJS+Prisma backend, Postgres+Redis (Docker), crypto deck, ledger skeleton.
+- **Gate:** `npm run build` ✅ · `npx jest` (deck) ✅ · `docker compose up -d` healthy ✅ ·
+  `curl localhost:3000/health` → `{"db":"reachable"}` ✅
+- **Status:** PASSED.
+
+---
+
+## MILESTONE A — Money core (double-entry wallet)
+> Build the riskiest thing first. Pure DB logic, fully testable before any UI exists.
+
+### STEP A1 — Ledger invariants ⬜
+- **Build:** finalize `LedgerService.post()` / `balanceOf()`. Add a test DB helper.
+- **Gate:** integration test `ledger.spec.ts` proves:
+  - a balanced 2-leg transaction posts and both balances move;
+  - an **unbalanced** transaction is **rejected** (sum ≠ 0 throws);
+  - `balanceOf()` (sum of entries) equals the cached `balanceCents`;
+  - posting the same `referenceId` twice fails (idempotency).
+- **Command:** `npx jest ledger`
+
+### STEP A2 — Wallet service: deposit & balance ⬜
+- **Build:** `WalletService.deposit()` (EXTERNAL → PLAYER), `getBalance(userId)`. Account auto-created on user create.
+- **Gate:** test: deposit R$100 → balance is exactly 10000 cents; two deposits accumulate; balance never goes via float.
+- **Command:** `npx jest wallet`
+
+### STEP A3 — Withdrawal lifecycle (manual Pix) ⬜
+- **Build:** `request` (PLAYER → WITHDRAWAL_CLEARING, status REQUESTED),
+  `approve`/markPaid (CLEARING → EXTERNAL, PAID), `reject` (CLEARING → PLAYER, REJECTED).
+  Reject double-spend (can't withdraw more than balance).
+- **Gate:** integration test covering all three paths + insufficient-funds rejection +
+  **conservation**: after any sequence, `Σ all account balances == total deposited`.
+- **Command:** `npx jest withdrawal`
+
+---
+
+## MILESTONE B — Auth & compliance
+> No real money should attach to an unverified / underage / fake-CPF account.
+
+### STEP B1 — CPF validation ⬜
+- **Build:** `validateCpf(cpf)` — check-digit algorithm, reject known-invalid patterns (all-equal digits).
+- **Gate:** unit test with a table of **valid** and **invalid** CPFs (incl. `000...`, wrong check digit).
+- **Command:** `npx jest cpf`
+
+### STEP B2 — Age 18+ check ⬜
+- **Build:** `isAdult(birthDate, minAge=18)`. Pass `now` in as a parameter (deterministic, testable).
+- **Gate:** unit test: exactly-18-today = allowed; 18-minus-one-day = blocked; clearly-over/under.
+- **Command:** `npx jest age`
+
+### STEP B3 — Registration ⬜
+- **Build:** `POST /auth/register` — phone + displayName + CPF + birthDate. Enforces B1 + B2,
+  unique phone/CPF, creates User (PENDING) + PLAYER account.
+- **Gate:** e2e: valid payload → 201; invalid CPF → 400; under-18 → 400; duplicate phone → 409.
+- **Command:** `npx jest register` (uses Nest test app + test DB)
+
+### STEP B4 — Phone OTP login + JWT ⬜
+- **Build:** `POST /auth/otp/request` (dev provider logs the code), `POST /auth/otp/verify` → issues JWT.
+- **Gate:** e2e: request returns 200; verify with correct code → JWT; wrong/expired code → 401.
+- **Command:** `npx jest otp`
+
+### STEP B5 — JWT guard ⬜
+- **Build:** `JwtAuthGuard`, apply to a protected sample route.
+- **Gate:** e2e: protected route without token → 401; with valid token → 200.
+- **Command:** `npx jest guard`
+
+> Facebook login is deferred to the end of Milestone B (optional for first playable build);
+> same gate pattern when added.
+
+---
+
+## MILESTONE C — Poker engine (pure, server-authoritative)
+> All pure functions. This is where most bugs hide → heaviest test coverage.
+
+### STEP C1 — Deal hole + community cards ⬜
+- **Build:** deal N hole cards + flop/turn/river off the shuffled deck (with burn cards).
+- **Gate:** test: no card dealt twice across hole+board+burn; counts correct for 2..8 players.
+- **Command:** `npx jest deal`
+
+### STEP C2 — Hand evaluator (7 → best 5) ⬜
+- **Build:** `evaluate(cards7)` → category + tie-break ranks.
+- **Gate:** unit test table covering all 9 categories, ordering (royal > straight flush > quads > … > high card),
+  wheel straight (A-2-3-4-5), and tie-breakers (kickers, split pots). This is the **most important gate** — be exhaustive.
+- **Command:** `npx jest evaluator`
+
+### STEP C3 — Betting round ⬜
+- **Build:** blinds, turn order, legal actions (fold/check/call/bet/raise), min-raise rules, pot accrual.
+- **Gate:** unit test: illegal actions rejected; betting closes when all matched; pot equals sum of contributions.
+- **Command:** `npx jest betting`
+
+### STEP C4 — Side pots (all-ins) ⬜
+- **Build:** side-pot construction for multiple all-ins at different stack sizes.
+- **Gate:** unit test with scripted multi-all-in scenarios; **every chip in == every chip awarded** (conservation).
+- **Command:** `npx jest sidepot`
+
+### STEP C5 — Full hand state machine ⬜
+- **Build:** preflop → flop → turn → river → showdown; determine winner(s), split correctly.
+- **Gate:** simulate complete scripted hands; assert correct winners & payouts; commit-reveal seed verifies.
+- **Command:** `npx jest hand`
+
+### STEP C6 — Settlement into the ledger ⬜
+- **Build:** buy-in (PLAYER → table chips), payout (winnings → PLAYER), rake (→ HOUSE_RAKE), all via `LedgerService`.
+- **Gate:** integration test: run a full hand; assert money **conserved** end-to-end and matches game result.
+- **Command:** `npx jest settlement`
+
+---
+
+## MILESTONE D — Realtime multiplayer
+> Now wrap the proven engine in Socket.IO. The engine is already trusted by gates above.
+
+### STEP D1 — Authenticated socket connect ⬜
+- **Build:** Socket.IO gateway; handshake requires a valid JWT.
+- **Gate:** e2e socket test: connect with valid token succeeds; bad/no token disconnected.
+- **Command:** `npx jest socket-auth`
+
+### STEP D2 — Table join/leave + seating ⬜
+- **Build:** join table room, take a seat, leave; broadcast public table state.
+  **Hole cards sent only to their owner.**
+- **Gate:** e2e: two clients join; each receives only its own hole cards; seat conflicts rejected.
+- **Command:** `npx jest table`
+
+### STEP D3 — Play a hand over sockets ⬜
+- **Build:** wire C5 engine to socket events (actions in, state out); auto-start when enough players.
+- **Gate:** e2e: scripted 2–3 client hand plays to showdown; winner credited (D + C6 together).
+- **Command:** `npx jest play`
+
+### STEP D4 — Reconnection ⬜
+- **Build:** state in Redis; rejoin restores a player's view mid-hand.
+- **Gate:** e2e: disconnect mid-hand, reconnect, state matches; hand continues correctly.
+- **Command:** `npx jest reconnect`
+
+---
+
+## MILESTONE E — Admin panel (React-Admin, web)
+### STEP E1 — Admin auth + read views ⬜
+- **Build:** admin login (ADMIN role), list players / wallets / withdrawals.
+- **Gate:** smoke test: admin logs in, lists pending withdrawals; non-admin blocked (403).
+
+### STEP E2 — Mark withdrawal paid/rejected ⬜
+- **Build:** admin action calls A3 approve/reject.
+- **Gate:** e2e: admin marks a REQUESTED withdrawal PAID → ledger reflects it; balances conserved.
+
+---
+
+## MILESTONE F — Mobile app (Flutter, Android)
+> Requires installing the Flutter SDK first (not yet on this machine).
+
+### STEP F1 — Flutter project + login ⬜
+- **Gate:** `flutter test` (widget) green; app builds; login screen calls OTP API against local backend.
+### STEP F2 — Lobby + table list ⬜
+- **Gate:** widget test; manual run shows tables from backend.
+### STEP F3 — Poker table UI + gameplay ⬜
+- **Gate:** manual end-to-end: two devices/emulators play a hand to showdown.
+
+---
+
+## MILESTONE G — Hardening & launch prep
+### STEP G1 — Prize table ⬜  (room-occupancy %, 7 levels, eliminatory phases per the document)
+- **Gate:** unit tests of payout math vs. the document's table for several occupancy levels.
+### STEP G2 — Reconciliation job ⬜  (nightly: cached balances == Σ ledger)
+- **Gate:** test detects a deliberately corrupted cache row.
+### STEP G3 — Rate limiting, audit log, error tracking (Sentry) ⬜
+- **Gate:** abuse test (rapid OTP / action spam) is throttled.
+### STEP G4 — Full system e2e + load smoke ⬜
+- **Gate:** scripted multi-table game run clean; CI green on the whole suite.
+
+---
+
+## Cross-cutting gates (run before every commit)
+```
+cd backend && npm run build && npx jest        # all green
+docker compose ps                              # infra healthy
+```
+> Definition of done for a step = its own gate green **AND** the full suite still green
+> (no regressions). Only then do we move on.
