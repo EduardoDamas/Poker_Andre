@@ -7,21 +7,23 @@ import {
 
 /**
  * STEP G1 gate — prize-table math & invariants.
- * (Tier breakpoints are placeholders pending CAPACONTEST.pdf; the math is final.)
+ * Tier values are the real CAPACONTEST.pdf table (see docs/PRIZE_RULES.md).
  */
 describe('prize table', () => {
   describe('multiplierFor (occupancy → multiplier)', () => {
     it('full room pays the top multiplier (200×)', () => {
       expect(multiplierFor(1.0)).toBe(200);
     });
-    it('nearly empty room pays the floor (20×)', () => {
-      expect(multiplierFor(0)).toBe(20);
-      expect(multiplierFor(0.05)).toBe(20);
+    it('below 10% occupancy → no prize (0×); 10–19% → floor 20×', () => {
+      expect(multiplierFor(0)).toBe(0);
+      expect(multiplierFor(0.05)).toBe(0);
+      expect(multiplierFor(0.1)).toBe(20);
+      expect(multiplierFor(0.15)).toBe(20);
     });
-    it('picks the right band for mid occupancy', () => {
-      expect(multiplierFor(0.5)).toBe(80); // 0.40 ≤ 0.5 < 0.55
-      expect(multiplierFor(0.85)).toBe(170);
-      expect(multiplierFor(0.99)).toBe(170); // below the exact-full tier
+    it('picks the right band for mid occupancy (per the PDF table)', () => {
+      expect(multiplierFor(0.5)).toBe(100); // 50–59%
+      expect(multiplierFor(0.85)).toBe(160); // 80–89%
+      expect(multiplierFor(0.99)).toBe(180); // 90–99%, below exact-full
     });
     it('is monotonic non-decreasing in occupancy', () => {
       let prev = -1;
@@ -44,11 +46,20 @@ describe('prize table', () => {
       expect(pool.rakeCents).toBe(600000n);
     });
 
-    it('caps the prize at the collected amount (money-safety at low occupancy)', () => {
-      // 10 of 800 seats: 20×V.I. = 20000, but only 10000 was collected.
+    it('below 10% occupancy → no prize awarded (flagged), all collected is rake', () => {
+      // 10 of 800 = 1.25% occupancy → multiplier 0.
       const pool = computePrizePool({ entryValueCents: entry, capacity: 800, participants: 10 });
-      expect(pool.collectedCents).toBe(10000n);
-      expect(pool.prizeCents).toBe(10000n); // capped, never overpay
+      expect(pool.prizeAwarded).toBe(false);
+      expect(pool.prizeCents).toBe(0n);
+      expect(pool.rakeCents).toBe(pool.collectedCents);
+    });
+
+    it('caps the prize at the collected amount (money-safety in a small room)', () => {
+      // Small room: 15 of 100 = 15% → 20×V.I. = 20000, but only 15000 collected.
+      const pool = computePrizePool({ entryValueCents: entry, capacity: 100, participants: 15 });
+      expect(pool.multiplier).toBe(20);
+      expect(pool.collectedCents).toBe(15000n);
+      expect(pool.prizeCents).toBe(15000n); // capped, never overpay
       expect(pool.rakeCents).toBe(0n);
     });
 
@@ -65,8 +76,11 @@ describe('prize table', () => {
       expect(() => computePrizePool({ entryValueCents: entry, capacity: 10, participants: 11 })).toThrow();
     });
 
-    it('has exactly 7 placeholder bands (per the document: 7 levels)', () => {
-      expect(DEFAULT_PRIZE_TIERS).toHaveLength(7);
+    it('has 11 bands: the 10 PDF payout rows + the below-10% floor', () => {
+      expect(DEFAULT_PRIZE_TIERS).toHaveLength(11);
+      // Sanity-check the full-room and floor rows against the PDF.
+      expect(DEFAULT_PRIZE_TIERS.find((t) => t.minOccupancy === 1.0)?.multiplier).toBe(200);
+      expect(DEFAULT_PRIZE_TIERS.find((t) => t.minOccupancy === 0.1)?.multiplier).toBe(20);
     });
   });
 

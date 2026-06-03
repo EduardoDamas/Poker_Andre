@@ -204,7 +204,7 @@ Run gates from `backend/` unless noted.
 - **Build:** `prize-table.ts` — `multiplierFor(occupancy)` (configurable 7-band 20×→200× V.I. schedule), `computePrizePool` (money-safe: prize capped at collected; prize+rake==collected), `distributePrize` (integer-cent split, remainder to top places).
 - **Gate:** 14 tests — full→200×, empty→20×, mid bands, monotonic ✅; prize pool conservation + low-occupancy cap + invalid inputs ✅; distribution exactness/remainder/guards ✅.
 - **Command:** `npx jest prize-table`
-- **Status:** PASSED — 14/14. Full suite 170/170; build green. ⚠️ Tier breakpoints are PLACEHOLDERS pending CAPACONTEST.pdf (math/invariants final). Eliminatory-phase / loser-prize rules still to add once PDF available.
+- **Status:** PASSED — 15/15. Full suite 171/171; build green. ✅ REAL CAPACONTEST.pdf tiers now locked in (10 bands 20×→200×, <10%→0 flagged). Full ruleset (capacity, eliminatory phases, loser %, entry fees, prize-share %) recorded in [PRIZE_RULES.md](PRIZE_RULES.md). Eliminatory/loser/subscription engines deferred to their own modules (data captured).
 ### STEP G2 — Reconciliation job ⬜  (nightly: cached balances == Σ ledger)
 - **Gate:** test detects a deliberately corrupted cache row.
 ### STEP G3 — Rate limiting, audit log, error tracking (Sentry) ⬜

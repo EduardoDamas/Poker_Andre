@@ -2,14 +2,14 @@
  * Prize calculation by room occupancy (per CAPACONTEST.pdf).
  *
  * The document defines the cash prize as a multiple of the entry value (V.I. =
- * "valor de inscrição"), scaling with how full the room is — from 20×V.I. (nearly
- * empty) up to 200×V.I. (full). The house keeps the difference between what was
- * collected and the prize paid.
+ * "valor de inscrição"), scaling with the % of tables occupied in the room — from
+ * 20×V.I. (10–19% full) up to 200×V.I. (100% full). Below 10% occupancy there is
+ * no defined prize (multiplier 0 → flagged). The house keeps the difference
+ * between what was collected and the prize paid.
  *
- * ⚠️ PLACEHOLDER TIERS: the exact occupancy→multiplier breakpoints must be taken
- * from CAPACONTEST.pdf. `DEFAULT_PRIZE_TIERS` below is a reasonable monotonic
- * placeholder spanning 20×→200×; swap in the real rows once available. The MATH
- * and INVARIANTS here (money-safety, conservation) are final regardless.
+ * Tier values are the REAL CAPACONTEST.pdf table (see docs/PRIZE_RULES.md). The
+ * occupancy axis (% of tables occupied) is distinct from the 7 room LEVELS, which
+ * set the entry fee (see docs/PRIZE_RULES.md).
  *
  * All money is integer cents (bigint). Occupancy/multipliers are plain numbers.
  */
@@ -21,14 +21,19 @@ export interface PrizeTier {
   multiplier: number;
 }
 
-// Placeholder 7-band schedule (20× → 200×). Replace with the PDF's exact table.
+// Real CAPACONTEST.pdf schedule: % of tables occupied → multiplier of V.I.
+// 100%→200, 90-99→180, ... 10-19→20, <10%→0 (no prize, flagged).
 export const DEFAULT_PRIZE_TIERS: PrizeTier[] = [
-  { minOccupancy: 0.0, multiplier: 20 },
-  { minOccupancy: 0.2, multiplier: 50 },
+  { minOccupancy: 0.0, multiplier: 0 }, // below 10% — no prize defined
+  { minOccupancy: 0.1, multiplier: 20 },
+  { minOccupancy: 0.2, multiplier: 40 },
+  { minOccupancy: 0.3, multiplier: 60 },
   { minOccupancy: 0.4, multiplier: 80 },
-  { minOccupancy: 0.55, multiplier: 110 },
+  { minOccupancy: 0.5, multiplier: 100 },
+  { minOccupancy: 0.6, multiplier: 120 },
   { minOccupancy: 0.7, multiplier: 140 },
-  { minOccupancy: 0.85, multiplier: 170 },
+  { minOccupancy: 0.8, multiplier: 160 },
+  { minOccupancy: 0.9, multiplier: 180 },
   { minOccupancy: 1.0, multiplier: 200 },
 ];
 
@@ -49,6 +54,8 @@ export interface PrizePool {
   collectedCents: bigint;
   prizeCents: bigint;
   rakeCents: bigint;
+  /** False when occupancy is below the 10% threshold (no prize defined). */
+  prizeAwarded: boolean;
 }
 
 /**
@@ -78,7 +85,14 @@ export function computePrizePool(params: {
   const prizeCents = prizeRaw < collectedCents ? prizeRaw : collectedCents; // never overpay
   const rakeCents = collectedCents - prizeCents;
 
-  return { occupancy, multiplier, collectedCents, prizeCents, rakeCents };
+  return {
+    occupancy,
+    multiplier,
+    collectedCents,
+    prizeCents,
+    rakeCents,
+    prizeAwarded: multiplier > 0,
+  };
 }
 
 /**
