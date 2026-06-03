@@ -57,10 +57,11 @@ Run gates from `backend/` unless noted.
 ## MILESTONE B — Auth & compliance
 > No real money should attach to an unverified / underage / fake-CPF account.
 
-### STEP B1 — CPF validation ⬜
-- **Build:** `validateCpf(cpf)` — check-digit algorithm, reject known-invalid patterns (all-equal digits).
-- **Gate:** unit test with a table of **valid** and **invalid** CPFs (incl. `000...`, wrong check digit).
+### STEP B1 — CPF validation ✅
+- **Build:** `isValidCpf()` (check-digit algorithm + repeated-digit rejection), `normalizeCpf()`, `formatCpf()`.
+- **Gate:** 7 tests — valid CPFs (formatted & raw) ✅, wrong check digit ✅, repeated-digit sequences ✅, wrong length ✅, non-numeric/null ✅, normalize ✅, format mask ✅.
 - **Command:** `npx jest cpf`
+- **Status:** PASSED — 7/7. Full suite 32/32; build green.
 
 ### STEP B2 — Age 18+ check ⬜
 - **Build:** `isAdult(birthDate, minAge=18)`. Pass `now` in as a parameter (deterministic, testable).
