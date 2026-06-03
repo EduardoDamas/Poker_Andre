@@ -1,0 +1,71 @@
+/* CAPA CONTEST admin — brand red/black (mirrors design/tokens.json). */
+:root {
+  --red: #e2231a;
+  --red-dark: #9e1009;
+  --black: #0d0d0d;
+  --charcoal: #1a1a1a;
+  --off-white: #f2f2f2;
+  --gray: #8a8a8a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--black);
+  color: var(--off-white);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.red { color: var(--red); }
+.muted { color: var(--gray); }
+.error { color: #ff6a60; }
+
+.wordmark, .brand { font-weight: 800; font-style: italic; }
+
+.login {
+  max-width: 360px;
+  margin: 12vh auto;
+  padding: 24px;
+  text-align: center;
+}
+.login input {
+  width: 100%;
+  padding: 12px;
+  margin: 8px 0;
+  border-radius: 8px;
+  border: 1px solid var(--gray);
+  background: var(--charcoal);
+  color: var(--off-white);
+}
+
+button {
+  background: var(--red);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+button:disabled { opacity: 0.6; cursor: default; }
+button.reject { background: var(--charcoal); border: 1px solid var(--gray); }
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  background: var(--charcoal);
+  border-bottom: 3px solid var(--red);
+}
+header nav { display: flex; gap: 8px; }
+header nav button { background: transparent; color: var(--off-white); }
+header nav button.active { color: var(--red); }
+
+main { padding: 24px; }
+
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #2a2a2a; }
+th { color: var(--gray); font-weight: 600; }
+.actions { display: flex; gap: 8px; }
