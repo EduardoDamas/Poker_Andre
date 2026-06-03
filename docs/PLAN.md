@@ -63,10 +63,11 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest cpf`
 - **Status:** PASSED — 7/7. Full suite 32/32; build green.
 
-### STEP B2 — Age 18+ check ⬜
-- **Build:** `isAdult(birthDate, minAge=18)`. Pass `now` in as a parameter (deterministic, testable).
-- **Gate:** unit test: exactly-18-today = allowed; 18-minus-one-day = blocked; clearly-over/under.
+### STEP B2 — Age 18+ check ✅
+- **Build:** `isAdult(birthDate, now, minAge=18)` + `ageInYears()`. `now` injected → deterministic, timezone-safe (UTC).
+- **Gate:** 9 tests — exactly-18-today allowed ✅, 18-tomorrow blocked ✅, clearly over/under ✅, day-before/after birthday ✅, future date ✅, invalid date ✅, custom min age ✅, ageInYears ✅.
 - **Command:** `npx jest age`
+- **Status:** PASSED — 9/9. Full suite 41/41; build green.
 
 ### STEP B3 — Registration ⬜
 - **Build:** `POST /auth/register` — phone + displayName + CPF + birthDate. Enforces B1 + B2,
