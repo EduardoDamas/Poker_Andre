@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { WithdrawalStatus } from '@prisma/client';
+import { Withdrawal, WithdrawalStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../wallet/ledger.service';
 
@@ -57,7 +57,12 @@ export class AdminService {
       where: status ? { status } : undefined,
       orderBy: { requestedAt: 'desc' },
     });
-    return withdrawals.map((w) => ({
+    return withdrawals.map((w) => AdminService.serializeWithdrawal(w));
+  }
+
+  // BigInt-safe view of a withdrawal (amount as a string).
+  static serializeWithdrawal(w: Withdrawal): AdminWithdrawal {
+    return {
       id: w.id,
       userId: w.userId,
       amountCents: w.amountCents.toString(),
@@ -66,6 +71,6 @@ export class AdminService {
       requestedAt: w.requestedAt,
       settledAt: w.settledAt,
       adminNote: w.adminNote,
-    }));
+    };
   }
 }

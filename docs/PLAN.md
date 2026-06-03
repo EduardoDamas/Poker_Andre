@@ -177,9 +177,13 @@ Run gates from `backend/` unless noted.
 - **Command:** `npx jest admin.e2e`
 - **Status:** PASSED — 4/4. Full suite 152/152; build green.
 
-### STEP E2 — Mark withdrawal paid/rejected ⬜
-- **Build:** admin action calls A3 approve/reject.
-- **Gate:** e2e: admin marks a REQUESTED withdrawal PAID → ledger reflects it; balances conserved.
+### STEP E2 — Mark withdrawal paid/rejected ✅
+- **Build:** `POST /admin/withdrawals/:id/approve` and `/reject` (admin-guarded) calling A3 `WithdrawalService`; responses BigInt-safe via `serializeWithdrawal`.
+- **Gate:** 4 e2e tests — approve → PAID + money leaves + ledger nets 0 ✅; reject → funds restored ✅; settle-twice → 400 ✅; non-admin → 403 and withdrawal stays REQUESTED ✅.
+- **Command:** `npx jest admin-withdrawals`
+- **Status:** PASSED — 4/4. Full suite 156/156; build green. **Milestone E (admin API) COMPLETE.**
+
+> The React-Admin web UI is a separate frontend that consumes these endpoints; the admin **API** (the testable backend half) is done.
 
 ---
 
