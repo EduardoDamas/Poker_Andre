@@ -6,6 +6,10 @@ import '../models/table_info.dart';
 import '../theme.dart';
 import '../widgets/premium.dart';
 import 'table_screen.dart';
+import 'tournaments_screen.dart';
+import 'wallet_screen.dart';
+import 'profile_screen.dart';
+import 'solo_setup_screen.dart';
 
 /// Premium lobby: hero header (balance + tier), quick-play, and room cards.
 class LobbyScreen extends StatefulWidget {
@@ -80,9 +84,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
               children: [
                 _Header(name: name, balance: _balance),
                 const SizedBox(height: 20),
-                const _FeaturedCard(),
+                _FeaturedCard(onTap: () => Navigator.push(
+                    context, MaterialPageRoute(builder: (_) => const SoloSetupScreen()))),
                 const SizedBox(height: 24),
-                const SectionHeader('Salas'),
+                const SectionHeader('Salas (online)'),
                 const SizedBox(height: 12),
                 FutureBuilder<List<TableInfo>>(
                   future: _future,
@@ -115,7 +120,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
           ),
         ),
       ),
-      bottomNavigationBar: const _BottomNav(),
+      bottomNavigationBar: _BottomNav(session: widget.session, authApi: widget.authApi),
     );
   }
 }
@@ -151,36 +156,40 @@ class _Header extends StatelessWidget {
 }
 
 class _FeaturedCard extends StatelessWidget {
-  const _FeaturedCard();
+  final VoidCallback onTap;
+  const _FeaturedCard({required this.onTap});
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-            begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Brand.crimsonDeep, Brand.bg]),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Brand.crimson.withValues(alpha: 0.4)),
-        boxShadow: Brand.cardShadow,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+              begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Brand.crimsonDeep, Brand.bg]),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Brand.crimson.withValues(alpha: 0.4)),
+          boxShadow: Brand.cardShadow,
+        ),
+        child: Row(children: [
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('JOGAR SOLO', style: Brand.micro.copyWith(color: Brand.gold)),
+              const SizedBox(height: 6),
+              const Text('Texas Hold’em vs Bots', style: Brand.h2),
+              const SizedBox(height: 4),
+              Text('Offline, sem espera — jogue agora', style: Brand.caption),
+            ]),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            width: 56, height: 56,
+            decoration: BoxDecoration(
+              color: Brand.bg.withValues(alpha: 0.4), shape: BoxShape.circle, border: Border.all(color: Brand.crimson)),
+            child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 32),
+          ),
+        ]),
       ),
-      child: Row(children: [
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('EM DESTAQUE', style: Brand.micro.copyWith(color: Brand.gold)),
-            const SizedBox(height: 6),
-            const Text('Texas Hold’em', style: Brand.h2),
-            const SizedBox(height: 4),
-            Text('Sente-se e jogue agora', style: Brand.caption),
-          ]),
-        ),
-        const SizedBox(width: 12),
-        Container(
-          width: 56, height: 56,
-          decoration: BoxDecoration(
-            color: Brand.bg.withValues(alpha: 0.4), shape: BoxShape.circle, border: Border.all(color: Brand.crimson)),
-          child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 32),
-        ),
-      ]),
     );
   }
 }
@@ -227,28 +236,44 @@ class _RoomCard extends StatelessWidget {
 }
 
 class _BottomNav extends StatelessWidget {
-  const _BottomNav();
+  final AuthSession session;
+  final AuthApi authApi;
+  const _BottomNav({required this.session, required this.authApi});
+
   @override
   Widget build(BuildContext context) {
-    Widget item(IconData icon, String label, bool active) => Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 22, color: active ? Brand.crimson : Brand.textTer),
-            const SizedBox(height: 3),
-            Text(label, style: Brand.micro.copyWith(color: active ? Brand.crimson : Brand.textTer)),
-          ],
+    void go(Widget screen) => Navigator.push(context, MaterialPageRoute(builder: (_) => screen));
+
+    Widget item(IconData icon, String label, bool active, VoidCallback? onTap) => Expanded(
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 22, color: active ? Brand.crimson : Brand.textTer),
+                  const SizedBox(height: 3),
+                  Text(label, style: Brand.micro.copyWith(color: active ? Brand.crimson : Brand.textTer)),
+                ],
+              ),
+            ),
+          ),
         );
+
     return Container(
       decoration: const BoxDecoration(
         color: Brand.surface,
         border: Border(top: BorderSide(color: Brand.border)),
       ),
-      padding: const EdgeInsets.only(top: 10, bottom: 18),
-      child: Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
-        item(Icons.grid_view_rounded, 'Salas', true),
-        item(Icons.emoji_events_outlined, 'Torneios', false),
-        item(Icons.account_balance_wallet_outlined, 'Carteira', false),
-        item(Icons.person_outline, 'Perfil', false),
+      padding: const EdgeInsets.only(top: 8, bottom: 16),
+      child: Row(children: [
+        item(Icons.grid_view_rounded, 'Salas', true, null),
+        item(Icons.emoji_events_outlined, 'Torneios', false, () => go(const TournamentsScreen())),
+        item(Icons.account_balance_wallet_outlined, 'Carteira', false,
+            () => go(WalletScreen(session: session, authApi: authApi))),
+        item(Icons.person_outline, 'Perfil', false,
+            () => go(ProfileScreen(session: session, authApi: authApi))),
       ]),
     );
   }

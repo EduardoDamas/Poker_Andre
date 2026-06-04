@@ -67,13 +67,18 @@ class AuthApi {
 
   /// Current wallet balance in cents (GET /auth/me). 0 on any error.
   Future<int> fetchBalance(String token) async {
+    final me = await fetchMe(token);
+    return int.tryParse('${me['balanceCents']}') ?? 0;
+  }
+
+  /// Full profile + balance (GET /auth/me). Empty map on error.
+  Future<Map<String, dynamic>> fetchMe(String token) async {
     try {
       final res = await _client.get(_u('/auth/me'), headers: {'Authorization': 'Bearer $token'});
-      if (res.statusCode != 200) return 0;
-      final body = jsonDecode(res.body) as Map<String, dynamic>;
-      return int.tryParse('${body['balanceCents']}') ?? 0;
+      if (res.statusCode != 200) return {};
+      return jsonDecode(res.body) as Map<String, dynamic>;
     } catch (_) {
-      return 0;
+      return {};
     }
   }
 }

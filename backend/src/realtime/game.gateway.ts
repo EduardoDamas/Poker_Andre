@@ -104,6 +104,9 @@ export class GameGateway implements OnGatewayConnection {
         const state = this.tables.gameState(table);
         if (state) client.emit('game:state', state);
       }
+      this.logger.log(
+        `join ${body.tableId} user=${user.sub} rejoined=${rejoined} seated=${this.tables.seatedCount(table)} started=${started} inProgress=${table.handInProgress}`,
+      );
       return { ok: true, position };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
@@ -118,6 +121,7 @@ export class GameGateway implements OnGatewayConnection {
     const user = (client.data as SocketData).user;
     try {
       const res = await this.tables.act(body.tableId, user.sub, body.action);
+      this.logger.log(`action ${body.tableId} user=${user.sub} type=${body.action?.type} complete=${res.complete}`);
       if (res.complete) {
         this.server.to(room(body.tableId)).emit('hand:result', res.result);
         // Reflect the finished hand in the seating state.
@@ -128,6 +132,7 @@ export class GameGateway implements OnGatewayConnection {
       }
       return { ok: true };
     } catch (err) {
+      this.logger.warn(`action REJECTED ${body.tableId} user=${user.sub} type=${body.action?.type}: ${(err as Error).message}`);
       return { ok: false, error: (err as Error).message };
     }
   }

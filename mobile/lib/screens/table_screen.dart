@@ -4,6 +4,7 @@ import '../game/game_snapshot.dart';
 import '../widgets/playing_card.dart';
 import '../widgets/premium.dart';
 import '../theme.dart';
+import 'settings_screen.dart';
 
 const _streetLabels = {
   'preflop': 'Pré-flop',
@@ -77,7 +78,12 @@ class _TableScreenState extends State<TableScreen> {
       appBar: AppBar(
         leading: const BackButton(color: Brand.textPri),
         title: Text(widget.title, style: Brand.h3),
-        actions: const [Icon(Icons.settings_outlined, color: Brand.textSec), SizedBox(width: 16)],
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_outlined, color: Brand.textSec),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
+          ),
+        ],
       ),
       body: StreamBuilder<GameSnapshot>(
         stream: widget.connection.stream,
