@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import { AddressInfo } from 'net';
+import { PrismaClient } from '@prisma/client';
 import { io as ioClient, Socket } from 'socket.io-client';
 import { AppModule } from '../app.module';
 
@@ -11,23 +12,42 @@ import { AppModule } from '../app.module';
 describe('GameGateway tables (e2e)', () => {
   let app: INestApplication;
   let jwt: JwtService;
+  let prisma: PrismaClient;
   let url: string;
   const sockets: Socket[] = [];
+  let n = 0;
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = moduleRef.createNestApplication();
     await app.listen(0);
     jwt = app.get(JwtService);
+    prisma = new PrismaClient();
     url = `http://127.0.0.1:${(app.getHttpServer().address() as AddressInfo).port}`;
   });
 
   afterAll(async () => {
     sockets.forEach((s) => s.close());
+    await prisma.$disconnect();
     await app.close();
   });
 
   async function connect(userId: string): Promise<Socket> {
+    // Create a real (active) user with this exact id so the gateway's block
+    // check finds an active account. upsert keeps unique phone/cpf per id.
+    n += 1;
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: {},
+      create: {
+        id: userId,
+        phone: `+551590000${n.toString().padStart(4, '0')}`,
+        displayName: userId,
+        cpf: `90000000${n.toString().padStart(3, '0')}`,
+        birthDate: new Date('1990-01-01'),
+        status: 'ACTIVE',
+      },
+    });
     const token = await jwt.signAsync({ sub: userId, phone: `+5511${userId}` });
     const socket = ioClient(url, { auth: { token }, transports: ['websocket'], reconnection: false });
     sockets.push(socket);

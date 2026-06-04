@@ -33,6 +33,9 @@ export interface Player {
   status: string;
   role: string;
   balanceCents: string;
+  blocked: boolean;
+  blockedUntil: string | null;
+  blockReason: string | null;
 }
 
 export interface Withdrawal {
@@ -72,4 +75,15 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ adminNote }) },
       token,
     ),
+  // User management.
+  rejectUser: (token: string, id: string) =>
+    request<{ ok: true }>(`/admin/users/${id}/reject`, { method: 'POST' }, token),
+  blockUser: (token: string, id: string, reason: string, untilMs?: number) =>
+    request<{ ok: true }>(
+      `/admin/users/${id}/block`,
+      { method: 'POST', body: JSON.stringify({ reason, untilMs }) },
+      token,
+    ),
+  unblockUser: (token: string, id: string) =>
+    request<{ ok: true }>(`/admin/users/${id}/unblock`, { method: 'POST' }, token),
 };

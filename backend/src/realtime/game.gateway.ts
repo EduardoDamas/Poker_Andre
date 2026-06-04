@@ -12,6 +12,8 @@ import { Server, Socket } from 'socket.io';
 import { JwtPayload } from '../auth/jwt-auth.guard';
 import { Action } from '../poker/betting-round';
 import { TableService } from './table.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { isBlocked } from '../auth/user-status';
 
 const room = (tableId: string) => `table:${tableId}`;
 
@@ -45,7 +47,14 @@ export class GameGateway implements OnGatewayConnection {
   constructor(
     private readonly jwt: JwtService,
     private readonly tables: TableService,
+    private readonly prisma: PrismaService,
   ) {}
+
+  // Backend validation: a blocked user cannot join/play, even via direct calls.
+  private async _blocked(userId: string): Promise<boolean> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    return !user || isBlocked(user);
+  }
 
   async handleConnection(client: Socket): Promise<void> {
     const token = this.extractToken(client);
@@ -75,8 +84,9 @@ export class GameGateway implements OnGatewayConnection {
   }
 
   @SubscribeMessage('table:join')
-  onJoin(@ConnectedSocket() client: Socket, @MessageBody() body: JoinPayload): Ack {
+  async onJoin(@ConnectedSocket() client: Socket, @MessageBody() body: JoinPayload): Promise<Ack> {
     const user = (client.data as SocketData).user;
+    if (await this._blocked(user.sub)) return { ok: false, error: 'Conta bloqueada.' };
     try {
       const { table, position, rejoined } = this.tables.join(
         body.tableId, user.sub, client.id, body.maxSeats);
@@ -119,6 +129,7 @@ export class GameGateway implements OnGatewayConnection {
     @MessageBody() body: { tableId: string; action: Action },
   ): Promise<Ack> {
     const user = (client.data as SocketData).user;
+    if (await this._blocked(user.sub)) return { ok: false, error: 'Conta bloqueada.' };
     try {
       const res = await this.tables.act(body.tableId, user.sub, body.action);
       this.logger.log(`action ${body.tableId} user=${user.sub} type=${body.action?.type} complete=${res.complete}`);

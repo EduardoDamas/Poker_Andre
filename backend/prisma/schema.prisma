@@ -30,6 +30,8 @@ model User {
   birthDate    DateTime // 18+ enforced at registration
   role         Role     @default(PLAYER)
   status       UserStatus @default(ACTIVE)
+  blockedUntil DateTime?  // temp block expiry; null + BLOCKED = permanent
+  blockReason  String?    // why the user was blocked
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

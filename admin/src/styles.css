@@ -69,3 +69,10 @@ table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #2a2a2a; }
 th { color: var(--gray); font-weight: 600; }
 .actions { display: flex; gap: 8px; }
+
+/* User status badges */
+.badge { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:600; }
+.badge-ok { background:#143524; color:#2FBF71; }
+.badge-warn { background:#3a2f10; color:#F5C45E; }
+.badge-danger { background:#3a1410; color:#FF6B5E; }
+button.danger { background:#7A0D07; border-color:#B3140C; color:#fff; }

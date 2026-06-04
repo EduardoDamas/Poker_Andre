@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { createHash, randomInt } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DevOtpProvider } from './otp-provider';
+import { isBlocked } from '../user-status';
 
 const CODE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_ATTEMPTS = 5;
@@ -102,12 +103,18 @@ export class OtpService {
     const user = await this.prisma.user.findUnique({ where: { phone } });
     if (!user) throw new UnauthorizedException('Phone not registered.');
 
-    // Phone ownership proven → activate if still pending.
-    if (user.status === 'PENDING') {
-      await this.prisma.user.update({ where: { id: user.id }, data: { status: 'ACTIVE' } });
+    // Still blocked (permanent, or temp block not yet expired) → deny.
+    if (isBlocked(user)) {
+      throw new UnauthorizedException(
+        user.blockReason ? `Conta bloqueada: ${user.blockReason}` : 'Conta bloqueada.',
+      );
     }
-    if (user.status === 'BLOCKED') {
-      throw new UnauthorizedException('Account is blocked.');
+    // PENDING → ACTIVE on first verify; an EXPIRED temp block auto-reactivates.
+    if (user.status === 'PENDING' || user.status === 'BLOCKED') {
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: { status: 'ACTIVE', blockReason: null, blockedUntil: null },
+      });
     }
 
     const accessToken = await this.jwt.signAsync({ sub: user.id, phone: user.phone });
