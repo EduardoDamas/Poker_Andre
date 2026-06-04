@@ -64,4 +64,16 @@ class AuthApi {
       displayName: user['displayName'] as String,
     );
   }
+
+  /// Current wallet balance in cents (GET /auth/me). 0 on any error.
+  Future<int> fetchBalance(String token) async {
+    try {
+      final res = await _client.get(_u('/auth/me'), headers: {'Authorization': 'Bearer $token'});
+      if (res.statusCode != 200) return 0;
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      return int.tryParse('${body['balanceCents']}') ?? 0;
+    } catch (_) {
+      return 0;
+    }
+  }
 }

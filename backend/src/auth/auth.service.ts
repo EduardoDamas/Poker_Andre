@@ -59,11 +59,12 @@ export class AuthService {
     }
   }
 
-  /** The current user's public profile (for GET /auth/me). */
-  async me(userId: string): Promise<PublicUser> {
+  /** The current user's public profile + wallet balance (for GET /auth/me). */
+  async me(userId: string): Promise<PublicUser & { balanceCents: string }> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new UnauthorizedException('User no longer exists.');
-    return this.toPublic(user);
+    const balance = await this.wallet.getBalance(userId);
+    return { ...this.toPublic(user), balanceCents: balance.toString() };
   }
 
   private toPublic(user: User): PublicUser {

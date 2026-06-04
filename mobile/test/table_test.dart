@@ -88,7 +88,7 @@ void main() {
     await tester.pumpWidget(tableWith(c));
     await tester.pump();
 
-    expect(find.text('Aguardando...'), findsOneWidget);
+    expect(find.text('Aguardando…'), findsOneWidget);
     expect(find.byKey(const Key('action_fold')), findsNothing);
   });
 

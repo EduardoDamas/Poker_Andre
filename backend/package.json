@@ -15,7 +15,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "fund": "ts-node scripts/fund.ts",
-    "bot": "ts-node scripts/bot.ts"
+    "bot": "ts-node scripts/bot.ts",
+    "admin:token": "ts-node scripts/admin-token.ts",
+    "withdraw": "ts-node scripts/withdraw.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.4",

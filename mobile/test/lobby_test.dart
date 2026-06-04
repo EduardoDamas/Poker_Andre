@@ -15,12 +15,20 @@ void main() {
 
   Widget lobbyWith(http.Client client) => MaterialApp(
         theme: buildCapaTheme(),
-        home: LobbyScreen(session: session, api: TablesApi(client: client)),
+        home: LobbyScreen(
+          session: session,
+          api: TablesApi(client: client),
+          authApi: AuthApi(client: client),
+        ),
       );
 
   testWidgets('renders the rooms returned by the backend', (tester) async {
     final mock = MockClient((req) async {
       expect(req.headers['authorization'], 'Bearer tok'); // sends the JWT (http lowercases keys)
+      if (req.url.path == '/auth/me') {
+        return http.Response(jsonEncode({'balanceCents': '100000'}), 200,
+            headers: {'content-type': 'application/json; charset=utf-8'});
+      }
       // charset=utf-8 so the em-dash/accents decode correctly (the real backend
       // sends this header; http defaults to latin1 without it).
       return http.Response(
