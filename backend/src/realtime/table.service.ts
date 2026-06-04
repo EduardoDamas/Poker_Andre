@@ -3,6 +3,7 @@ import { Card } from '../poker/deck';
 import { Action, ActionType } from '../poker/betting-round';
 import { PokerHand } from '../poker/hand';
 import { SettlementService } from '../wallet/settlement.service';
+import { decideRobotAction } from './bot-brain';
 
 /**
  * In-memory table state + live hand orchestration for the realtime layer.
@@ -24,6 +25,7 @@ const BIG_BLIND = 2;
 interface SeatSlot {
   userId: string;
   socketId: string;
+  isRobot?: boolean;
 }
 
 interface Table {
@@ -108,10 +110,39 @@ export class TableService {
       seat.socketId = socketId;
       return { table, position: existing, rejoined: true };
     }
-    const position = table.seats.findIndex((s) => s === null);
+    // Prefer an empty seat. If the room is full of robots and no hand is
+    // running, bump a robot so a real player can take its place.
+    let position = table.seats.findIndex((s) => s === null);
+    if (position === -1 && !table.handInProgress) {
+      position = table.seats.findIndex((s) => s?.isRobot);
+    }
     if (position === -1) throw new Error('Table is full.');
     table.seats[position] = { userId, socketId };
     return { table, position, rejoined: false };
+  }
+
+  /** Fill empty seats with robots (used to make a waiting room feel active). */
+  fillWithRobots(table: Table): number {
+    let added = 0;
+    for (let i = 0; i < table.seats.length; i++) {
+      if (table.seats[i] === null) {
+        added += 1;
+        table.seats[i] = { userId: `robot${i + 1}`, socketId: `robot:${table.id}:${i}`, isRobot: true };
+      }
+    }
+    return added;
+  }
+
+  hasRobots(table: Table): boolean {
+    return this.seatedSlots(table).some((s) => s.isRobot);
+  }
+
+  realPlayerCount(table: Table): number {
+    return this.seatedSlots(table).filter((s) => !s.isRobot).length;
+  }
+
+  isRobotSeat(table: Table, userId: string): boolean {
+    return this.seatedSlots(table).some((s) => s.userId === userId && s.isRobot);
   }
 
   /**
@@ -206,7 +237,10 @@ export class TableService {
     if (!table.hand.isComplete()) return { complete: false };
 
     const out = table.hand.result();
-    await this.settle(table, out.finalStacks);
+    // No deductions in robot/mixed matches — only ALL-real matches touch wallets.
+    if (!this.hasRobots(table)) {
+      await this.settle(table, out.finalStacks);
+    }
 
     const payload: HandResultPayload = {
       board: out.board,
@@ -227,6 +261,24 @@ export class TableService {
     }));
     table.handCount += 1;
     await this.settlement.settleHand({ handId: `${table.id}#${table.handCount}`, seats });
+  }
+
+  /** The current actor's id if it's a robot, else null (for the gateway driver). */
+  robotToAct(table: Table): string | null {
+    const acting = table.hand?.actingPlayerId;
+    if (!acting) return null;
+    return this.isRobotSeat(table, acting) ? acting : null;
+  }
+
+  /** Decide the current robot's action from the engine state. */
+  robotDecision(table: Table): Action {
+    const acting = table.hand!.actingPlayerId!;
+    const d = decideRobotAction(
+      table.hand!.holeCardsOf(acting),
+      table.hand!.board,
+      table.hand!.legalActions(),
+    );
+    return d as Action;
   }
 
   private seatedSlots(table: Table): SeatSlot[] {
