@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'api/auth_api.dart';
-import 'screens/login_screen.dart';
+import 'screens/splash_screen.dart';
 import 'theme.dart';
 
 void main() {
@@ -17,7 +17,7 @@ class CapaContestApp extends StatelessWidget {
       title: 'CAPA CONTEST',
       debugShowCheckedModeBanner: false,
       theme: buildCapaTheme(),
-      home: LoginScreen(api: api),
+      home: SplashScreen(api: api),
     );
   }
 }
