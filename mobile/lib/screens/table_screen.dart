@@ -98,6 +98,24 @@ class _TableScreenState extends State<TableScreen> {
   }
 }
 
+/// A faint outline where a community card will land (pre-flop).
+class _BoardSlot extends StatelessWidget {
+  const _BoardSlot();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46,
+      height: 46 * 1.4,
+      margin: const EdgeInsets.symmetric(horizontal: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Brand.feltTrim.withValues(alpha: 0.35)),
+      ),
+    );
+  }
+}
+
 class _Centered extends StatelessWidget {
   final Widget child;
   const _Centered({required this.child});
@@ -144,16 +162,22 @@ class _TableView extends StatelessWidget {
                         style: Brand.micro.copyWith(color: Brand.champagne)),
                   ),
                   const SizedBox(height: 24),
-                  // Board.
-                  if (s.board.isEmpty)
-                    Column(children: [
-                      const CardBack(width: 40), // mascot back as a centerpiece
-                      const SizedBox(height: 12),
-                      Text('Aguardando jogadores…', style: Brand.caption.copyWith(color: Brand.champagne)),
-                    ])
-                  else
+                  // Board: real cards once dealt; placeholders during pre-flop;
+                  // a "waiting" hint only when no hand has been dealt to me.
+                  if (s.board.isNotEmpty)
                     Row(mainAxisAlignment: MainAxisAlignment.center,
-                        children: [for (final c in s.board) PlayingCard(c, width: 46)]),
+                        children: [for (final c in s.board) PlayingCard(c, width: 46)])
+                  else if (s.holeCards.isNotEmpty || s.handComplete)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(5, (_) => const _BoardSlot()),
+                    )
+                  else
+                    Column(children: [
+                      const CardBack(width: 40),
+                      const SizedBox(height: 12),
+                      Text('Aguardando oponente…', style: Brand.caption.copyWith(color: Brand.champagne)),
+                    ]),
                 ],
               ),
             ),

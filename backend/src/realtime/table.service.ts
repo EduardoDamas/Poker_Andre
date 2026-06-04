@@ -92,15 +92,26 @@ export class TableService {
     return table;
   }
 
-  join(id: string, userId: string, socketId: string, maxSeats?: number): { table: Table; position: number } {
+  join(
+    id: string,
+    userId: string,
+    socketId: string,
+    maxSeats?: number,
+  ): { table: Table; position: number; rejoined: boolean } {
     const table = this.getOrCreate(id, maxSeats);
-    if (table.seats.some((s) => s?.userId === userId)) {
-      throw new Error('Already seated at this table.');
+    const existing = table.seats.findIndex((s) => s?.userId === userId);
+    if (existing !== -1) {
+      const seat = table.seats[existing]!;
+      // Same live socket joining twice → genuine error.
+      if (seat.socketId === socketId) throw new Error('Already seated at this table.');
+      // A returning player (new socket) re-binds to their seat.
+      seat.socketId = socketId;
+      return { table, position: existing, rejoined: true };
     }
     const position = table.seats.findIndex((s) => s === null);
     if (position === -1) throw new Error('Table is full.');
     table.seats[position] = { userId, socketId };
-    return { table, position };
+    return { table, position, rejoined: false };
   }
 
   /**

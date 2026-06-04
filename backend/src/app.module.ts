@@ -8,6 +8,7 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { AdminModule } from './admin/admin.module';
 import { TablesModule } from './tables/tables.module';
 import { HealthController } from './health.controller';
+import { DownloadController } from './download.controller';
 
 @Module({
   imports: [
@@ -19,7 +20,7 @@ import { HealthController } from './health.controller';
     AdminModule,
     TablesModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, DownloadController],
   providers: [
     // Same validation everywhere (prod and e2e tests) — strips unknown fields,
     // transforms payloads, rejects extras.

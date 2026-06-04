@@ -78,7 +78,8 @@ export class GameGateway implements OnGatewayConnection {
   onJoin(@ConnectedSocket() client: Socket, @MessageBody() body: JoinPayload): Ack {
     const user = (client.data as SocketData).user;
     try {
-      const { table, position } = this.tables.join(body.tableId, user.sub, client.id, body.maxSeats);
+      const { table, position, rejoined } = this.tables.join(
+        body.tableId, user.sub, client.id, body.maxSeats);
       client.join(room(body.tableId));
 
       const started =
@@ -96,6 +97,12 @@ export class GameGateway implements OnGatewayConnection {
           if (hole) this.server.to(p.socketId).emit('hand:hole', { cards: hole });
         }
         this.broadcastGameState(body.tableId);
+      } else if (rejoined && table.handInProgress) {
+        // A returning player re-binds: replay their private view.
+        const hole = this.tables.holeFor(table, user.sub);
+        if (hole) client.emit('hand:hole', { cards: hole });
+        const state = this.tables.gameState(table);
+        if (state) client.emit('game:state', state);
       }
       return { ok: true, position };
     } catch (err) {

@@ -70,6 +70,7 @@ async function main() {
     console.log(`  payouts:`, r.payouts);
     const bal = await wallet.getBalance(userId);
     console.log(`  Bot ${index} wallet now: ${bal} cents`);
+    socket.emit('table:leave', { tableId }); // free the seat cleanly
     setTimeout(async () => {
       socket.close();
       await ctx.close();
