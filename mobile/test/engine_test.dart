@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:capa_contest/engine/evaluator.dart';
 import 'package:capa_contest/engine/poker_hand.dart';
 import 'package:capa_contest/engine/side_pots.dart';
+import 'package:capa_contest/engine/prize_table.dart';
 
 List<String> c(String s) => s.trim().split(RegExp(r'\s+'));
 
@@ -37,6 +38,21 @@ void main() {
               evaluate(c('Kh Kd 2s 7c 9d 3h 4s')).key) > 0, true);
       expect(compareKeys(evaluate(c('Ah Kh 9h 5h 2h 7d 8c')).key,
               evaluate(c('9d 8s 7h 6c 5d Ah Kh')).key) > 0, true);
+    });
+  });
+
+  group('prize table (Dart port)', () {
+    test('multiplier by occupancy matches the PDF table', () {
+      expect(multiplierFor(1.0), 200);
+      expect(multiplierFor(0.5), 100);
+      expect(multiplierFor(0.1), 20);
+      expect(multiplierFor(0.05), 0); // below 10%
+    });
+    test('prize = multiplier × entry (V.I.)', () {
+      // Full room, R$20 entry → 200× = R$4000 = 400000 cents.
+      expect(prizeCentsFor(2000, 1.0), 400000);
+      // 50% occupancy, R$200 entry → 100× = R$20000.
+      expect(prizeCentsFor(20000, 0.5), 2000000);
     });
   });
 

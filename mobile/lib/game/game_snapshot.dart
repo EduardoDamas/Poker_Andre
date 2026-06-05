@@ -13,6 +13,7 @@ class GameSnapshot {
   final bool isMyTurn;
   final bool handComplete;
   final String? resultText; // human-readable outcome
+  final int? prizeCents; // winner's prize (R$) when you win, per the prize table
 
   const GameSnapshot({
     this.status = ConnStatus.connecting,
@@ -25,6 +26,7 @@ class GameSnapshot {
     this.isMyTurn = false,
     this.handComplete = false,
     this.resultText,
+    this.prizeCents,
   });
 
   GameSnapshot copyWith({
@@ -38,6 +40,7 @@ class GameSnapshot {
     bool? isMyTurn,
     bool? handComplete,
     String? resultText,
+    int? prizeCents,
   }) {
     return GameSnapshot(
       status: status ?? this.status,
@@ -50,6 +53,7 @@ class GameSnapshot {
       isMyTurn: isMyTurn ?? this.isMyTurn,
       handComplete: handComplete ?? this.handComplete,
       resultText: resultText ?? this.resultText,
+      prizeCents: prizeCents ?? this.prizeCents,
     );
   }
 }

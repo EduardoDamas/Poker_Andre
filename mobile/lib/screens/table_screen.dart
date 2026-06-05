@@ -4,6 +4,7 @@ import '../game/game_snapshot.dart';
 import '../widgets/playing_card.dart';
 import '../widgets/premium.dart';
 import '../theme.dart';
+import '../format.dart';
 import 'settings_screen.dart';
 
 const _streetLabels = {
@@ -201,9 +202,29 @@ class _TableView extends StatelessWidget {
             child: Column(children: [
               // Turn / result banner.
               if (s.handComplete)
-                Text(s.resultText ?? 'Mão encerrada.',
-                    key: const Key('resultBanner'),
-                    style: Brand.h3.copyWith(color: Brand.gold))
+                Column(
+                  key: const Key('resultBanner'),
+                  children: [
+                    Text(s.resultText ?? 'Mão encerrada.', style: Brand.h3.copyWith(color: Brand.gold)),
+                    if (s.prizeCents != null) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          gradient: Brand.goldGrad,
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: Brand.glow(Brand.gold),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.emoji_events, size: 16, color: Brand.onGold),
+                          const SizedBox(width: 6),
+                          Text('Prêmio ${brl(s.prizeCents!)}',
+                              style: const TextStyle(color: Brand.onGold, fontWeight: FontWeight.w800, fontSize: 16)),
+                        ]),
+                      ),
+                    ],
+                  ],
+                )
               else
                 Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                   if (s.isMyTurn) ...[

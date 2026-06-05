@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../engine/bot.dart';
 import '../game/local_connection.dart';
 import '../theme.dart';
+import '../format.dart';
 import '../widgets/premium.dart';
 import 'table_screen.dart';
 
@@ -15,9 +16,19 @@ class SoloSetupScreen extends StatefulWidget {
 class _SoloSetupScreenState extends State<SoloSetupScreen> {
   int _bots = 1;
   BotDifficulty _difficulty = BotDifficulty.medium;
+  int _level = 1;
+
+  // Entry value (V.I.) per room level, in cents — from CAPACONTEST.pdf.
+  static const _entryCentsByLevel = {
+    1: 2000, 2: 4000, 3: 10000, 4: 20000, 5: 100000, 6: 200000, 7: 1000000,
+  };
 
   void _start() {
-    final connection = LocalGameConnection(botCount: _bots, difficulty: _difficulty);
+    final connection = LocalGameConnection(
+      botCount: _bots,
+      difficulty: _difficulty,
+      entryCents: _entryCentsByLevel[_level]!,
+    );
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => TableScreen(connection: connection, title: 'Solo vs Bots')),
     );
@@ -74,6 +85,42 @@ class _SoloSetupScreenState extends State<SoloSetupScreen> {
                   ),
                 );
               }),
+            ),
+            const SizedBox(height: 28),
+            const SectionHeader('Nível da sala (inscrição → prêmio)'),
+            const SizedBox(height: 12),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _entryCentsByLevel.entries.map((e) {
+                  final sel = _level == e.key;
+                  return GestureDetector(
+                    onTap: () => setState(() => _level = e.key),
+                    child: Container(
+                      width: 92,
+                      margin: const EdgeInsets.only(right: 10),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: sel ? Brand.goldGrad : null,
+                        color: sel ? null : Brand.surface,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: sel ? Brand.gold : Brand.border),
+                      ),
+                      child: Column(children: [
+                        Text('Nível ${e.key}',
+                            style: TextStyle(
+                                color: sel ? Brand.onGold : Brand.textSec,
+                                fontWeight: FontWeight.w700, fontSize: 13)),
+                        const SizedBox(height: 4),
+                        Text(brl(e.value),
+                            style: TextStyle(
+                                color: sel ? Brand.onGold : Brand.textPri,
+                                fontWeight: FontWeight.w800, fontSize: 14)),
+                      ]),
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
             const SizedBox(height: 28),
             const SectionHeader('Dificuldade'),

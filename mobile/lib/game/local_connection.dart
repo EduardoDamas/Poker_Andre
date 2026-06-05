@@ -3,6 +3,7 @@ import 'game_connection.dart';
 import 'game_snapshot.dart';
 import '../engine/poker_hand.dart';
 import '../engine/bot.dart';
+import '../engine/prize_table.dart';
 
 /// Offline solo game vs AI bots — implements the same GameConnection the
 /// online table uses, so the premium TableScreen works unchanged.
@@ -14,6 +15,8 @@ class LocalGameConnection implements GameConnection {
   final int buyIn;
   final int smallBlind;
   final int bigBlind;
+  final int entryCents; // V.I. (valor da inscrição) of the room
+  final int roomCapacity; // seats in a full room (for occupancy → prize)
   final Bot _bot;
 
   final _ctrl = StreamController<GameSnapshot>.broadcast();
@@ -28,6 +31,8 @@ class LocalGameConnection implements GameConnection {
     this.buyIn = 100,
     this.smallBlind = 1,
     this.bigBlind = 2,
+    this.entryCents = 2000, // R$ 20,00 (Nível 1) by default
+    this.roomCapacity = 8,
   }) : _bot = Bot(difficulty) {
     _startHand();
   }
@@ -106,12 +111,15 @@ class LocalGameConnection implements GameConnection {
 
   void _emitComplete() {
     final out = _hand.result();
-    final net = (out.finalStacks[userId] ?? 0) - buyIn;
-    final text = net > 0
-        ? 'Você ganhou $net fichas!'
-        : net == 0
+    final won = out.pots.any((p) => p.winnerIds.contains(userId));
+    // Prize per the CAPACONTEST table: multiplier(occupancy) × entry (V.I.).
+    final occupancy = (botCount + 1) / roomCapacity;
+    final prize = won ? prizeCentsFor(entryCents, occupancy) : null;
+    final text = won
+        ? 'Você venceu a mão!'
+        : (out.finalStacks[userId] ?? 0) == buyIn
             ? 'Empate.'
-            : 'Você perdeu ${-net} fichas.';
+            : 'Você perdeu a mão.';
     _emit(_snap.copyWith(
       status: ConnStatus.connected,
       street: 'complete',
@@ -122,6 +130,7 @@ class LocalGameConnection implements GameConnection {
       isMyTurn: false,
       handComplete: true,
       resultText: text,
+      prizeCents: prize,
     ));
   }
 
