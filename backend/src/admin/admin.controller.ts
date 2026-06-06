@@ -8,7 +8,6 @@ import { AdminGuard } from './admin.guard';
 import { AdminService, AdminPlayer, AdminWithdrawal } from './admin.service';
 import { SettleWithdrawalDto } from './dto/settle-withdrawal.dto';
 import { BlockUserDto } from './dto/block-user.dto';
-import { DevOtpProvider } from '../auth/otp/otp-provider';
 
 // Every route here requires a valid JWT (JwtAuthGuard) AND the ADMIN role (AdminGuard).
 @Controller('admin')
@@ -18,19 +17,11 @@ export class AdminController {
     private readonly admin: AdminService,
     private readonly withdrawals: WithdrawalService,
     private readonly audit: AuditService,
-    private readonly otpProvider: DevOtpProvider,
   ) {}
 
   @Get('players')
   players(): Promise<AdminPlayer[]> {
     return this.admin.listPlayers();
-  }
-
-  // Returns the last OTP code sent to a phone — lets you relay it to the tester
-  // without opening Railway logs. Only accessible with a valid admin JWT.
-  @Get('otp/last')
-  lastOtp(@Query('phone') phone: string): { phone: string; code: string | null } {
-    return { phone, code: this.otpProvider.lastCodeFor(phone) ?? null };
   }
 
   // Reject a pending application — frees the phone/CPF for re-registration.

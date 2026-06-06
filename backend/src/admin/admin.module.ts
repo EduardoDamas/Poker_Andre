@@ -4,11 +4,12 @@ import { WalletModule } from '../wallet/wallet.module';
 import { AuditModule } from '../audit/audit.module';
 import { AdminService } from './admin.service';
 import { AdminController } from './admin.controller';
+import { OtpRelayController } from './otp-relay.controller';
 import { AdminGuard } from './admin.guard';
 
 @Module({
-  imports: [AuthModule, WalletModule, AuditModule], // auth + wallet + audit trail
+  imports: [AuthModule, WalletModule, AuditModule],
   providers: [AdminService, AdminGuard],
-  controllers: [AdminController],
+  controllers: [AdminController, OtpRelayController],
 })
 export class AdminModule {}
