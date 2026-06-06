@@ -82,8 +82,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     const SizedBox(height: 16),
                     GradientButton('Enviar código', key: const Key('sendCodeBtn'), busy: _busy, onPressed: _sendCode),
                   ] else ...[
-                    Text('Código enviado para ${_phone.text.trim()}',
+                    Text('O administrador enviará o código para você.',
                         textAlign: TextAlign.center, style: Brand.caption),
+                    const SizedBox(height: 4),
+                    Text(_phone.text.trim(),
+                        textAlign: TextAlign.center,
+                        style: Brand.label.copyWith(color: Brand.gold)),
                     const SizedBox(height: 16),
                     TextField(
                       key: const Key('codeField'),
