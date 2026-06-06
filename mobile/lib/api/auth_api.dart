@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 
@@ -31,13 +33,31 @@ class AuthApi {
 
   Uri _u(String path) => Uri.parse('$baseUrl$path');
 
+  /// Network timeout — fail fast with a clear message instead of spinning
+  /// forever if the server is unreachable (e.g. wrong API_BASE).
+  static const _timeout = Duration(seconds: 20);
+
+  /// Wrap a request so a dead host / no internet surfaces as a clean
+  /// AuthException rather than an endless loading spinner.
+  Future<http.Response> _send(Future<http.Response> Function() req) async {
+    try {
+      return await req().timeout(_timeout);
+    } on TimeoutException {
+      throw AuthException('Servidor não respondeu. Verifique sua conexão.');
+    } on SocketException {
+      throw AuthException('Sem conexão com o servidor.');
+    } on http.ClientException {
+      throw AuthException('Sem conexão com o servidor.');
+    }
+  }
+
   /// Request a one-time login code for [phone] (E.164, e.g. +5511999998888).
   Future<void> requestOtp(String phone) async {
-    final res = await _client.post(
-      _u('/auth/otp/request'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'phone': phone}),
-    );
+    final res = await _send(() => _client.post(
+          _u('/auth/otp/request'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'phone': phone}),
+        ));
     if (res.statusCode == 429) {
       throw AuthException('Too many requests. Please wait a minute.');
     }
@@ -48,11 +68,11 @@ class AuthApi {
 
   /// Verify [code] for [phone]; returns the session (JWT + user) on success.
   Future<AuthSession> verifyOtp(String phone, String code) async {
-    final res = await _client.post(
-      _u('/auth/otp/verify'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'phone': phone, 'code': code}),
-    );
+    final res = await _send(() => _client.post(
+          _u('/auth/otp/verify'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'phone': phone, 'code': code}),
+        ));
     if (res.statusCode != 200) {
       throw AuthException('Invalid or expired code.');
     }
@@ -74,7 +94,9 @@ class AuthApi {
   /// Full profile + balance (GET /auth/me). Empty map on error.
   Future<Map<String, dynamic>> fetchMe(String token) async {
     try {
-      final res = await _client.get(_u('/auth/me'), headers: {'Authorization': 'Bearer $token'});
+      final res = await _client
+          .get(_u('/auth/me'), headers: {'Authorization': 'Bearer $token'})
+          .timeout(_timeout);
       if (res.statusCode != 200) return {};
       return jsonDecode(res.body) as Map<String, dynamic>;
     } catch (_) {
