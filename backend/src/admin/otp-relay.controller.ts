@@ -1,30 +1,56 @@
-import { Controller, Get, Post, Query, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Post, Query, Body, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { DevOtpProvider } from '../auth/otp/otp-provider';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { AdminGuard } from './admin.guard';
+import { DevOtpProvider, PendingOtp } from '../auth/otp/otp-provider';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
- * Single-purpose endpoint so the admin can read the last OTP for a phone
- * without opening Railway logs. Protected by a static secret (ADMIN_OTP_SECRET
- * env var) instead of a JWT so it's usable before you have a token.
- *
- * Usage:
- *   GET /admin/otp/last?phone=+55...&secret=YOUR_SECRET
+ * Admin bootstrap endpoints — no JwtAuthGuard on the class so that
+ * /admin/auth/login and the secret-gated OTP relay are accessible
+ * before you have a token.
  */
-@Controller('admin/otp')
+@Controller('admin')
 export class OtpRelayController {
   constructor(
     private readonly otpProvider: DevOtpProvider,
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
+    private readonly jwt: JwtService,
   ) {}
+
+  // --- Admin password login ---
+
+  /** POST /admin/auth/login  { username, password } → { accessToken } */
+  @Post('auth/login')
+  async login(
+    @Body() body: { username?: string; password?: string },
+  ): Promise<{ accessToken: string }> {
+    const expectedUser = this.config.get<string>('ADMIN_USERNAME') ?? 'admin';
+    const expectedPass = this.config.get<string>('ADMIN_PASSWORD');
+    if (!expectedPass) throw new UnauthorizedException('Admin credentials not configured.');
+
+    if (body.username !== expectedUser || body.password !== expectedPass) {
+      throw new UnauthorizedException('Usuário ou senha incorretos.');
+    }
+
+    const accessToken = await this.jwt.signAsync({
+      sub: 'admin',
+      phone: '',
+      role: 'ADMIN',
+    });
+    return { accessToken };
+  }
+
+  // --- OTP relay (secret-gated, no JWT needed) ---
 
   private checkSecret(secret: string): void {
     const expected = this.config.get<string>('ADMIN_OTP_SECRET');
     if (!expected || secret !== expected) throw new UnauthorizedException('Invalid secret.');
   }
 
-  @Get('last')
+  @Get('otp/last')
   lastOtp(
     @Query('phone') phone: string,
     @Query('secret') secret: string,
@@ -33,9 +59,8 @@ export class OtpRelayController {
     return { phone, code: this.otpProvider.lastCodeFor(phone) ?? null };
   }
 
-  // One-time bootstrap: promote a registered phone to ADMIN role.
-  // POST /admin/otp/promote?phone=+55...&secret=YOUR_SECRET
-  @Post('promote')
+  // Bootstrap: promote a registered phone to ADMIN role.
+  @Post('otp/promote')
   async promote(
     @Query('phone') phone: string,
     @Query('secret') secret: string,
@@ -46,5 +71,14 @@ export class OtpRelayController {
       data: { role: 'ADMIN' },
     });
     return { ok: true, phone: user.phone, role: user.role };
+  }
+
+  // --- Pending OTPs panel (requires admin JWT) ---
+
+  /** GET /admin/otp/pending — live list of recent OTP requests (last 10 min). */
+  @Get('otp/pending')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  pendingOtps(): PendingOtp[] {
+    return this.otpProvider.recentRequests();
   }
 }

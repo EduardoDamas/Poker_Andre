@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { Login } from './components/Login';
 import { Players } from './components/Players';
 import { Withdrawals } from './components/Withdrawals';
+import { OtpRequests } from './components/OtpRequests';
 
 const TOKEN_KEY = 'capa_admin_token';
 
-type Tab = 'withdrawals' | 'players';
+type Tab = 'withdrawals' | 'players' | 'otp';
 
 export function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
@@ -48,14 +49,19 @@ export function App() {
           <button className={tab === 'players' ? 'active' : ''} onClick={() => setTab('players')}>
             Jogadores
           </button>
+          <button className={tab === 'otp' ? 'active' : ''} onClick={() => setTab('otp')}>
+            Códigos OTP
+          </button>
           <button onClick={logout}>Sair</button>
         </nav>
       </header>
       <main>
         {tab === 'withdrawals' ? (
           <Withdrawals token={token} onForbidden={onForbidden} />
-        ) : (
+        ) : tab === 'players' ? (
           <Players token={token} onForbidden={onForbidden} />
+        ) : (
+          <OtpRequests token={token} />
         )}
       </main>
     </div>

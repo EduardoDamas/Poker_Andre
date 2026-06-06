@@ -9,7 +9,7 @@ import { OtpRelayController } from './otp-relay.controller';
 import { AdminGuard } from './admin.guard';
 
 @Module({
-  imports: [AuthModule, WalletModule, AuditModule, PrismaModule],
+  imports: [AuthModule, WalletModule, AuditModule, PrismaModule], // AuthModule exports JwtModule
   providers: [AdminService, AdminGuard],
   controllers: [AdminController, OtpRelayController],
 })

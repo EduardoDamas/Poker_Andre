@@ -8,8 +8,9 @@ import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 
 export interface JwtPayload {
-  sub: string; // user id
+  sub: string;   // user id, or 'admin' for password-login admin sessions
   phone: string;
+  role?: string; // 'ADMIN' for direct admin logins (not stored in DB)
 }
 
 // The authenticated user attached to the request by the guard.

@@ -54,8 +54,21 @@ export interface Session {
   user: { id: string; displayName: string; status: string };
 }
 
+export interface PendingOtp {
+  phone: string;
+  code: string;
+  requestedAt: number;
+}
+
 export const api = {
   base: BASE,
+  adminLogin: (username: string, password: string) =>
+    request<{ accessToken: string }>('/admin/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    }),
+  pendingOtps: (token: string) =>
+    request<PendingOtp[]>('/admin/otp/pending', {}, token),
   requestOtp: (phone: string) =>
     request<void>('/auth/otp/request', { method: 'POST', body: JSON.stringify({ phone }) }),
   verifyOtp: (phone: string, code: string) =>

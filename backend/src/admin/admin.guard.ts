@@ -13,10 +13,14 @@ export class AdminGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<AuthedRequest>();
-    const userId = req.user?.sub;
-    if (!userId) throw new ForbiddenException('Not authenticated.');
+    const payload = req.user;
+    if (!payload?.sub) throw new ForbiddenException('Not authenticated.');
 
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    // Admin password-login: role is embedded directly in the JWT.
+    if (payload.role === 'ADMIN') return true;
+
+    // Regular user login: look up the role in the database.
+    const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user || user.role !== 'ADMIN') {
       throw new ForbiddenException('Admin access required.');
     }
