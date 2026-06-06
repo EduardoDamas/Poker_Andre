@@ -4,13 +4,15 @@ import '../api/tables_api.dart';
 import '../theme.dart';
 import '../widgets/premium.dart';
 import 'lobby_screen.dart';
+import 'register_screen.dart';
 import 'solo_setup_screen.dart';
 
 /// Phone-OTP login. Two steps: enter phone → request code; enter code → verify.
 class LoginScreen extends StatefulWidget {
   final AuthApi api;
   final TablesApi? tablesApi;
-  const LoginScreen({super.key, required this.api, this.tablesApi});
+  final String initialPhone;
+  const LoginScreen({super.key, required this.api, this.tablesApi, this.initialPhone = ''});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -24,6 +26,12 @@ class _LoginScreenState extends State<LoginScreen> {
   _Step _step = _Step.phone;
   bool _busy = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _phone.text = widget.initialPhone;
+  }
 
   Future<void> _sendCode() async {
     setState(() { _busy = true; _error = null; });
@@ -81,6 +89,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
                     GradientButton('Enviar código', key: const Key('sendCodeBtn'), busy: _busy, onPressed: _sendCode),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => RegisterScreen(api: widget.api, initialPhone: _phone.text.trim()),
+                      )),
+                      child: Text('Não tem conta? Criar conta',
+                          style: Brand.caption.copyWith(color: Brand.gold)),
+                    ),
                   ] else ...[
                     Text('O administrador enviará o código para você.',
                         textAlign: TextAlign.center, style: Brand.caption),

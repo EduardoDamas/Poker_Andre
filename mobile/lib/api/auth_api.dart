@@ -85,6 +85,36 @@ class AuthApi {
     );
   }
 
+  /// Register a new account. Throws [AuthException] on validation errors.
+  Future<void> register({
+    required String phone,
+    required String displayName,
+    required String cpf,
+    required String birthDate,
+  }) async {
+    final res = await _send(() => _client.post(
+          _u('/auth/register'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'phone': phone,
+            'displayName': displayName,
+            'cpf': cpf,
+            'birthDate': birthDate,
+          }),
+        ));
+    if (res.statusCode == 409) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      final msg = '${body['message']}';
+      if (msg.contains('phone')) throw AuthException('Este telefone já está cadastrado.');
+      if (msg.contains('cpf')) throw AuthException('Este CPF já está cadastrado.');
+      throw AuthException('Conta já existente.');
+    }
+    if (res.statusCode != 201) {
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      throw AuthException('${body['message'] ?? 'Erro ao cadastrar.'}');
+    }
+  }
+
   /// Current wallet balance in cents (GET /auth/me). 0 on any error.
   Future<int> fetchBalance(String token) async {
     final me = await fetchMe(token);
