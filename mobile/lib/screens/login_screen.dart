@@ -4,6 +4,7 @@ import '../api/tables_api.dart';
 import '../theme.dart';
 import '../widgets/premium.dart';
 import 'lobby_screen.dart';
+import 'solo_setup_screen.dart';
 
 /// Phone-OTP login. Two steps: enter phone → request code; enter code → verify.
 class LoginScreen extends StatefulWidget {
@@ -105,6 +106,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(_error!, key: const Key('errorText'),
                         textAlign: TextAlign.center, style: const TextStyle(color: Brand.danger)),
                   ],
+                  const SizedBox(height: 32),
+                  const _Divider(),
+                  const SizedBox(height: 20),
+                  GradientButton(
+                    'Jogar sem conta  ▶',
+                    key: const Key('guestBtn'),
+                    variant: BtnVariant.gold,
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SoloSetupScreen()),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text('Modo Solo — offline, contra bots, sem internet.',
+                      textAlign: TextAlign.center, style: Brand.micro.copyWith(color: Brand.textTer)),
                 ],
               ),
             ),
@@ -112,6 +127,21 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
     );
+  }
+}
+
+class _Divider extends StatelessWidget {
+  const _Divider();
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      const Expanded(child: Divider(color: Color(0x33FFFFFF), thickness: 1)),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Text('ou', style: Brand.micro.copyWith(color: Brand.textTer)),
+      ),
+      const Expanded(child: Divider(color: Color(0x33FFFFFF), thickness: 1)),
+    ]);
   }
 }
 
