@@ -5,6 +5,7 @@ import { WalletService } from './wallet.service';
 import { DepositService } from './deposit.service';
 import { WithdrawalService } from './withdrawal.service';
 import { CreateDepositDto } from './dto/deposit.dto';
+import { CreateWithdrawalDto } from './dto/withdrawal.dto';
 
 interface DepositView {
   id: string;
@@ -41,6 +42,16 @@ export class WalletController {
       status: dep.status,
       requestedAt: dep.requestedAt,
     };
+  }
+
+  // Player requests a Pix payout; funds are reserved immediately (see WithdrawalService).
+  @Post('withdraw')
+  async requestWithdrawal(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: CreateWithdrawalDto,
+  ): Promise<{ id: string; amountCents: string; status: string }> {
+    const wd = await this.withdrawals.request(user.sub, BigInt(dto.amountCents), dto.pixKey);
+    return { id: wd.id, amountCents: wd.amountCents.toString(), status: wd.status };
   }
 
   @Get('deposits')

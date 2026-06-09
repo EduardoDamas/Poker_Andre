@@ -121,6 +121,36 @@ class AuthApi {
     return int.tryParse('${me['balanceCents']}') ?? 0;
   }
 
+  /// Declare an incoming Pix deposit (POST /wallet/deposit). The admin confirms
+  /// it before the wallet is credited. [pixReference] is optional proof.
+  Future<void> requestDeposit(String token, int amountCents, {String? pixReference}) async {
+    final body = <String, dynamic>{'amountCents': amountCents};
+    if (pixReference != null) body['pixReference'] = pixReference;
+    final res = await _send(() => _client.post(
+          _u('/wallet/deposit'),
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+          body: jsonEncode(body),
+        ));
+    if (res.statusCode != 201 && res.statusCode != 200) {
+      throw AuthException('Não foi possível registrar o depósito.');
+    }
+  }
+
+  /// Request a Pix withdrawal (POST /wallet/withdraw).
+  Future<void> requestWithdrawal(String token, int amountCents, String pixKey) async {
+    final res = await _send(() => _client.post(
+          _u('/wallet/withdraw'),
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+          body: jsonEncode({'amountCents': amountCents, 'pixKey': pixKey}),
+        ));
+    if (res.statusCode == 400) {
+      throw AuthException('Saldo insuficiente ou dados inválidos.');
+    }
+    if (res.statusCode != 201 && res.statusCode != 200) {
+      throw AuthException('Não foi possível solicitar o saque.');
+    }
+  }
+
   /// Full profile + balance (GET /auth/me). Empty map on error.
   Future<Map<String, dynamic>> fetchMe(String token) async {
     try {
