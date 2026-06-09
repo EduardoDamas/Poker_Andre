@@ -3,10 +3,12 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_PIPE } from '@nestjs/core';
 import { PrismaModule } from './prisma/prisma.module';
 import { WalletModule } from './wallet/wallet.module';
+import { WalletHttpModule } from './wallet/wallet-http.module';
 import { AuthModule } from './auth/auth.module';
 import { RealtimeModule } from './realtime/realtime.module';
 import { AdminModule } from './admin/admin.module';
 import { TablesModule } from './tables/tables.module';
+import { TournamentModule } from './tournament/tournament.module';
 import { HealthController } from './health.controller';
 import { DownloadController } from './download.controller';
 
@@ -15,10 +17,12 @@ import { DownloadController } from './download.controller';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     WalletModule,
+    WalletHttpModule,
     AuthModule,
     RealtimeModule,
     AdminModule,
     TablesModule,
+    TournamentModule,
   ],
   controllers: [HealthController, DownloadController],
   providers: [

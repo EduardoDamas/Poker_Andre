@@ -1,13 +1,29 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
-import { WithdrawalStatus } from '@prisma/client';
+import { WithdrawalStatus, DepositStatus, Deposit } from '@prisma/client';
 import { JwtAuthGuard, JwtPayload } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { WithdrawalService } from '../wallet/withdrawal.service';
+import { DepositService } from '../wallet/deposit.service';
 import { AuditService } from '../audit/audit.service';
 import { AdminGuard } from './admin.guard';
 import { AdminService, AdminPlayer, AdminWithdrawal } from './admin.service';
 import { SettleWithdrawalDto } from './dto/settle-withdrawal.dto';
+import { SettleDepositDto } from '../wallet/dto/deposit.dto';
+import { GrantSubscriptionDto } from './dto/grant-subscription.dto';
 import { BlockUserDto } from './dto/block-user.dto';
+
+function serializeDeposit(d: Deposit) {
+  return {
+    id: d.id,
+    userId: d.userId,
+    amountCents: d.amountCents.toString(),
+    pixReference: d.pixReference,
+    status: d.status,
+    requestedAt: d.requestedAt,
+    settledAt: d.settledAt,
+    adminNote: d.adminNote,
+  };
+}
 
 // Every route here requires a valid JWT (JwtAuthGuard) AND the ADMIN role (AdminGuard).
 @Controller('admin')
@@ -16,6 +32,7 @@ export class AdminController {
   constructor(
     private readonly admin: AdminService,
     private readonly withdrawals: WithdrawalService,
+    private readonly deposits: DepositService,
     private readonly audit: AuditService,
   ) {}
 
@@ -98,5 +115,58 @@ export class AdminController {
       metadata: { amountCents: wd.amountCents.toString(), note: dto.adminNote },
     });
     return AdminService.serializeWithdrawal(wd);
+  }
+
+  // --- Deposits (manual Pix) ---
+
+  @Get('deposits')
+  async listDeposits(@Query('status') status?: DepositStatus) {
+    return (await this.deposits.list(status)).map(serializeDeposit);
+  }
+
+  // Admin confirms the Pix was received → wallet credited.
+  @Post('deposits/:id/confirm')
+  async confirmDeposit(
+    @CurrentUser() admin: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: SettleDepositDto,
+  ) {
+    const dep = await this.deposits.confirm(id, dto.adminNote);
+    await this.audit.record({
+      actorId: admin.sub, action: 'deposit.confirm', targetType: 'deposit', targetId: dep.id,
+      metadata: { amountCents: dep.amountCents.toString(), note: dto.adminNote },
+    });
+    return serializeDeposit(dep);
+  }
+
+  @Post('deposits/:id/reject')
+  async rejectDeposit(
+    @CurrentUser() admin: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: SettleDepositDto,
+  ) {
+    const dep = await this.deposits.reject(id, dto.adminNote);
+    await this.audit.record({
+      actorId: admin.sub, action: 'deposit.reject', targetType: 'deposit', targetId: dep.id,
+      metadata: { note: dto.adminNote },
+    });
+    return serializeDeposit(dep);
+  }
+
+  // --- Subscriptions (manual grant; purchase flow pending client pricing) ---
+
+  // Grant/set a player's subscription tier (Phase 1: admin-assigned).
+  @Post('users/:id/subscription')
+  async grantSubscription(
+    @CurrentUser() admin: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: GrantSubscriptionDto,
+  ): Promise<{ ok: true }> {
+    await this.admin.setSubscription(id, dto.subscription, dto.untilMs);
+    await this.audit.record({
+      actorId: admin.sub, action: 'user.subscription', targetType: 'user', targetId: id,
+      metadata: { subscription: dto.subscription, untilMs: dto.untilMs ?? null },
+    });
+    return { ok: true };
   }
 }

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { User, Withdrawal, WithdrawalStatus } from '@prisma/client';
+import { User, Withdrawal, WithdrawalStatus, Subscription } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from '../wallet/ledger.service';
 import { isBlocked } from '../auth/user-status';
@@ -12,6 +12,7 @@ export interface AdminPlayer {
   phone: string;
   status: string;
   role: string;
+  subscription: string;
   createdAt: Date;
   balanceCents: string;
   blocked: boolean;
@@ -49,6 +50,7 @@ export class AdminService {
           phone: u.phone,
           status: u.status,
           role: u.role,
+          subscription: u.subscription,
           createdAt: u.createdAt,
           balanceCents: balance.toString(),
           blocked: isBlocked(u),
@@ -97,6 +99,21 @@ export class AdminService {
     return this.prisma.user.update({
       where: { id: userId },
       data: { status: 'BLOCKED', blockReason: reason, blockedUntil },
+    });
+  }
+
+  /**
+   * Set a player's subscription tier (Phase 1: manually granted by an admin;
+   * the paid purchase flow waits on the client's pricing). `untilMs` optionally
+   * sets an expiry; NONE clears any expiry.
+   */
+  async setSubscription(userId: string, subscription: Subscription, untilMs?: number): Promise<User> {
+    await this.requireUser(userId);
+    const subscriptionUntil =
+      subscription === 'NONE' ? null : untilMs != null ? new Date(untilMs) : null;
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { subscription, subscriptionUntil },
     });
   }
 

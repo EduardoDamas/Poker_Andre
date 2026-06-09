@@ -30,6 +30,10 @@ model User {
   birthDate    DateTime // 18+ enforced at registration
   role         Role     @default(PLAYER)
   status       UserStatus @default(ACTIVE)
+  // Subscription tier — drives entry-fee discount (§5) and prize-share (§6).
+  subscription Subscription @default(NONE)
+  // When the subscription expires (null for NONE). Reverts to NONE past this.
+  subscriptionUntil DateTime?
   blockedUntil DateTime?  // temp block expiry; null + BLOCKED = permanent
   blockReason  String?    // why the user was blocked
   createdAt    DateTime @default(now())
@@ -37,6 +41,7 @@ model User {
 
   account      Account?
   withdrawals  Withdrawal[]
+  deposits     Deposit[]
   seats        Seat[]
 
   @@index([status])
@@ -45,6 +50,16 @@ model User {
 enum Role {
   PLAYER
   ADMIN
+}
+
+// Subscription tiers (CAPACONTEST §5/§6). Higher tiers = cheaper entry + bigger
+// prize share. Purchase prices are not yet provided by the client (§8).
+enum Subscription {
+  NONE
+  MONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
 }
 
 enum UserStatus {
@@ -145,6 +160,36 @@ model Withdrawal {
 enum WithdrawalStatus {
   REQUESTED
   PAID
+  REJECTED
+}
+
+// ---------------------------------------------------------------------
+// DEPOSITS (Phase 1 = manual Pix, confirmed by admin)
+// ---------------------------------------------------------------------
+
+// A player declares an incoming Pix; the admin confirms receipt and the wallet
+// is credited (EXTERNAL -> PLAYER). Mirrors the manual withdrawal flow. A real
+// payment-gateway integration (auto-confirm via webhook) is a Phase-2 swap.
+model Deposit {
+  id           String        @id @default(uuid())
+  user         User          @relation(fields: [userId], references: [id])
+  userId       String
+  amountCents  BigInt
+  // Optional Pix end-to-end id / proof the player provides.
+  pixReference String?
+  status       DepositStatus @default(REQUESTED)
+  creditTxnId  String?       // ledger txn id once credited
+  adminNote    String?
+  requestedAt  DateTime      @default(now())
+  settledAt    DateTime?
+
+  @@index([status])
+  @@index([userId])
+}
+
+enum DepositStatus {
+  REQUESTED
+  CONFIRMED
   REJECTED
 }
 

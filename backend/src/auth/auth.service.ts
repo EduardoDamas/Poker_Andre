@@ -11,7 +11,10 @@ import { isValidCpf, normalizeCpf } from './cpf';
 import { isAdult } from './age';
 import { RegisterDto } from './dto/register.dto';
 
-export type PublicUser = Pick<User, 'id' | 'phone' | 'displayName' | 'status'>;
+export type PublicUser = Pick<
+  User,
+  'id' | 'phone' | 'displayName' | 'status' | 'subscription'
+>;
 
 @Injectable()
 export class AuthService {
@@ -73,6 +76,7 @@ export class AuthService {
       phone: user.phone,
       displayName: user.displayName,
       status: user.status,
+      subscription: user.subscription,
     };
   }
 }
