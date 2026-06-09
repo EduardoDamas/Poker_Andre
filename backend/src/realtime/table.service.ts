@@ -3,6 +3,8 @@ import { Card } from '../poker/deck';
 import { Action, ActionType } from '../poker/betting-round';
 import { PokerHand } from '../poker/hand';
 import { SettlementService } from '../wallet/settlement.service';
+import { TournamentService, TournamentPayout } from '../tournament/tournament.service';
+import { Subscription } from '../tournament/subscription';
 import { decideRobotAction } from './bot-brain';
 
 /**
@@ -18,14 +20,31 @@ import { decideRobotAction } from './bot-brain';
  * State is in-process for now; Step D4 moves live state into Redis for scale.
  */
 
-const BUY_IN = 100; // chips == cents for Phase 1
+const BUY_IN = 100; // chips == cents for Phase 1 (practice/cash hands)
 const SMALL_BLIND = 1;
 const BIG_BLIND = 2;
+const TOURNEY_STARTING_STACK = 1000; // tournament chips (not money)
 
 interface SeatSlot {
   userId: string;
   socketId: string;
   isRobot?: boolean;
+}
+
+/**
+ * Single-table elimination tournament context. Money moves ONCE: each real
+ * player's entry fee (V.I.) is escrowed on join, and the last player standing
+ * is paid the prize at the end. Between those, play is in tournament CHIPS
+ * (TOURNEY_STARTING_STACK), carried across hands until a player busts to 0.
+ */
+interface TournamentCtx {
+  level: number;
+  capacity: number; // seats defining 100% occupancy (= maxSeats)
+  entries: Map<string, Subscription>; // real players who paid, by userId
+  stacks: Record<string, number>; // persistent chip stacks across hands
+  eliminated: Set<string>;
+  started: boolean;
+  settled: boolean;
 }
 
 interface Table {
@@ -36,6 +55,7 @@ interface Table {
   hand: PokerHand | null;
   buyIns: Record<string, bigint>;
   handCount: number;
+  tournament: TournamentCtx | null;
 }
 
 export interface PublicSeat {
@@ -59,18 +79,30 @@ export interface GameState {
   legalActions: ActionType[];
 }
 
+export interface TournamentStatus {
+  over: boolean;
+  remaining: number;
+  winnerId?: string;
+  prizeCents?: number; // money paid to the winner (cents)
+  multiplier?: number;
+}
+
 export interface HandResultPayload {
   board: Card[];
   pots: { amount: number; winnerIds: string[] }[];
   payouts: Record<string, number>;
   finalStacks: Record<string, number>;
+  tournament?: TournamentStatus;
 }
 
 @Injectable()
 export class TableService {
   private readonly tables = new Map<string, Table>();
 
-  constructor(private readonly settlement: SettlementService) {}
+  constructor(
+    private readonly settlement: SettlementService,
+    private readonly tournament: TournamentService,
+  ) {}
 
   getTable(id: string): Table | undefined {
     return this.tables.get(id);
@@ -88,10 +120,76 @@ export class TableService {
         hand: null,
         buyIns: {},
         handCount: 0,
+        tournament: null,
       };
       this.tables.set(id, table);
     }
     return table;
+  }
+
+  isTournament(table: Table): boolean {
+    return table.tournament !== null;
+  }
+
+  /**
+   * Mark a table as a money tournament for [level]. Idempotent; only allowed
+   * before the first hand. Returns the (now tournament-mode) table.
+   */
+  enableTournament(id: string, level: number, maxSeats = 8): Table {
+    const table = this.getOrCreate(id, maxSeats);
+    if (!table.tournament && !table.handInProgress) {
+      table.tournament = {
+        level,
+        capacity: table.maxSeats,
+        entries: new Map(),
+        stacks: {},
+        eliminated: new Set(),
+        started: false,
+        settled: false,
+      };
+    }
+    return table;
+  }
+
+  /**
+   * Record that a real player paid the entry fee and joins the tournament with a
+   * fresh chip stack. Call AFTER the gateway has escrowed their entry.
+   */
+  recordTournamentEntry(table: Table, userId: string, subscription: Subscription): void {
+    const t = table.tournament;
+    if (!t) throw new Error('Not a tournament table.');
+    if (!t.entries.has(userId)) {
+      t.entries.set(userId, subscription);
+      t.stacks[userId] = TOURNEY_STARTING_STACK;
+    }
+  }
+
+  /**
+   * Escrow a real player's entry fee and seat them in the tournament with a
+   * fresh chip stack. Idempotent: a reconnecting/duplicate join does not
+   * double-charge. Throws (insufficient balance) only on the first entry.
+   */
+  async enterTournament(table: Table, userId: string, subscription: Subscription): Promise<void> {
+    const t = table.tournament;
+    if (!t || t.entries.has(userId)) return;
+    await this.tournament.escrowEntry({
+      tournamentId: table.id,
+      userId,
+      level: t.level,
+      subscription,
+    });
+    this.recordTournamentEntry(table, userId, subscription);
+  }
+
+  /** Real, paid, not-yet-eliminated players still in the tournament. */
+  private liveEntrants(table: Table): string[] {
+    const t = table.tournament!;
+    return [...t.entries.keys()].filter((id) => !t.eliminated.has(id) && (t.stacks[id] ?? 0) > 0);
+  }
+
+  tournamentReadyToStart(table: Table): boolean {
+    const t = table.tournament;
+    return !!t && !t.started && !table.handInProgress && this.liveEntrants(table).length >= 2;
   }
 
   join(
@@ -177,6 +275,8 @@ export class TableService {
 
   /** Start a new hand if ≥2 are seated and none is in progress. */
   startHand(table: Table): boolean {
+    if (table.tournament) return this.startTournamentHand(table);
+
     const seated = this.seatedSlots(table);
     if (table.handInProgress || seated.length < 2) return false;
 
@@ -184,6 +284,23 @@ export class TableService {
     for (const s of seated) table.buyIns[s.userId] = BigInt(BUY_IN);
     table.hand = new PokerHand(
       seated.map((s) => ({ id: s.userId, stack: BUY_IN })),
+      { smallBlind: SMALL_BLIND, bigBlind: BIG_BLIND },
+    );
+    table.handInProgress = true;
+    return true;
+  }
+
+  // Tournament hand: seat only the live entrants, each with their CURRENT chip
+  // stack carried over from previous hands. No per-hand money settlement.
+  private startTournamentHand(table: Table): boolean {
+    const t = table.tournament!;
+    if (table.handInProgress || t.settled) return false;
+    const live = this.liveEntrants(table);
+    if (live.length < 2) return false;
+
+    t.started = true;
+    table.hand = new PokerHand(
+      live.map((id) => ({ id, stack: t.stacks[id] })),
       { smallBlind: SMALL_BLIND, bigBlind: BIG_BLIND },
     );
     table.handInProgress = true;
@@ -237,10 +354,6 @@ export class TableService {
     if (!table.hand.isComplete()) return { complete: false };
 
     const out = table.hand.result();
-    // No deductions in robot/mixed matches — only ALL-real matches touch wallets.
-    if (!this.hasRobots(table)) {
-      await this.settle(table, out.finalStacks);
-    }
 
     const payload: HandResultPayload = {
       board: out.board,
@@ -250,7 +363,61 @@ export class TableService {
     };
     table.hand = null;
     table.handInProgress = false;
+
+    if (table.tournament) {
+      payload.tournament = await this.applyTournamentHandResult(table, out.finalStacks);
+    } else if (!this.hasRobots(table)) {
+      // No deductions in robot/mixed matches — only ALL-real cash hands settle.
+      await this.settle(table, out.finalStacks);
+    }
+
     return { complete: true, result: payload };
+  }
+
+  /**
+   * After a tournament hand: carry over chip stacks, eliminate busted players,
+   * and if only one entrant remains, settle the money prize to the winner.
+   * Returns tournament status for the gateway to broadcast.
+   */
+  private async applyTournamentHandResult(
+    table: Table,
+    finalStacks: Record<string, number>,
+  ): Promise<TournamentStatus> {
+    const t = table.tournament!;
+    for (const id of t.entries.keys()) {
+      if (finalStacks[id] !== undefined) t.stacks[id] = finalStacks[id];
+      if ((t.stacks[id] ?? 0) <= 0) t.eliminated.add(id);
+    }
+
+    const live = this.liveEntrants(table);
+    if (live.length > 1) {
+      return { over: false, remaining: live.length };
+    }
+
+    // Tournament over — pay the last player standing.
+    const winnerId = live[0] ?? [...t.entries.keys()].find((id) => !t.eliminated.has(id))!;
+    let payout: TournamentPayout | undefined;
+    if (!t.settled) {
+      t.settled = true;
+      payout = await this.tournament.settle({
+        tournamentId: table.id,
+        level: t.level,
+        winnerId,
+        winnerSubscription: t.entries.get(winnerId) ?? 'NONE',
+        participants: [...t.entries.entries()].map(([userId, subscription]) => ({
+          userId,
+          subscription,
+        })),
+        capacity: t.capacity,
+      });
+    }
+    return {
+      over: true,
+      remaining: 1,
+      winnerId,
+      prizeCents: payout ? Number(payout.winnerCents) : undefined,
+      multiplier: payout?.multiplier,
+    };
   }
 
   private async settle(table: Table, finalStacks: Record<string, number>): Promise<void> {

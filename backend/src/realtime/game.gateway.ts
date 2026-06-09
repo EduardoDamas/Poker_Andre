@@ -20,6 +20,9 @@ const room = (tableId: string) => `table:${tableId}`;
 interface JoinPayload {
   tableId: string;
   maxSeats?: number;
+  // When set, this is a MONEY tournament room of the given level (1..7): the
+  // entry fee (V.I.) is escrowed on join and the winner is paid the prize.
+  level?: number;
 }
 interface Ack {
   ok: boolean;
@@ -56,6 +59,15 @@ export class GameGateway implements OnGatewayConnection {
     return !user || isBlocked(user);
   }
 
+  // The player's effective subscription tier (reverts to NONE past expiry).
+  private async _subscriptionOf(userId: string): Promise<'NONE' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL'> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return 'NONE';
+    if (user.subscription === 'NONE') return 'NONE';
+    if (user.subscriptionUntil && user.subscriptionUntil.getTime() < Date.now()) return 'NONE';
+    return user.subscription;
+  }
+
   async handleConnection(client: Socket): Promise<void> {
     const token = this.extractToken(client);
     if (!token) return this.reject(client, 'Missing token.');
@@ -88,12 +100,21 @@ export class GameGateway implements OnGatewayConnection {
     const user = (client.data as SocketData).user;
     if (await this._blocked(user.sub)) return { ok: false, error: 'Conta bloqueada.' };
     try {
+      // Money tournament room: mark the table and escrow the entry fee BEFORE
+      // seating. If the wallet is short, escrow throws and the player isn't seated.
+      if (body.level) {
+        const t = this.tables.enableTournament(body.tableId, body.level, body.maxSeats);
+        const sub = await this._subscriptionOf(user.sub);
+        await this.tables.enterTournament(t, user.sub, sub);
+      }
+
       const { table, position, rejoined } = this.tables.join(
         body.tableId, user.sub, client.id, body.maxSeats);
       client.join(room(body.tableId));
 
-      const started =
-        !table.handInProgress && this.tables.seatedCount(table) >= 2
+      const started = this.tables.isTournament(table)
+        ? this.tables.tournamentReadyToStart(table) && this.tables.startHand(table)
+        : !table.handInProgress && this.tables.seatedCount(table) >= 2
           ? this.tables.startHand(table)
           : false;
 
@@ -123,6 +144,7 @@ export class GameGateway implements OnGatewayConnection {
         this.driveRobots(body.tableId);
       } else if (
         process.env.ROBOTS_FILL === '1' &&
+        !this.tables.isTournament(table) && // robots never join money tournaments
         !table.handInProgress &&
         this.tables.realPlayerCount(table) === 1
       ) {
@@ -175,6 +197,21 @@ export class GameGateway implements OnGatewayConnection {
     }, 600);
   }
 
+  // Deal the next hand of an in-progress tournament and broadcast each player
+  // their private hole cards plus the public state.
+  private continueTournament(tableId: string): void {
+    const table = this.tables.getTable(tableId);
+    if (!table || table.handInProgress || !this.tables.isTournament(table)) return;
+    // startHand → startTournamentHand gates on ≥2 live entrants / not settled.
+    if (!this.tables.startHand(table)) return;
+    this.server.to(room(tableId)).emit('table:state', this.tables.publicState(table));
+    for (const p of this.tables.seatedPlayers(table)) {
+      const hole = this.tables.holeFor(table, p.userId);
+      if (hole) this.server.to(p.socketId).emit('hand:hole', { cards: hole });
+    }
+    this.broadcastGameState(tableId);
+  }
+
   @SubscribeMessage('hand:action')
   async onAction(
     @ConnectedSocket() client: Socket,
@@ -190,6 +227,10 @@ export class GameGateway implements OnGatewayConnection {
         // Reflect the finished hand in the seating state.
         const table = this.tables.getTable(body.tableId);
         if (table) this.server.to(room(body.tableId)).emit('table:state', this.tables.publicState(table));
+        // Tournament that isn't over yet → deal the next hand automatically.
+        if (table && this.tables.isTournament(table) && res.result.tournament && !res.result.tournament.over) {
+          setTimeout(() => this.continueTournament(body.tableId), 1500);
+        }
       } else {
         this.broadcastGameState(body.tableId);
         this.driveRobots(body.tableId); // if the next actor is a robot

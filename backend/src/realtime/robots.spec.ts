@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { LedgerService } from '../wallet/ledger.service';
 import { WalletService } from '../wallet/wallet.service';
 import { SettlementService } from '../wallet/settlement.service';
+import { TournamentService } from '../tournament/tournament.service';
 import { TableService } from './table.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { resetDb } from '../test-utils/reset-db';
@@ -21,7 +22,8 @@ describe('TableService robots', () => {
     const ledger = new LedgerService(prisma as unknown as PrismaService);
     wallet = new WalletService(prisma as unknown as PrismaService, ledger);
     const settlement = new SettlementService(prisma as unknown as PrismaService, ledger, wallet);
-    tables = new TableService(settlement);
+    const tournament = new TournamentService(prisma as unknown as PrismaService, ledger, wallet);
+    tables = new TableService(settlement, tournament);
   });
 
   afterAll(async () => {

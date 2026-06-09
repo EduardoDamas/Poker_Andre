@@ -99,6 +99,24 @@ export class PokerHand {
     return this.round?.actingPlayerId ?? null;
   }
 
+  /** Remaining stack (chips behind) of the player to act, or 0. */
+  get actingStack(): number {
+    const id = this.round?.actingPlayerId;
+    if (!id) return 0;
+    return this.round?.players.find((p) => p.id === id)?.stack ?? 0;
+  }
+
+  /** Chips the player to act has already committed this street. */
+  get actingCommitted(): number {
+    const id = this.round?.actingPlayerId;
+    if (!id) return 0;
+    return this.round?.players.find((p) => p.id === id)?.committed ?? 0;
+  }
+
+  get currentBet(): number {
+    return this.round?.currentBet ?? 0;
+  }
+
   holeCardsOf(id: string): [Card, Card] {
     return this.hole[id];
   }
