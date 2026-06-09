@@ -3,6 +3,7 @@ import '../api/auth_api.dart';
 import '../api/tables_api.dart';
 import '../game/game_connection.dart';
 import '../models/table_info.dart';
+import '../format.dart';
 import '../theme.dart';
 import '../widgets/premium.dart';
 import 'table_screen.dart';
@@ -46,17 +47,48 @@ class _LobbyScreenState extends State<LobbyScreen> {
     });
   }
 
-  void _open(TableInfo table) {
+  Future<void> _open(TableInfo table) async {
+    // Money tournament room: confirm the entry fee (V.I.) before charging.
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Brand.surface,
+        title: Text(table.name, style: Brand.h3),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Inscrição: ${table.entryLabel}', style: Brand.label.copyWith(color: Brand.gold)),
+          const SizedBox(height: 8),
+          Text('O valor é debitado da sua carteira ao entrar. O vencedor do '
+              'torneio recebe o prêmio conforme a ocupação da sala.', style: Brand.caption),
+          const SizedBox(height: 8),
+          Text('Seu saldo: ${brl(_balance)}', style: Brand.caption),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Entrar e pagar')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    if (_balance < table.entryCents) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saldo insuficiente. Faça um depósito na Carteira.')));
+      return;
+    }
+
     final connection = SocketGameConnection(
       baseUrl: widget.api.baseUrl,
       token: widget.session.accessToken,
       userId: widget.session.userId,
       tableId: table.id,
       maxSeats: table.maxSeats,
+      level: table.level, // tournament room → entry fee charged
     );
     Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => TableScreen(connection: connection, title: table.name)),
-    ).then((_) => _reload());
+    ).then((_) {
+      _reload();
+      _fetchBalance();
+    });
   }
 
   @override

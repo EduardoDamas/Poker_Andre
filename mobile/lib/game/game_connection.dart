@@ -17,6 +17,8 @@ class SocketGameConnection implements GameConnection {
   final String tableId;
   final String userId;
   final int maxSeats;
+  // When set, joins as a MONEY tournament room of this level (entry fee charged).
+  final int? level;
   final io.Socket _socket;
   final _controller = StreamController<GameSnapshot>.broadcast();
   GameSnapshot _snapshot = const GameSnapshot();
@@ -27,6 +29,7 @@ class SocketGameConnection implements GameConnection {
     required this.userId,
     required this.tableId,
     this.maxSeats = 8,
+    this.level,
   }) : _socket = io.io(
           baseUrl,
           io.OptionBuilder()
@@ -47,7 +50,9 @@ class SocketGameConnection implements GameConnection {
   void _wire() {
     _socket.on('connected', (_) {
       _emit(_snapshot.copyWith(status: ConnStatus.connected));
-      _socket.emit('table:join', {'tableId': tableId, 'maxSeats': maxSeats});
+      final join = <String, dynamic>{'tableId': tableId, 'maxSeats': maxSeats};
+      if (level != null) join['level'] = level; // money tournament room
+      _socket.emit('table:join', join);
     });
     _socket.on('hand:hole', (data) {
       final cards = (data['cards'] as List).cast<String>();
@@ -66,13 +71,38 @@ class SocketGameConnection implements GameConnection {
     _socket.on('hand:result', (data) {
       final payouts = (data['payouts'] as Map?) ?? const {};
       final mine = (payouts[userId] as num?)?.toInt() ?? 0;
+      final tourn = data['tournament'] as Map?;
+
+      String text;
+      int? prizeCents;
+      if (tourn != null) {
+        // Money tournament hand.
+        if (tourn['over'] == true) {
+          final won = tourn['winnerId'] == userId;
+          if (won) {
+            prizeCents = (tourn['prizeCents'] as num?)?.toInt();
+            text = 'Você venceu o torneio! 🏆';
+          } else {
+            text = 'Torneio encerrado. Mais sorte na próxima!';
+          }
+        } else {
+          final remaining = (tourn['remaining'] as num?)?.toInt() ?? 0;
+          text = mine > 0
+              ? 'Você venceu a mão! ($remaining jogadores restantes)'
+              : 'Mão encerrada. ($remaining jogadores restantes)';
+        }
+      } else {
+        text = mine > 0 ? 'Você ganhou $mine fichas!' : 'Mão encerrada.';
+      }
+
       _emit(_snapshot.copyWith(
         street: 'complete',
         board: (data['board'] as List? ?? const []).cast<String>(),
         handComplete: true,
         isMyTurn: false,
         legalActions: const [],
-        resultText: mine > 0 ? 'Você ganhou $mine fichas!' : 'Mão encerrada.',
+        resultText: text,
+        prizeCents: prizeCents,
       ));
     });
     _socket.on('unauthorized', (_) {
