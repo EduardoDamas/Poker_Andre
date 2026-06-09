@@ -14,35 +14,33 @@ function stubFetch(handler: (url: string) => { status: number; body: unknown }) 
   }));
 }
 
-describe('Login', () => {
-  it('phone → code → onAuthed with the token', async () => {
-    stubFetch((url) => {
-      if (url.includes('/auth/otp/verify')) {
-        return { status: 200, body: { accessToken: 'jwt-123', user: { id: 'a', displayName: 'Admin', status: 'ACTIVE' } } };
-      }
-      return { status: 200, body: {} };
-    });
+describe('Login (admin username/password)', () => {
+  it('logs in and calls onAuthed with the token', async () => {
+    stubFetch((url) =>
+      url.includes('/admin/auth/login')
+        ? { status: 200, body: { accessToken: 'jwt-123' } }
+        : { status: 200, body: {} },
+    );
     const onAuthed = vi.fn();
     render(<Login onAuthed={onAuthed} />);
 
-    await userEvent.type(screen.getByLabelText('Telefone'), '+5511990000000');
-    await userEvent.click(screen.getByRole('button', { name: 'Enviar código' }));
-
-    await userEvent.type(await screen.findByLabelText('Código'), '123456');
+    await userEvent.type(screen.getByLabelText('Usuário'), 'admin');
+    await userEvent.type(screen.getByLabelText('Senha'), 'secret');
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
     expect(onAuthed).toHaveBeenCalledWith('jwt-123');
   });
 
-  it('shows an error on a wrong code', async () => {
-    stubFetch((url) => (url.includes('/verify') ? { status: 401, body: null } : { status: 200, body: {} }));
+  it('shows an error on wrong credentials', async () => {
+    stubFetch((url) =>
+      url.includes('/admin/auth/login') ? { status: 401, body: null } : { status: 200, body: {} },
+    );
     render(<Login onAuthed={() => {}} />);
 
-    await userEvent.type(screen.getByLabelText('Telefone'), '+5511990000000');
-    await userEvent.click(screen.getByRole('button', { name: 'Enviar código' }));
-    await userEvent.type(await screen.findByLabelText('Código'), '000000');
+    await userEvent.type(screen.getByLabelText('Usuário'), 'admin');
+    await userEvent.type(screen.getByLabelText('Senha'), 'wrong');
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }));
 
-    expect(await screen.findByText(/Código inválido/)).toBeInTheDocument();
+    expect(await screen.findByText(/incorretos/)).toBeInTheDocument();
   });
 });

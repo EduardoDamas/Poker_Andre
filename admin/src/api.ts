@@ -32,6 +32,7 @@ export interface Player {
   phone: string;
   status: string;
   role: string;
+  subscription: string;
   balanceCents: string;
   blocked: boolean;
   blockedUntil: string | null;
@@ -48,6 +49,19 @@ export interface Withdrawal {
   settledAt: string | null;
   adminNote: string | null;
 }
+
+export interface Deposit {
+  id: string;
+  userId: string;
+  amountCents: string;
+  pixReference: string | null;
+  status: string;
+  requestedAt: string;
+  settledAt: string | null;
+  adminNote: string | null;
+}
+
+export type SubscriptionTier = 'NONE' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
 
 export interface Session {
   accessToken: string;
@@ -99,4 +113,26 @@ export const api = {
     ),
   unblockUser: (token: string, id: string) =>
     request<{ ok: true }>(`/admin/users/${id}/unblock`, { method: 'POST' }, token),
+  // Deposits (manual Pix).
+  deposits: (token: string, status?: string) =>
+    request<Deposit[]>(`/admin/deposits${status ? `?status=${status}` : ''}`, {}, token),
+  confirmDeposit: (token: string, id: string, adminNote?: string) =>
+    request<Deposit>(
+      `/admin/deposits/${id}/confirm`,
+      { method: 'POST', body: JSON.stringify({ adminNote }) },
+      token,
+    ),
+  rejectDeposit: (token: string, id: string, adminNote?: string) =>
+    request<Deposit>(
+      `/admin/deposits/${id}/reject`,
+      { method: 'POST', body: JSON.stringify({ adminNote }) },
+      token,
+    ),
+  // Subscription grant.
+  grantSubscription: (token: string, id: string, subscription: SubscriptionTier, untilMs?: number) =>
+    request<{ ok: true }>(
+      `/admin/users/${id}/subscription`,
+      { method: 'POST', body: JSON.stringify({ subscription, untilMs }) },
+      token,
+    ),
 };

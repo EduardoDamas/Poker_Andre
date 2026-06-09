@@ -2,15 +2,16 @@ import { useState } from 'react';
 import { Login } from './components/Login';
 import { Players } from './components/Players';
 import { Withdrawals } from './components/Withdrawals';
+import { Deposits } from './components/Deposits';
 import { OtpRequests } from './components/OtpRequests';
 
 const TOKEN_KEY = 'capa_admin_token';
 
-type Tab = 'withdrawals' | 'players' | 'otp';
+type Tab = 'deposits' | 'withdrawals' | 'players' | 'otp';
 
 export function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
-  const [tab, setTab] = useState<Tab>('withdrawals');
+  const [tab, setTab] = useState<Tab>('deposits');
   const [forbidden, setForbidden] = useState(false);
 
   function authed(t: string) {
@@ -43,6 +44,9 @@ export function App() {
           <span className="red">CAPA</span> CONTEST · Admin
         </span>
         <nav>
+          <button className={tab === 'deposits' ? 'active' : ''} onClick={() => setTab('deposits')}>
+            Depósitos
+          </button>
           <button className={tab === 'withdrawals' ? 'active' : ''} onClick={() => setTab('withdrawals')}>
             Saques
           </button>
@@ -56,7 +60,9 @@ export function App() {
         </nav>
       </header>
       <main>
-        {tab === 'withdrawals' ? (
+        {tab === 'deposits' ? (
+          <Deposits token={token} onForbidden={onForbidden} />
+        ) : tab === 'withdrawals' ? (
           <Withdrawals token={token} onForbidden={onForbidden} />
         ) : tab === 'players' ? (
           <Players token={token} onForbidden={onForbidden} />

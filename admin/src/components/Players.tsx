@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, Player, ApiError } from '../api';
+import { api, Player, ApiError, SubscriptionTier } from '../api';
 import { formatBRL } from '../money';
+
+const SUB_LABELS: Record<string, string> = {
+  NONE: 'Sem assinatura',
+  MONTHLY: 'Mensal',
+  QUARTERLY: 'Trimestral',
+  SEMIANNUAL: 'Semestral',
+  ANNUAL: 'Anual',
+};
+const SUB_TIERS: SubscriptionTier[] = ['NONE', 'MONTHLY', 'QUARTERLY', 'SEMIANNUAL', 'ANNUAL'];
 
 export function Players({ token, onForbidden }: { token: string; onForbidden: () => void }) {
   const [players, setPlayers] = useState<Player[] | null>(null);
@@ -52,6 +61,17 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
     run(p.id, () => api.unblockUser(token, p.id));
   }
 
+  function changeSubscription(p: Player, sub: SubscriptionTier) {
+    if (sub === p.subscription) return;
+    let untilMs: number | undefined;
+    if (sub !== 'NONE') {
+      const days = Number(prompt(`Assinatura ${SUB_LABELS[sub]} válida por quantos dias?`, '30'));
+      if (!days || days <= 0) return;
+      untilMs = Date.now() + days * 24 * 3600 * 1000;
+    }
+    run(p.id, () => api.grantSubscription(token, p.id, sub, untilMs));
+  }
+
   if (error) return <p className="error">{error}</p>;
   if (!players) return <p className="muted">Carregando…</p>;
 
@@ -62,6 +82,7 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
           <th>Jogador</th>
           <th>Telefone</th>
           <th>Status</th>
+          <th>Assinatura</th>
           <th>Saldo</th>
           <th>Ações</th>
         </tr>
@@ -72,6 +93,21 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
             <td>{p.displayName}{p.role === 'ADMIN' ? ' 🛡' : ''}</td>
             <td>{p.phone}</td>
             <td><StatusBadge p={p} /></td>
+            <td>
+              {p.role === 'ADMIN' ? (
+                <span className="muted">—</span>
+              ) : (
+                <select
+                  value={p.subscription}
+                  disabled={busy === p.id}
+                  onChange={(e) => changeSubscription(p, e.target.value as SubscriptionTier)}
+                >
+                  {SUB_TIERS.map((t) => (
+                    <option key={t} value={t}>{SUB_LABELS[t]}</option>
+                  ))}
+                </select>
+              )}
+            </td>
             <td>{formatBRL(p.balanceCents)}</td>
             <td>
               {p.role === 'ADMIN' ? (
