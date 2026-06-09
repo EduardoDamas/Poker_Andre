@@ -90,6 +90,28 @@ Prize = **entry fee + 50%**.
 ## 8. Still to obtain (in the PDF, request when building those modules)
 
 - Subscription **prices** (Mensal/Trimestral/Semestral/Anual) for Card + Pix.
+  → BLOCKS the paid subscription-purchase flow. Tiers can already be granted
+  manually by an admin (POST /admin/users/:id/subscription).
 - "Rodada da Sorte" prize details.
 - Loser-streak prize keys.
 - Referral logic (20% credit + trackable codes + reports).
+
+## 9. Implementation status (Phase 1)
+
+| Area | Status |
+|---|---|
+| Prize multiplier by occupancy (§1) | ✅ `poker/prize-table.ts` + tested |
+| Entry fee by level × subscription (§5) | ✅ `tournament/subscription.ts` + tested |
+| Prize-share % by subscription (§6) | ✅ `tournament/subscription.ts` + tested |
+| Tournament entry escrow + prize payout | ✅ `tournament/tournament.service.ts` + tested (double-entry conserved) |
+| Manual Pix deposit (player + admin confirm) | ✅ `wallet/deposit.service.ts` + admin UI |
+| Manual Pix withdrawal | ✅ existing `wallet/withdrawal.service.ts` + admin UI |
+| Subscription tier (grant by admin) | ✅ `User.subscription` + admin UI dropdown |
+| **Live tournament play** (entry on join → elimination → prize) | ⏳ money flow ready; realtime wiring pending product decision |
+| Eliminatory phases (§3, 800→100→16→2) | ⏳ multi-table model — Phase 2 |
+| Subscription **purchase** (paid) | 🚫 blocked on prices (§8) |
+| Automated Pix gateway | 🚫 blocked on client merchant account + licence |
+
+> Phase-1 occupancy basis: one 8-seat table IS the room (full table = 100% =
+> 200×V.I.), matching the mobile solo prize display. The full 800-player /
+> 100-table model with eliminatory phases is Phase 2.
