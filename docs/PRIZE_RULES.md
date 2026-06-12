@@ -107,7 +107,7 @@ Prize = **entry fee + 50%**.
 | Manual Pix deposit (player + admin confirm) | ✅ `wallet/deposit.service.ts` + admin UI |
 | Manual Pix withdrawal | ✅ existing `wallet/withdrawal.service.ts` + admin UI |
 | Subscription tier (grant by admin) | ✅ `User.subscription` + admin UI dropdown |
-| **Live tournament play** (entry on join → elimination → prize) | ⏳ money flow ready; realtime wiring pending product decision |
+| **Live tournament play** (entry on join → elimination → prize) | ✅ single-table elimination wired (realtime + mobile), tested |
 | Eliminatory phases (§3, 800→100→16→2) | ⏳ multi-table model — Phase 2 |
 | Subscription **purchase** (paid) | 🚫 blocked on prices (§8) |
 | Automated Pix gateway | 🚫 blocked on client merchant account + licence |

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../api/auth_api.dart';
 import '../theme.dart';
+import '../util/date_br.dart';
 import '../widgets/premium.dart';
 import 'login_screen.dart';
 
@@ -40,13 +42,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    // User types DD/MM/AAAA; the API expects ISO (AAAA-MM-DD).
+    final isoBirth = brDateToIso(birth);
+    if (isoBirth == null) {
+      setState(() => _error = 'Data de nascimento inválida. Use DD/MM/AAAA.');
+      return;
+    }
+
     setState(() { _busy = true; _error = null; });
     try {
       await widget.api.register(
         phone: phone,
         displayName: name,
         cpf: cpf,
-        birthDate: birth,
+        birthDate: isoBirth,
       );
       if (!mounted) return;
       // Go back to login with phone pre-filled so they can request OTP.
@@ -91,10 +100,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   _Field(controller: _cpf, label: 'CPF', hint: '000.000.000-00',
                       type: TextInputType.number),
                   const SizedBox(height: 16),
-                  _Field(controller: _birth, label: 'Data de nascimento', hint: '1990-01-31',
-                      type: TextInputType.datetime),
+                  _Field(
+                    controller: _birth,
+                    label: 'Data de nascimento',
+                    hint: 'DD/MM/AAAA',
+                    type: TextInputType.number,
+                    formatters: [BrDateInputFormatter()],
+                  ),
                   const SizedBox(height: 8),
-                  Text('Formato: AAAA-MM-DD  (ex: 1990-01-31)',
+                  Text('Formato: DD/MM/AAAA  (ex: 31/01/1990)',
                       style: Brand.micro.copyWith(color: Brand.textTer)),
                   if (_error != null) ...[
                     const SizedBox(height: 16),
@@ -119,11 +133,13 @@ class _Field extends StatelessWidget {
   final String label;
   final String hint;
   final TextInputType type;
+  final List<TextInputFormatter>? formatters;
   const _Field({
     required this.controller,
     required this.label,
     this.hint = '',
     this.type = TextInputType.text,
+    this.formatters,
   });
 
   @override
@@ -131,6 +147,7 @@ class _Field extends StatelessWidget {
     return TextField(
       controller: controller,
       keyboardType: type,
+      inputFormatters: formatters,
       style: Brand.label,
       decoration: InputDecoration(labelText: label, hintText: hint),
     );

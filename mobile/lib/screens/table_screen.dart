@@ -173,7 +173,12 @@ class _TableView extends StatelessWidget {
                   // a "waiting" hint only when no hand has been dealt to me.
                   if (s.board.isNotEmpty)
                     Row(mainAxisAlignment: MainAxisAlignment.center,
-                        children: [for (final c in s.board) PlayingCard(c, width: 46)])
+                        children: [
+                          // Key by position+card so each card animates in once,
+                          // exactly when its street is dealt (flop/turn/river).
+                          for (var i = 0; i < s.board.length; i++)
+                            PlayingCard(s.board[i], width: 46, key: ValueKey('board-$i-${s.board[i]}')),
+                        ])
                   else if (s.holeCards.isNotEmpty || s.handComplete)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -247,7 +252,10 @@ class _TableView extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: s.holeCards.length >= 2
-                      ? [PlayingCard(s.holeCards[0], width: 64), PlayingCard(s.holeCards[1], width: 64)]
+                      ? [
+                          PlayingCard(s.holeCards[0], width: 64, key: ValueKey('hole-0-${s.holeCards[0]}')),
+                          PlayingCard(s.holeCards[1], width: 64, key: ValueKey('hole-1-${s.holeCards[1]}')),
+                        ]
                       : const [CardBack(width: 64), CardBack(width: 64)],
                 ),
               ),
