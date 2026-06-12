@@ -22,17 +22,25 @@ export class OtpRelayController {
 
   // --- Admin password login ---
 
-  /** POST /admin/auth/login  { username, password } → { accessToken } */
+  /** POST /admin/auth/login  { username, password } → { accessToken }
+   *
+   * Open mode: when ADMIN_OPEN=1 the panel needs no credentials (any request
+   * gets an admin token). Use ONLY for a private/demo deployment — never leave
+   * it on for a publicly reachable money panel.
+   */
   @Post('auth/login')
   async login(
     @Body() body: { username?: string; password?: string },
   ): Promise<{ accessToken: string }> {
-    const expectedUser = this.config.get<string>('ADMIN_USERNAME') ?? 'admin';
-    const expectedPass = this.config.get<string>('ADMIN_PASSWORD');
-    if (!expectedPass) throw new UnauthorizedException('Admin credentials not configured.');
+    const open = this.config.get<string>('ADMIN_OPEN') === '1';
 
-    if (body.username !== expectedUser || body.password !== expectedPass) {
-      throw new UnauthorizedException('Usuário ou senha incorretos.');
+    if (!open) {
+      const expectedUser = this.config.get<string>('ADMIN_USERNAME') ?? 'admin';
+      const expectedPass = this.config.get<string>('ADMIN_PASSWORD');
+      if (!expectedPass) throw new UnauthorizedException('Admin credentials not configured.');
+      if (body.username !== expectedUser || body.password !== expectedPass) {
+        throw new UnauthorizedException('Usuário ou senha incorretos.');
+      }
     }
 
     const accessToken = await this.jwt.signAsync({
