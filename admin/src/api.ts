@@ -1,6 +1,9 @@
 // Client for the CAPA CONTEST admin/auth endpoints.
+// Defaults to the Railway production backend; override with VITE_API_BASE
+// (e.g. http://localhost:3000 for local backend dev).
 const BASE: string =
-  (import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE ?? 'http://localhost:3000';
+  (import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE ??
+  'https://capa-contest-api-production.up.railway.app';
 
 export class ApiError extends Error {
   status: number;
