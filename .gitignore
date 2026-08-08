@@ -46,3 +46,4 @@ coverage/
 
 # Docker volumes (local data)
 .docker-data/
+.render-key.txt

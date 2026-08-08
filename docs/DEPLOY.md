@@ -1,60 +1,47 @@
-# Deploying the CAPA CONTEST backend
+# CAPA CONTEST — Deploy Runbook (test launch)
 
-The backend is a single Docker image ([backend/Dockerfile](../backend/Dockerfile)).
-It needs **PostgreSQL** and **Redis**, and these env vars:
+Goal: a public backend + hosted Postgres so the Play Store internal-testing build works
+for real testers, and the privacy-policy URL resolves.
 
-| Var | Purpose |
-|---|---|
-| `DATABASE_URL` | Postgres connection string |
-| `REDIS_URL` | Redis connection string |
-| `JWT_SECRET` | long random string (sign/verify tokens) |
-| `JWT_EXPIRES_IN` | e.g. `7d` |
-| `PORT` | provided by the platform; the app binds `0.0.0.0:$PORT` |
-| `OTP_PROVIDER` | `dev` (logs codes) → `twilio`/`zenvia` in production |
+## 1. Backend + Postgres on Render (blueprint)
+The repo ships `render.yaml` (web service + free Postgres + Redis).
 
-On startup the container runs `prisma migrate deploy` (applies pending
-migrations) then launches the server. Health check: `GET /health`.
+1. Push the repo to GitHub (Render deploys from a Git remote).
+2. Render → **New → Blueprint** → pick this repo → Render reads `render.yaml`.
+3. It provisions: `capa-contest-api` (Docker, `/health` check), `capa-postgres`, `capa-redis`.
+   `JWT_SECRET` is auto-generated; `DATABASE_URL`/`REDIS_URL` are wired automatically.
+4. On boot the container runs `prisma migrate deploy` then starts the server.
+5. **Confirm the real service URL** (Render dashboard). The blueprint name yields
+   `https://capa-contest-api.onrender.com`, but if that host is taken you get a suffix.
+   Whatever it is, that exact URL must match the app build (step 3 below) and the
+   Play Console privacy URL.
 
-## Option A — Render (blueprint included)
-1. Push this repo to GitHub.
-2. Render → **New → Blueprint** → select the repo. It reads [render.yaml](../render.yaml):
-   web service (Docker) + managed Postgres + Redis, with env vars wired
-   automatically (`JWT_SECRET` auto-generated).
-3. Deploy. The API comes up at `https://capa-contest-api.onrender.com`.
-> Free tiers sleep/expire — upgrade Postgres + the web service before real use.
+Verify: open `https://<url>/health` → `{"status":"ok","db":"reachable"}` and
+`https://<url>/legal/privacidade` → the privacy page.
 
-## Option B — Railway
-1. Railway → **New Project → Deploy from GitHub repo**; set root to `backend`
-   (it builds the Dockerfile).
-2. Add **PostgreSQL** and **Redis** plugins.
-3. In the service **Variables**, set `DATABASE_URL` and `REDIS_URL` to reference
-   the plugins, plus `JWT_SECRET`, `JWT_EXPIRES_IN=7d`. Railway sets `PORT`.
-4. Deploy; health check `GET /health`.
+## 2. OTP delivery (testers must receive login codes) — DECISION NEEDED
+Current provider only **logs** the code (dev). Hosted testers can't see server logs.
+Pick one before inviting testers:
+- **Real SMS (recommended for launch):** Zenvia (BR) or Twilio. Needs an account + credentials;
+  add a provider + set `OTP_PROVIDER`. Small per-SMS cost.
+- **Closed-test code reveal (temporary):** expose the dev code to the tester in-app.
+  Acceptable ONLY for the trusted internal track with no real money; must be removed
+  before public / real-money launch.
 
-## Option C — Any Docker host (VPS)
-```bash
-docker build -t capa-api ./backend
-docker run -d -p 3000:3000 \
-  -e DATABASE_URL=postgresql://... \
-  -e REDIS_URL=redis://... \
-  -e JWT_SECRET=$(openssl rand -hex 32) \
-  -e JWT_EXPIRES_IN=7d \
-  capa-api
+## 3. App build pointing at the hosted backend
 ```
-
-## Point the app at the deployed API
-```bash
 cd mobile
-flutter build apk --release --dart-define=API_BASE=https://your-api-host
+flutter build appbundle --release --dart-define=API_BASE=https://<real-render-url>
 ```
-(Release APKs need a signing key — the marketing agency / Play Console handles
-store signing; debug APKs install directly for testing.)
+Output: `build/app/outputs/bundle/release/app-release.aab` — signed with the upload
+keystore (`android/upload-keystore.jks`; see release-keystore memory). Upload this AAB.
 
-## Production checklist (before real money)
-- [ ] Legal/compliance for cash-prize gaming (client responsibility) — the gate.
-- [ ] Real SMS OTP provider (Twilio/Zenvia) + credentials.
-- [ ] Restrict CORS / socket origins to the app.
-- [ ] Sentry DSN for error tracking; a global HTTP throttler.
-- [ ] Move `prisma migrate deploy` to a release step if running >1 instance.
-- [ ] Redis adapter for Socket.IO across multiple instances.
-- [ ] Backups on Postgres; rotate `JWT_SECRET` handling.
+## 4. Play Console (internal testing)
+1. Create the app → **Testing → Internal testing** → upload the AAB.
+2. App content: privacy policy = `https://<url>/legal/privacidade`; fill data-safety,
+   ads, content rating; real-money-gaming declaration as required.
+3. Add testers (emails / Google Group), copy the **tester link**, send to André.
+
+## Keystore — back this up off-machine
+`mobile/android/upload-keystore.jks` + `mobile/android/key.properties` are gitignored.
+Losing them = the app can never be updated again. Store both somewhere safe.

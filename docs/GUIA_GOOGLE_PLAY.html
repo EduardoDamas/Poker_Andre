@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>CAPA CONTEST — Guia Google Play</title>
+<style>
+  @page { size: A4; margin: 2cm; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; font-size: 11.5pt; line-height: 1.5; color: #111; }
+  h1 { font-size: 17pt; margin: 0 0 4pt; color: #b1121a; }
+  .sub { color:#555; margin: 0 0 16pt; }
+  h2 { font-size: 13pt; margin: 16pt 0 6pt; border-bottom: 2px solid #eee; padding-bottom: 3pt; }
+  p { margin: 5pt 0; }
+  ol, ul { margin: 5pt 0 8pt; padding-left: 22pt; }
+  li { margin: 4pt 0; }
+  .me { background: #eef6ff; border-left: 3px solid #2b7; padding: 2pt 8pt; border-radius: 3px; }
+  .warn { background: #fff4e5; border-left: 4px solid #e69500; padding: 8pt 12pt; border-radius: 4px; margin: 10pt 0; }
+  .tag { display:inline-block; font-size: 9pt; font-weight: bold; padding: 1pt 6pt; border-radius: 8px; }
+  .tag-a { background:#ffe3e3; color:#b1121a; }
+  .tag-e { background:#e3f0ff; color:#1560b0; }
+  strong { color:#000; }
+</style>
+</head>
+<body>
+<h1>CAPA CONTEST — Envio para testes na Google Play</h1>
+<p class="sub">Passo a passo. <span class="tag tag-a">VOCÊ</span> = passos do André · <span class="tag tag-e">EU</span> = o que o Eduardo entrega pronto.</p>
+
+<h2>0. O que ter em mãos antes de começar</h2>
+<ul>
+  <li>Uma conta Google (de preferência a do e-mail da empresa).</li>
+  <li>Um cartão para a <strong>taxa única de US$ 25</strong> da conta de desenvolvedor.</li>
+  <li>Dados da empresa (CNPJ, endereço) para a verificação — já temos.</li>
+  <li>O link da <strong>Política de Privacidade</strong> — já temos (te envio o link).</li>
+  <li>O <strong>arquivo do app (.aab)</strong> — <span class="tag tag-e">EU</span> te envio pronto.</li>
+</ul>
+
+<h2>1. Criar a conta de desenvolvedor <span class="tag tag-a">VOCÊ</span> (só uma vez)</h2>
+<ol>
+  <li>Acesse <strong>play.google.com/console</strong> e entre com a conta Google da empresa.</li>
+  <li>Escolha o tipo de conta <strong>“Organização/Empresa”</strong> (não “pessoal”).</li>
+  <li>Pague a <strong>taxa única de US$ 25</strong>.</li>
+  <li>Faça a <strong>verificação de identidade e da empresa</strong> (o Google pode pedir documentos do CNPJ). <em>Essa verificação pode levar de 1 a alguns dias — por isso vale começar por ela.</em></li>
+</ol>
+
+<h2>2. Criar o app <span class="tag tag-a">VOCÊ</span></h2>
+<ol>
+  <li>No painel, clique em <strong>“Criar app”</strong>.</li>
+  <li>Nome do app: <strong>CAPA CONTEST</strong>.</li>
+  <li>Idioma padrão: <strong>Português (Brasil)</strong>.</li>
+  <li>Tipo: <strong>Jogo</strong>. Gratuito.</li>
+  <li>Marque as caixas de declaração e confirme.</li>
+</ol>
+
+<h2>3. Preencher o “Conteúdo do app” (declarações obrigatórias) <span class="tag tag-a">VOCÊ</span></h2>
+<p>No menu lateral, em <strong>“Conteúdo do app”</strong>, preencha cada item:</p>
+<ul>
+  <li><strong>Política de Privacidade:</strong> colar o link que eu te enviar.</li>
+  <li><strong>Acesso ao app:</strong> como o app pede login, informar um telefone/código de teste para o Google conseguir entrar — <span class="tag tag-e">EU</span> te passo um acesso de teste.</li>
+  <li><strong>Anúncios:</strong> o app não tem anúncios → “Não”.</li>
+  <li><strong>Classificação de conteúdo:</strong> responder o questionário (jogo com dinheiro real / público adulto).</li>
+  <li><strong>Público-alvo:</strong> selecionar <strong>18 anos ou mais</strong>.</li>
+  <li><strong>Segurança dos dados (Data safety):</strong> declarar os dados coletados (telefone, CPF, etc.) — <span class="tag tag-e">EU</span> te mando a lista exata para preencher certinho.</li>
+</ul>
+
+<h2>4. Enviar o app e criar o teste <span class="tag tag-a">VOCÊ</span> (com o arquivo que eu envio)</h2>
+<ol>
+  <li>No menu <strong>“Testes”</strong>, escolha <strong>“Teste interno”</strong> (é o mais rápido de liberar).</li>
+  <li>Clique em <strong>“Criar nova versão”</strong>.</li>
+  <li>Faça upload do arquivo <strong>.aab</strong> que <span class="tag tag-e">EU</span> te enviar.</li>
+  <li>Preencha as “notas da versão” (pode ser algo simples, ex.: “Versão de teste”).</li>
+  <li>Clique em <strong>“Salvar”</strong> e depois <strong>“Revisar versão”</strong>.</li>
+</ol>
+
+<h2>5. Adicionar os testadores <span class="tag tag-a">VOCÊ</span></h2>
+<ol>
+  <li>Dentro do “Teste interno”, crie uma <strong>lista de testadores</strong> com os e-mails de quem vai testar.</li>
+  <li>Copie o <strong>link de participação</strong> e envie para os testadores — eles abrem o link, aceitam e baixam o app.</li>
+</ol>
+
+<div class="warn">
+<strong>⚠️ Importante — app com dinheiro real.</strong> O Google tem uma política específica para apps com dinheiro real. Antes de liberar ao PÚBLICO (não só teste), normalmente é preciso: preencher a <strong>declaração de “jogos com dinheiro real”</strong>, comprovar <strong>18+</strong> e a restrição por país, e a documentação/licenciamento conforme a lei. O pagamento por fora (InfinitePay), em vez do pagamento do Google, está correto para esse tipo de app. <strong>Vale confirmar esse ponto com o advogado</strong> antes da publicação pública — para o teste interno a gente já consegue avançar.
+</div>
+
+<h2>Resumo — o que é seu e o que é meu</h2>
+<ul>
+  <li><span class="tag tag-a">VOCÊ (André):</span> criar a conta, verificação da empresa, as declarações do “Conteúdo do app”, subir o arquivo .aab, adicionar os testadores.</li>
+  <li><span class="tag tag-e">EU (Eduardo):</span> o arquivo .aab pronto e assinado, a lista de dados para o “Data safety”, o link da Política de Privacidade e um acesso de teste. <strong>Se algum passo ficar técnico demais, é só me adicionar como usuário no Console que eu faço essa parte por você.</strong></li>
+</ul>
+</body>
+</html>
