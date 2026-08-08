@@ -301,7 +301,8 @@ class _BottomNav extends StatelessWidget {
       padding: const EdgeInsets.only(top: 8, bottom: 16),
       child: Row(children: [
         item(Icons.grid_view_rounded, 'Salas', true, null),
-        item(Icons.emoji_events_outlined, 'Torneios', false, () => go(const TournamentsScreen())),
+        item(Icons.emoji_events_outlined, 'Torneios', false,
+            () => go(TournamentsScreen(session: session, authApi: authApi))),
         item(Icons.account_balance_wallet_outlined, 'Carteira', false,
             () => go(WalletScreen(session: session, authApi: authApi))),
         item(Icons.person_outline, 'Perfil', false,

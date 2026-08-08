@@ -40,6 +40,7 @@ dependencies:
 
   # Realtime gameplay over Socket.IO.
   socket_io_client: ^2.0.3+1
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

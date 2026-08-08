@@ -1,4 +1,7 @@
-Drop the real Concept-4 artwork here:
-- logo.png   (mascot/wordmark, transparent PNG, ~140px tall+)
-- splash.png (full-screen splash background)
-The app uses them automatically; falls back to the branded gradient if absent.
+Brand artwork goes here (optional):
+  - splash.png  — splash background
+  - logo.png    — wordmark/logo
+
+When absent, the app falls back to a branded gradient + wordmark
+(see lib/screens/splash_screen.dart). Keep this folder present so the
+pubspec `assets: - assets/brand/` entry always resolves.

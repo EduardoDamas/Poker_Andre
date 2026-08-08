@@ -81,7 +81,8 @@ class SocketGameConnection implements GameConnection {
           final won = tourn['winnerId'] == userId;
           if (won) {
             prizeCents = (tourn['prizeCents'] as num?)?.toInt();
-            text = 'Você venceu o torneio! 🏆';
+            text = 'Você venceu o torneio! 🏆\n'
+                'Você receberá o prêmio via Pix em até 24h.';
           } else {
             text = 'Torneio encerrado. Mais sorte na próxima!';
           }
