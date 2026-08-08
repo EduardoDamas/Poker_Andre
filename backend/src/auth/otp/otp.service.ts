@@ -1,13 +1,14 @@
 import {
   HttpException,
   HttpStatus,
+  Inject,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { createHash, randomInt } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
-import { DevOtpProvider } from './otp-provider';
+import { OTP_DELIVERY, OtpDelivery } from './otp-provider';
 import { isBlocked } from '../user-status';
 
 const CODE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -29,7 +30,7 @@ export class OtpService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
-    private readonly delivery: DevOtpProvider,
+    @Inject(OTP_DELIVERY) private readonly delivery: OtpDelivery,
   ) {}
 
   // Throttle OTP requests per phone; throws 429 when the window limit is hit.

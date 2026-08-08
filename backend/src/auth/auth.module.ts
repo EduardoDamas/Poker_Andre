@@ -5,8 +5,29 @@ import { WalletModule } from '../wallet/wallet.module';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { OtpService } from './otp/otp.service';
-import { DevOtpProvider } from './otp/otp-provider';
+import { DevOtpProvider, OTP_DELIVERY, OtpDelivery } from './otp/otp-provider';
+import { TwilioOtpProvider } from './otp/twilio-otp-provider';
 import { JwtAuthGuard } from './jwt-auth.guard';
+
+// Picks the SMS delivery: Twilio when OTP_PROVIDER=twilio and its creds are set,
+// otherwise the dev logger (so local/e2e keep reading codes back).
+const otpDeliveryProvider = {
+  provide: OTP_DELIVERY,
+  inject: [ConfigService, DevOtpProvider],
+  useFactory: (config: ConfigService, dev: DevOtpProvider): OtpDelivery => {
+    if (config.get<string>('OTP_PROVIDER') === 'twilio') {
+      if (TwilioOtpProvider.isConfigured(config)) {
+        return new TwilioOtpProvider(config);
+      }
+      // Misconfigured: fail loud rather than silently dropping SMS in prod.
+      throw new Error(
+        'OTP_PROVIDER=twilio but TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN and a sender ' +
+          '(TWILIO_MESSAGING_SERVICE_SID or TWILIO_FROM) are not all set.',
+      );
+    }
+    return dev;
+  },
+};
 
 @Module({
   imports: [
@@ -23,7 +44,13 @@ import { JwtAuthGuard } from './jwt-auth.guard';
       }),
     }),
   ],
-  providers: [AuthService, OtpService, DevOtpProvider, JwtAuthGuard],
+  providers: [
+    AuthService,
+    OtpService,
+    DevOtpProvider,
+    otpDeliveryProvider,
+    JwtAuthGuard,
+  ],
   controllers: [AuthController],
   exports: [AuthService, OtpService, DevOtpProvider, JwtModule, JwtAuthGuard],
 })

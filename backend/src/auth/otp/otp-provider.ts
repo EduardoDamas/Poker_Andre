@@ -6,13 +6,22 @@ export interface PendingOtp {
   requestedAt: number; // epoch ms
 }
 
+/** Delivers a login code to a phone. Implemented by DevOtpProvider (log) and
+ *  TwilioOtpProvider (real SMS); OtpService depends on this, not a concrete class. */
+export interface OtpDelivery {
+  send(phone: string, code: string): Promise<void>;
+}
+
+/** DI token for the active OtpDelivery (chosen by OTP_PROVIDER in AuthModule). */
+export const OTP_DELIVERY = 'OTP_DELIVERY';
+
 /**
  * Delivers OTP codes to a phone. Phase 1 dev implementation logs the code
  * instead of sending an SMS, and remembers the last code per phone so e2e
  * tests can read it. Swap for Twilio/Zenvia/Firebase in production.
  */
 @Injectable()
-export class DevOtpProvider {
+export class DevOtpProvider implements OtpDelivery {
   private readonly logger = new Logger('DevOtpProvider');
   private readonly lastCodes = new Map<string, string>();
   private readonly requests: PendingOtp[] = [];
