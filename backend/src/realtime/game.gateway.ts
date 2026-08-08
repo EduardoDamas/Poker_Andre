@@ -14,6 +14,8 @@ import { Action } from '../poker/betting-round';
 import { TableService } from './table.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { isBlocked } from '../auth/user-status';
+import { MultiTableTournamentManager, SubTableRunner } from '../tournament/multi-table-manager';
+import { Subscription } from '../tournament/subscription';
 
 const room = (tableId: string) => `table:${tableId}`;
 
@@ -51,7 +53,22 @@ export class GameGateway implements OnGatewayConnection {
     private readonly jwt: JwtService,
     private readonly tables: TableService,
     private readonly prisma: PrismaService,
+    private readonly mtManager: MultiTableTournamentManager,
   ) {}
+
+  // --- Multi-table tournament live state ---
+  // tournamentId → (userId → socketId), so we can move players between sub-tables.
+  private readonly mtSockets = new Map<string, Map<string, string>>();
+  // tournamentId → level, remembered from registration.
+  private readonly mtLevel = new Map<string, number>();
+  // sub-tableId → resolve(winnerId): fulfils the SubTableRunner promise when the
+  // sub-table busts down to one player.
+  private readonly mtSubResolve = new Map<string, (winnerId: string) => void>();
+  // sub-tableId → tournamentId and → its players (to alert the eliminated).
+  private readonly mtSubTournament = new Map<string, string>();
+  private readonly mtSubPlayers = new Map<string, string[]>();
+  // tournamentIds that have already been started (so registration can't re-trigger).
+  private readonly mtStarted = new Set<string>();
 
   // Backend validation: a blocked user cannot join/play, even via direct calls.
   private async _blocked(userId: string): Promise<boolean> {
@@ -212,6 +229,104 @@ export class GameGateway implements OnGatewayConnection {
     this.broadcastGameState(tableId);
   }
 
+  // --- Multi-table tournament (shootout) ---
+
+  @SubscribeMessage('tournament:register')
+  async onTournamentRegister(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: { tournamentId: string; level: number },
+  ): Promise<Ack> {
+    const user = (client.data as SocketData).user;
+    if (await this._blocked(user.sub)) return { ok: false, error: 'Conta bloqueada.' };
+    if (this.mtStarted.has(body.tournamentId)) return { ok: false, error: 'Torneio já começou.' };
+    // Map the socket up front — BEFORE the async escrow — so every registered
+    // player's socket is known the instant the tournament starts (otherwise a
+    // player can be in the bracket but unseatable, stalling their sub-table).
+    const socks = this.mtSockets.get(body.tournamentId) ?? new Map<string, string>();
+    socks.set(user.sub, client.id);
+    this.mtSockets.set(body.tournamentId, socks);
+    this.mtLevel.set(body.tournamentId, body.level);
+    try {
+      const sub: Subscription = await this._subscriptionOf(user.sub);
+      const count = await this.mtManager.register(body.tournamentId, body.level, user.sub, sub);
+      client.emit('tournament:registered', { tournamentId: body.tournamentId, count });
+
+      const startSize = Number(process.env.TOURNAMENT_START_SIZE ?? '80');
+      if (count >= startSize && !this.mtStarted.has(body.tournamentId)) {
+        this.startTournament(body.tournamentId, body.level, startSize);
+      }
+      return { ok: true, position: count };
+    } catch (err) {
+      socks.delete(user.sub); // registration failed → drop the socket mapping
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  // Kick off the bracket. The manager drives the rounds; each sub-table is played
+  // live via playSubTable. On a champion, the winner is alerted and state cleared.
+  private startTournament(tournamentId: string, level: number, minPlayers: number): void {
+    if (this.mtStarted.has(tournamentId)) return; // idempotent — only start once
+    this.mtStarted.add(tournamentId);
+    const runner: SubTableRunner = {
+      play: (subTableId, lvl, players) => this.playSubTable(tournamentId, subTableId, lvl, players),
+    };
+    this.mtManager
+      .start(tournamentId, level, runner, { minPlayers })
+      .then(({ championId, payout }) => {
+        const champSock = this.mtSockets.get(tournamentId)?.get(championId);
+        if (champSock) {
+          this.server
+            .to(champSock)
+            .emit('tournament:champion', { tournamentId, prizeCents: Number(payout.winnerCents) });
+        }
+      })
+      .catch((err) => this.logger.error(`tournament ${tournamentId}: ${(err as Error).message}`))
+      .finally(() => {
+        this.mtSockets.delete(tournamentId);
+        this.mtLevel.delete(tournamentId);
+        this.mtStarted.delete(tournamentId);
+      });
+  }
+
+  // SubTableRunner: open a chips-only sub-table, seat the players' sockets, start
+  // play, and resolve with the winner once it busts down to one (see onAction).
+  private playSubTable(
+    tournamentId: string,
+    subTableId: string,
+    level: number,
+    players: string[],
+  ): Promise<string> {
+    return new Promise<string>((resolve) => {
+      this.mtSubResolve.set(subTableId, resolve);
+      this.mtSubTournament.set(subTableId, tournamentId);
+      this.mtSubPlayers.set(subTableId, players);
+      const table = this.tables.enableTournament(subTableId, level, 8, { subTable: true });
+      const socks = this.mtSockets.get(tournamentId);
+      for (const pid of players) {
+        this.tables.recordTournamentEntry(table, pid, 'NONE'); // chips; entry already escrowed
+        const sid = socks?.get(pid);
+        if (!sid) continue;
+        try {
+          this.tables.join(subTableId, pid, sid); // seat for display + hole-card delivery
+        } catch {
+          /* already seated */
+        }
+        this.server.sockets.sockets.get(sid)?.join(room(subTableId));
+        this.server.to(sid).emit('tournament:table', { tournamentId, tableId: subTableId, level });
+      }
+
+      if (this.tables.startHand(table)) {
+        this.server.to(room(subTableId)).emit('table:state', this.tables.publicState(table));
+        for (const p of this.tables.seatedPlayers(table)) {
+          const sid = socks?.get(p.userId);
+          const hole = this.tables.holeFor(table, p.userId);
+          if (sid && hole) this.server.to(sid).emit('hand:hole', { cards: hole });
+        }
+        this.broadcastGameState(subTableId);
+      }
+    });
+  }
+
   @SubscribeMessage('hand:action')
   async onAction(
     @ConnectedSocket() client: Socket,
@@ -227,9 +342,25 @@ export class GameGateway implements OnGatewayConnection {
         // Reflect the finished hand in the seating state.
         const table = this.tables.getTable(body.tableId);
         if (table) this.server.to(room(body.tableId)).emit('table:state', this.tables.publicState(table));
-        // Tournament that isn't over yet → deal the next hand automatically.
-        if (table && this.tables.isTournament(table) && res.result.tournament && !res.result.tournament.over) {
-          setTimeout(() => this.continueTournament(body.tableId), 1500);
+
+        const resolveSub = this.mtSubResolve.get(body.tableId);
+        if (res.result.tournament?.over && resolveSub) {
+          // A multi-table sub-table finished → alert the eliminated, then report
+          // the winner to the coordinator (which advances the survivor).
+          this.mtSubResolve.delete(body.tableId);
+          const winnerId = res.result.tournament.winnerId!;
+          const tId = this.mtSubTournament.get(body.tableId);
+          const seatMap = tId ? this.mtSockets.get(tId) : undefined;
+          for (const pid of this.mtSubPlayers.get(body.tableId) ?? []) {
+            const sid = pid !== winnerId ? seatMap?.get(pid) : undefined;
+            if (sid) this.server.to(sid).emit('tournament:eliminated', { tournamentId: tId, tableId: body.tableId });
+          }
+          this.mtSubTournament.delete(body.tableId);
+          this.mtSubPlayers.delete(body.tableId);
+          resolveSub(winnerId);
+        } else if (table && this.tables.isTournament(table) && res.result.tournament && !res.result.tournament.over) {
+          // Tournament that isn't over yet → deal the next hand automatically.
+          setTimeout(() => this.continueTournament(body.tableId), Number(process.env.TOURNAMENT_HAND_DELAY_MS ?? '1500'));
         }
       } else {
         this.broadcastGameState(body.tableId);

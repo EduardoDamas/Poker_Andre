@@ -76,6 +76,15 @@ export class PokerHand {
       this.smallBlind,
       this.bigBlind,
     );
+
+    // Blinds can put everyone all-in at once (blinds >= stacks, e.g. deep into a
+    // tournament's escalation). The preflop round is then already complete with
+    // no one left to act — settle it and run the board out to showdown so the
+    // hand doesn't stall waiting for an action that can never come.
+    if (this.round.isComplete()) {
+      this.settleRound();
+      this.proceed();
+    }
   }
 
   // ---- public state ----

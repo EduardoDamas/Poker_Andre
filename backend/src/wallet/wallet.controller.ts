@@ -6,6 +6,7 @@ import { DepositService } from './deposit.service';
 import { WithdrawalService } from './withdrawal.service';
 import { CreateDepositDto } from './dto/deposit.dto';
 import { CreateWithdrawalDto } from './dto/withdrawal.dto';
+import { AdminNotificationService } from '../notifications/admin-notification.service';
 
 interface DepositView {
   id: string;
@@ -22,6 +23,7 @@ export class WalletController {
     private readonly wallet: WalletService,
     private readonly deposits: DepositService,
     private readonly withdrawals: WithdrawalService,
+    private readonly adminNotify: AdminNotificationService,
   ) {}
 
   @Get('balance')
@@ -51,6 +53,12 @@ export class WalletController {
     @Body() dto: CreateWithdrawalDto,
   ): Promise<{ id: string; amountCents: string; status: string }> {
     const wd = await this.withdrawals.request(user.sub, BigInt(dto.amountCents), dto.pixKey);
+    // Alert the admin so the manual Pix can be paid (non-fatal — never blocks the request).
+    await this.adminNotify.payoutRequested({
+      phone: user.phone,
+      pixKey: dto.pixKey,
+      amountCents: BigInt(dto.amountCents),
+    });
     return { id: wd.id, amountCents: wd.amountCents.toString(), status: wd.status };
   }
 

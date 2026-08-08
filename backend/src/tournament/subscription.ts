@@ -4,10 +4,9 @@
  * Source of truth: docs/PRIZE_RULES.md §5 (entry fee by level × subscription)
  * and §6 (prize-share % by subscription), both confirmed from CAPACONTEST.pdf.
  *
- * NOTE: subscription *purchase prices* (monthly/quarterly/...) are NOT yet known
- * (PRIZE_RULES §8 "still to obtain") — only the discounts they grant are. The
- * purchase flow therefore reads prices from config (SUBSCRIPTION_PRICES) and is
- * left disabled until the client provides them.
+ * Subscription *purchase prices* were confirmed by the client on 2026-07-18:
+ * Mensal R$200, Trimestral R$500, Semestral R$900, Anual R$1200 (NONE is free).
+ * The purchase/billing flow (Pix/cartão) is still pending the payment link.
  *
  * All money is integer cents.
  */
@@ -44,6 +43,16 @@ const PRIZE_SHARE_PCT: Record<Subscription, number> = {
   ANNUAL: 100,
 };
 
+// Subscription purchase price (BRL) per plan — confirmed by the client 2026-07-18.
+// NONE is not a purchasable plan (free tier), so its price is 0.
+const SUBSCRIPTION_PRICE_BRL: Record<Subscription, number> = {
+  NONE: 0,
+  MONTHLY: 200,
+  QUARTERLY: 500,
+  SEMIANNUAL: 900,
+  ANNUAL: 1200,
+};
+
 /** Entry fee (V.I.) in integer cents for a room level and subscription tier. */
 export function entryFeeCents(level: number, sub: Subscription): bigint {
   const row = ENTRY_FEE_BRL[level];
@@ -54,6 +63,11 @@ export function entryFeeCents(level: number, sub: Subscription): bigint {
 /** Prize-share percent (integer) for a subscription tier. */
 export function prizeSharePct(sub: Subscription): number {
   return PRIZE_SHARE_PCT[sub];
+}
+
+/** Purchase price (integer cents) for a subscription plan. NONE is free (0). */
+export function subscriptionPriceCents(sub: Subscription): bigint {
+  return BigInt(SUBSCRIPTION_PRICE_BRL[sub]) * 100n;
 }
 
 /**

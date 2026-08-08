@@ -25,6 +25,23 @@ const SMALL_BLIND = 1;
 const BIG_BLIND = 2;
 const TOURNEY_STARTING_STACK = 1000; // tournament chips (not money)
 
+// Tournament blind schedule (client spec): the minimum bet (big blind) starts
+// at 50 chips and doubles automatically every 3 rounds. Small blind is half.
+const TOURNEY_BIG_BLIND_START = 50;
+const TOURNEY_BLIND_DOUBLE_EVERY = 3; // hands (rounds)
+
+/**
+ * Blinds for a tournament hand given how many hands have already been dealt.
+ * `handsPlayed` is 0-based, so the first hand → level 0 → big blind 50:
+ *   hands 1–3 → BB 50 / SB 25, hands 4–6 → BB 100 / SB 50, hands 7–9 → BB 200, …
+ * The big blind IS the table's minimum bet; it doubles every 3 rounds.
+ */
+export function tournamentBlinds(handsPlayed: number): { smallBlind: number; bigBlind: number } {
+  const level = Math.floor(handsPlayed / TOURNEY_BLIND_DOUBLE_EVERY);
+  const bigBlind = TOURNEY_BIG_BLIND_START * 2 ** level;
+  return { smallBlind: Math.floor(bigBlind / 2), bigBlind };
+}
+
 interface SeatSlot {
   userId: string;
   socketId: string;
@@ -45,6 +62,11 @@ interface TournamentCtx {
   eliminated: Set<string>;
   started: boolean;
   settled: boolean;
+  handsPlayed: number; // hands dealt so far — drives the blind schedule
+  // A sub-table of a multi-table tournament: it plays to one winner in chips but
+  // NEVER settles money here. Entries are escrowed once at tournament registration
+  // and the prize is settled once for the champion (see MultiTableCoordinator).
+  subTable: boolean;
 }
 
 interface Table {
@@ -77,6 +99,8 @@ export interface GameState {
   board: Card[];
   actingPlayerId: string | null;
   legalActions: ActionType[];
+  actingStack: number; // chips behind the player to act (for sizing all-ins)
+  actingCommitted: number; // chips they've already put in this street
 }
 
 export interface TournamentStatus {
@@ -135,7 +159,7 @@ export class TableService {
    * Mark a table as a money tournament for [level]. Idempotent; only allowed
    * before the first hand. Returns the (now tournament-mode) table.
    */
-  enableTournament(id: string, level: number, maxSeats = 8): Table {
+  enableTournament(id: string, level: number, maxSeats = 8, opts: { subTable?: boolean } = {}): Table {
     const table = this.getOrCreate(id, maxSeats);
     if (!table.tournament && !table.handInProgress) {
       table.tournament = {
@@ -146,6 +170,8 @@ export class TableService {
         eliminated: new Set(),
         started: false,
         settled: false,
+        handsPlayed: 0,
+        subTable: opts.subTable ?? false,
       };
     }
     return table;
@@ -301,8 +327,9 @@ export class TableService {
     t.started = true;
     table.hand = new PokerHand(
       live.map((id) => ({ id, stack: t.stacks[id] })),
-      { smallBlind: SMALL_BLIND, bigBlind: BIG_BLIND },
+      tournamentBlinds(t.handsPlayed),
     );
+    t.handsPlayed += 1;
     table.handInProgress = true;
     return true;
   }
@@ -334,6 +361,8 @@ export class TableService {
       board: table.hand.board,
       actingPlayerId: table.hand.actingPlayerId,
       legalActions: table.hand.legalActions(),
+      actingStack: table.hand.actingStack,
+      actingCommitted: table.hand.actingCommitted,
     };
   }
 
@@ -394,8 +423,15 @@ export class TableService {
       return { over: false, remaining: live.length };
     }
 
-    // Tournament over — pay the last player standing.
+    // Tournament over — the last player standing wins this table.
     const winnerId = live[0] ?? [...t.entries.keys()].find((id) => !t.eliminated.has(id))!;
+
+    // Sub-table of a bigger tournament: report the winner but move NO money here.
+    if (t.subTable) {
+      t.settled = true;
+      return { over: true, remaining: 1, winnerId };
+    }
+
     let payout: TournamentPayout | undefined;
     if (!t.settled) {
       t.settled = true;
