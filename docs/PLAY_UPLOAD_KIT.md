@@ -79,9 +79,11 @@ Fill each section:
 Internal testing → **Testers** → create/pick an email list → add André's Google email
 (+ your own). Save. Copy the **"Copy link"** join URL.
 
-## Step 5 — Login codes for testers (depends on OTP setup)
-- If **Twilio SMS is enabled** (in progress): testers get the code by SMS — nothing to do.
-- Until then: codes are only in the server log. Claude can read a tester's code from the
+## Step 5 — Login codes for testers (WhatsApp OTP)
+- Login codes are delivered over **WhatsApp** (Meta Cloud API). Once the WhatsApp Business
+  number + approved authentication template are connected and `OTP_PROVIDER=whatsapp` is set
+  on Render, testers get the code automatically in WhatsApp — nothing to do.
+- Until that's live: codes are in the server log. Claude can read a tester's code from the
   Render logs and relay it, or use the admin OTP-relay endpoint. Note this in **App access**
   instructions so Google's reviewer can log in (give a test phone + how the code is obtained).
 
