@@ -98,7 +98,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           style: Brand.caption.copyWith(color: Brand.gold)),
                     ),
                   ] else ...[
-                    Text('Enviamos um código no seu WhatsApp.',
+                    Text('Enviamos um código de acesso para você.',
                         textAlign: TextAlign.center, style: Brand.caption),
                     const SizedBox(height: 4),
                     Text(_phone.text.trim(),
