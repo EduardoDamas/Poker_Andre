@@ -85,12 +85,33 @@ class AuthApi {
     );
   }
 
+  /// Log in with phone + password; returns the session (JWT + user) on success.
+  Future<AuthSession> login(String phone, String password) async {
+    final res = await _send(() => _client.post(
+          _u('/auth/login'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'phone': phone, 'password': password}),
+        ));
+    if (res.statusCode != 200) {
+      throw AuthException('Telefone ou senha inválidos.');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final user = body['user'] as Map<String, dynamic>;
+    return AuthSession(
+      accessToken: body['accessToken'] as String,
+      userId: user['id'] as String,
+      displayName: user['displayName'] as String,
+    );
+  }
+
   /// Register a new account. Throws [AuthException] on validation errors.
+  /// [password] is optional; when set, the user can log in with phone+password.
   Future<void> register({
     required String phone,
     required String displayName,
     required String cpf,
     required String birthDate,
+    String? password,
   }) async {
     final res = await _send(() => _client.post(
           _u('/auth/register'),
@@ -100,6 +121,7 @@ class AuthApi {
             'displayName': displayName,
             'cpf': cpf,
             'birthDate': birthDate,
+            if (password != null && password.isNotEmpty) 'password': password,
           }),
         ));
     if (res.statusCode == 409) {

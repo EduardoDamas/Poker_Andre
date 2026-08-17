@@ -7,7 +7,7 @@ import 'lobby_screen.dart';
 import 'register_screen.dart';
 import 'solo_setup_screen.dart';
 
-/// Phone-OTP login. Two steps: enter phone → request code; enter code → verify.
+/// Phone + password login. (OTP login remains available in the API for later.)
 class LoginScreen extends StatefulWidget {
   final AuthApi api;
   final TablesApi? tablesApi;
@@ -18,12 +18,9 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-enum _Step { phone, code }
-
 class _LoginScreenState extends State<LoginScreen> {
   final _phone = TextEditingController();
-  final _code = TextEditingController();
-  _Step _step = _Step.phone;
+  final _password = TextEditingController();
   bool _busy = false;
   String? _error;
 
@@ -33,22 +30,16 @@ class _LoginScreenState extends State<LoginScreen> {
     _phone.text = widget.initialPhone;
   }
 
-  Future<void> _sendCode() async {
-    setState(() { _busy = true; _error = null; });
-    try {
-      await widget.api.requestOtp(_phone.text.trim());
-      setState(() => _step = _Step.code);
-    } on AuthException catch (e) {
-      setState(() => _error = e.message);
-    } finally {
-      if (mounted) setState(() => _busy = false);
+  Future<void> _login() async {
+    final phone = _phone.text.trim();
+    final password = _password.text;
+    if (phone.isEmpty || password.isEmpty) {
+      setState(() => _error = 'Informe telefone e senha.');
+      return;
     }
-  }
-
-  Future<void> _verify() async {
     setState(() { _busy = true; _error = null; });
     try {
-      final session = await widget.api.verifyOtp(_phone.text.trim(), _code.text.trim());
+      final session = await widget.api.login(phone, password);
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -79,48 +70,32 @@ class _LoginScreenState extends State<LoginScreen> {
                   Text('Torneios Digitais de Cartas e Tabuleiro',
                       textAlign: TextAlign.center, style: Brand.caption),
                   const SizedBox(height: 44),
-                  if (_step == _Step.phone) ...[
-                    TextField(
-                      key: const Key('phoneField'),
-                      controller: _phone,
-                      keyboardType: TextInputType.phone,
-                      style: Brand.label,
-                      decoration: const InputDecoration(labelText: 'Telefone', hintText: '+5511999998888'),
-                    ),
-                    const SizedBox(height: 16),
-                    GradientButton('Enviar código', key: const Key('sendCodeBtn'), busy: _busy, onPressed: _sendCode),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => RegisterScreen(api: widget.api, initialPhone: _phone.text.trim()),
-                      )),
-                      child: Text('Não tem conta? Criar conta',
-                          style: Brand.caption.copyWith(color: Brand.gold)),
-                    ),
-                  ] else ...[
-                    Text('Enviamos um código de acesso para você.',
-                        textAlign: TextAlign.center, style: Brand.caption),
-                    const SizedBox(height: 4),
-                    Text(_phone.text.trim(),
-                        textAlign: TextAlign.center,
-                        style: Brand.label.copyWith(color: Brand.gold)),
-                    const SizedBox(height: 16),
-                    TextField(
-                      key: const Key('codeField'),
-                      controller: _code,
-                      keyboardType: TextInputType.number,
-                      maxLength: 6,
-                      textAlign: TextAlign.center,
-                      style: Brand.h2.copyWith(letterSpacing: 10),
-                      decoration: const InputDecoration(labelText: 'Código (6 dígitos)', counterText: ''),
-                    ),
-                    const SizedBox(height: 12),
-                    GradientButton('Entrar', key: const Key('verifyBtn'), busy: _busy, onPressed: _verify),
-                    TextButton(
-                      onPressed: _busy ? null : () => setState(() => _step = _Step.phone),
-                      child: Text('Trocar número', style: Brand.caption.copyWith(color: Brand.textTer)),
-                    ),
-                  ],
+                  TextField(
+                    key: const Key('phoneField'),
+                    controller: _phone,
+                    keyboardType: TextInputType.phone,
+                    style: Brand.label,
+                    decoration: const InputDecoration(labelText: 'Telefone', hintText: '+5511999998888'),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    key: const Key('passwordField'),
+                    controller: _password,
+                    obscureText: true,
+                    style: Brand.label,
+                    onSubmitted: (_) => _busy ? null : _login(),
+                    decoration: const InputDecoration(labelText: 'Senha'),
+                  ),
+                  const SizedBox(height: 16),
+                  GradientButton('Entrar', key: const Key('loginBtn'), busy: _busy, onPressed: _login),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => RegisterScreen(api: widget.api, initialPhone: _phone.text.trim()),
+                    )),
+                    child: Text('Não tem conta? Criar conta',
+                        style: Brand.caption.copyWith(color: Brand.gold)),
+                  ),
                   if (_error != null) ...[
                     const SizedBox(height: 16),
                     Text(_error!, key: const Key('errorText'),

@@ -22,6 +22,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _name = TextEditingController();
   final _cpf = TextEditingController();
   final _birth = TextEditingController();
+  final _password = TextEditingController();
   bool _busy = false;
   String? _error;
 
@@ -36,9 +37,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final name = _name.text.trim();
     final cpf = _cpf.text.trim();
     final birth = _birth.text.trim();
+    final password = _password.text;
 
-    if (phone.isEmpty || name.isEmpty || cpf.isEmpty || birth.isEmpty) {
+    if (phone.isEmpty || name.isEmpty || cpf.isEmpty || birth.isEmpty || password.isEmpty) {
       setState(() => _error = 'Preencha todos os campos.');
+      return;
+    }
+    if (password.length < 6) {
+      setState(() => _error = 'A senha deve ter pelo menos 6 caracteres.');
       return;
     }
 
@@ -56,6 +62,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         displayName: name,
         cpf: cpf,
         birthDate: isoBirth,
+        password: password,
       );
       if (!mounted) return;
       // Go back to login with phone pre-filled so they can request OTP.
@@ -110,6 +117,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 8),
                   Text('Formato: DD/MM/AAAA  (ex: 31/01/1990)',
                       style: Brand.micro.copyWith(color: Brand.textTer)),
+                  const SizedBox(height: 16),
+                  _Field(controller: _password, label: 'Senha', hint: 'mínimo 6 caracteres',
+                      obscure: true),
                   if (_error != null) ...[
                     const SizedBox(height: 16),
                     Text(_error!,
@@ -134,12 +144,14 @@ class _Field extends StatelessWidget {
   final String hint;
   final TextInputType type;
   final List<TextInputFormatter>? formatters;
+  final bool obscure;
   const _Field({
     required this.controller,
     required this.label,
     this.hint = '',
     this.type = TextInputType.text,
     this.formatters,
+    this.obscure = false,
   });
 
   @override
@@ -148,6 +160,7 @@ class _Field extends StatelessWidget {
       controller: controller,
       keyboardType: type,
       inputFormatters: formatters,
+      obscureText: obscure,
       style: Brand.label,
       decoration: InputDecoration(labelText: label, hintText: hint),
     );
