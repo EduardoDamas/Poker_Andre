@@ -1,4 +1,4 @@
-import { IsDateString, IsString, Length, Matches } from 'class-validator';
+import { IsDateString, IsOptional, IsString, Length, Matches } from 'class-validator';
 
 export class RegisterDto {
   // E.164-ish: optional +, 10–15 digits.
@@ -16,4 +16,11 @@ export class RegisterDto {
   // ISO date string (e.g. "1990-01-01"); 18+ enforced in the service.
   @IsDateString()
   birthDate!: string;
+
+  // Optional password (min 6). When set, the user can log in with phone+password
+  // in addition to OTP. Used for testing before OTP delivery is live.
+  @IsOptional()
+  @IsString()
+  @Length(6, 100)
+  password?: string;
 }

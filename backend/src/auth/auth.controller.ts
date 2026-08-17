@@ -2,6 +2,7 @@ import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common
 import { AuthService, PublicUser } from './auth.service';
 import { OtpService, AuthToken } from './otp/otp.service';
 import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
 import { RequestOtpDto, VerifyOtpDto } from './dto/otp.dto';
 import { JwtAuthGuard, JwtPayload } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
@@ -16,6 +17,13 @@ export class AuthController {
   @Post('register')
   register(@Body() dto: RegisterDto): Promise<PublicUser> {
     return this.auth.register(dto);
+  }
+
+  /** Password login (phone + password). Alternative to OTP for testing. */
+  @Post('login')
+  @HttpCode(200)
+  login(@Body() dto: LoginDto): Promise<AuthToken> {
+    return this.auth.loginWithPassword(dto.phone, dto.password);
   }
 
   @Post('otp/request')
