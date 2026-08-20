@@ -49,3 +49,7 @@ coverage/
 .render-key.txt
 .gh-token.txt
 .twilio.txt
+
+# Handoff / restore docs — contain credentials or client PII, keep local only
+RESTORE.md
+HANDOFF_SECRETS.md
