@@ -41,10 +41,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  account      Account?
-  withdrawals  Withdrawal[]
-  deposits     Deposit[]
-  seats        Seat[]
+  account       Account?
+  withdrawals   Withdrawal[]
+  deposits      Deposit[]
+  paymentOrders PaymentOrder[]
+  seats         Seat[]
 
   @@index([status])
 }
@@ -193,6 +194,44 @@ enum DepositStatus {
   REQUESTED
   CONFIRMED
   REJECTED
+}
+
+// ---------------------------------------------------------------------
+// PAYMENT ORDERS (gateway = InfinitePay hosted checkout, auto-confirmed by webhook)
+// ---------------------------------------------------------------------
+
+// A charge created through a payment gateway. We mint a checkout link tied to a
+// unique orderNsu; the gateway calls our webhook when it's paid, and we credit
+// the wallet (idempotent via the ledger's unique referenceId = orderNsu).
+model PaymentOrder {
+  id          String             @id @default(uuid())
+  orderNsu    String             @unique // sent to the gateway as order_nsu
+  user        User               @relation(fields: [userId], references: [id])
+  userId      String
+  amountCents BigInt
+  purpose     PaymentPurpose     @default(DEPOSIT)
+  status      PaymentOrderStatus @default(PENDING)
+  provider    String             @default("infinitepay")
+  checkoutUrl String?
+  creditTxnId String? // ledger txn id once the wallet is credited
+  paidAt      DateTime?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+enum PaymentPurpose {
+  DEPOSIT
+  TOURNAMENT_ENTRY
+  SUBSCRIPTION
+}
+
+enum PaymentOrderStatus {
+  PENDING
+  PAID
+  FAILED
 }
 
 // ---------------------------------------------------------------------

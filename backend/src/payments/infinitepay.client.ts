@@ -35,6 +35,7 @@ export class InfinitePayClient {
       base: (process.env.INFINITEPAY_API_BASE ?? 'https://api.checkout.infinitepay.io').replace(/\/$/, ''),
       token: process.env.INFINITEPAY_API_KEY,
       publicBase: process.env.PUBLIC_BASE_URL?.replace(/\/$/, ''),
+      webhookSecret: process.env.INFINITEPAY_WEBHOOK_SECRET,
     };
   }
 
@@ -52,7 +53,12 @@ export class InfinitePayClient {
       order_nsu: p.orderNsu,
       items: [{ description: p.description, price: p.amountCents, quantity: 1 }],
     };
-    if (cfg.publicBase) body.webhook_url = `${cfg.publicBase}/payments/webhook/infinitepay`;
+    if (cfg.publicBase) {
+      // Carry a shared secret on the callback URL so the webhook can authenticate
+      // it without depending on the gateway's (account-specific) signing scheme.
+      const token = cfg.webhookSecret ? `?token=${encodeURIComponent(cfg.webhookSecret)}` : '';
+      body.webhook_url = `${cfg.publicBase}/payments/webhook/infinitepay${token}`;
+    }
 
     const res = await fetch(`${cfg.base}/links`, {
       method: 'POST',
