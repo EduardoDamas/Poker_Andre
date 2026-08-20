@@ -96,7 +96,84 @@ installs from Play. Done.
 
 ### After the test → toward production
 1. RMG application approved (Step 0 red box).
-2. Twilio upgraded to paid (trial only texts verified numbers).
-3. Render Postgres upgraded to paid (free DB is deleted after 30 days).
+2. Automatic login-code delivery for production reviewers/users (WhatsApp or Twilio);
+   until then the no-cost admin relay covers internal testing.
+3. Render Postgres upgraded to paid (free DB is **deleted ~30 days after creation** —
+   created 2026-08-08, so ~2026-09-07; upgrade before then or lose the data).
 4. Closed testing (Google requires 14 days / 12+ testers for new personal accounts before
    production) — start this early if launching publicly soon.
+
+---
+
+## Paste-ready store listing (pt-BR)
+
+**Short description** (máx. 80 caracteres):
+```
+Torneios de pôquer multimesas. Entre, jogue e dispute prêmios em dinheiro.
+```
+
+**Full description** (máx. 4000 caracteres):
+```
+CAPA CONTEST é a plataforma de torneios de pôquer em várias mesas. Entre em um
+torneio, sente na mesa mais cheia e jogue rumo ao título — o vencedor de cada mesa
+avança até restar um único campeão.
+
+COMO FUNCIONA
+- Torneios multimesas (shootout): vença sua mesa e avance para a próxima.
+- Cada competidor começa com 1000 fichas, independentemente do valor de entrada.
+- A aposta mínima começa em 50 fichas e dobra a cada 3 rodadas, deixando o jogo
+  cada vez mais intenso.
+- Entrada por Pix ou cartão, com valores sempre visíveis antes de confirmar.
+- Assinatura opcional com benefícios na participação e nos prêmios.
+
+JOGO DE HABILIDADE
+O pôquer é um jogo de habilidade: leitura, estratégia e gestão de fichas decidem o
+campeão. Jogue com responsabilidade. Conteúdo destinado a maiores de 18 anos.
+
+Política de Privacidade, Termos de Uso e Regulamento dos Torneios disponíveis no
+aplicativo e no site.
+```
+*(Adjust framing to match the final real-money vs skill-game positioning you and André settle on.)*
+
+## App access — how Google's reviewer logs in
+The app requires a login code. For **internal testing** the code is delivered via the
+no-cost admin relay (developer reads it and provides it). Before the **production**
+submission, add a reviewer test login (a fixed test phone + code, env-gated) so Google's
+reviewer can sign in without SMS, and fill the **App access** section with:
+- Test phone number: (a dedicated test number, not a real user)
+- How to receive the code: provided by developer / fixed review code
+- Any other steps to reach the paid-entry and tournament screens.
+
+## Data Safety — exact answers (Play Console → App content → Data safety)
+- Does your app collect or share any user data? **Yes.**
+- Is all data encrypted in transit? **Yes.**
+- Do you provide a way to request data deletion? **Yes** — via the support email.
+- Data types collected:
+  | Type | Collected | Shared | Purpose | Required |
+  |---|---|---|---|---|
+  | Name (display name) | Yes | No | Account management | Yes |
+  | Phone number | Yes | No | Account management, login | Yes |
+  | Other IDs (CPF) | Yes | No | Identity / age verification, fraud prevention | Yes |
+  | Financial info (payment info / purchase history) | Yes | Yes* | Process tournament entries/subscriptions | Yes |
+  | App activity (in-app actions) | Yes | No | App functionality (gameplay) | Yes |
+
+  *Financial data is handled by the payment provider (InfinitePay). Declare sharing with
+  the processor; the app itself does not store full card data.
+
+## Content Rating — exact answers (Play Console → App content → Content rating → IARC)
+- Category: **Game**. Email: the support email.
+- Gambling: **Yes** — "the app allows users to gamble/bet real money and win real
+  money or prizes." (This is the key answer; it drives an adults-only rating.)
+- Violence, sexual content, controlled substances, hate, profanity: **No** to all.
+- Result: expect an **18+ / adults-only** rating — consistent with the Target audience
+  (18+) and the real-money declaration. Answer truthfully; misdeclaring risks removal.
+
+## Closed-test tester list (start collecting NOW)
+Production for a new personal account needs **12+ testers opted in for 14 continuous
+days**. Collect 12 Google (Gmail) addresses now — friends, André's contacts, staff — so
+the closed test can start the day the account clears. Keep the list here:
+```
+1. …@gmail.com
+2. …
+(12 total)
+```

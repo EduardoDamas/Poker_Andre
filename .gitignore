@@ -47,3 +47,5 @@ coverage/
 # Docker volumes (local data)
 .docker-data/
 .render-key.txt
+.gh-token.txt
+.twilio.txt
