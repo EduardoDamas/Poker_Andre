@@ -5,9 +5,10 @@ import { join } from 'path';
 /**
  * Public (no-auth) hosting of the finalized legal documents, so the Play Store
  * privacy-policy URL and the in-app links resolve to a real page.
- *   GET /legal/privacidade  → Política de Privacidade
- *   GET /legal/termos       → Termos de Uso
- *   GET /legal/regulamento  → Regulamento dos Torneios
+ *   GET /legal/privacidade        → Política de Privacidade
+ *   GET /legal/termos             → Termos de Uso
+ *   GET /legal/regulamento        → Regulamento dos Torneios
+ *   GET /legal/exclusao-de-conta  → Exclusão de conta e dados (exigido pelo Google Play)
  *
  * Resolution order (first existing dir wins):
  *   1. LEGAL_DIR env override
@@ -51,5 +52,12 @@ export class LegalController {
   @Header('Content-Type', 'text/html; charset=utf-8')
   regulamento(): string {
     return this.serve('REGULAMENTO_DOS_TORNEIOS.html');
+  }
+
+  /** Account/data deletion instructions — required by Google Play Data safety. */
+  @Get('exclusao-de-conta')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  exclusaoDeConta(): string {
+    return this.serve('EXCLUSAO_DE_CONTA.html');
   }
 }
