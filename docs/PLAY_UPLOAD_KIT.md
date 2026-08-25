@@ -177,3 +177,16 @@ the closed test can start the day the account clears. Keep the list here:
 2. …
 (12 total)
 ```
+
+---
+
+## Status log
+- **2026-08-21** — Internal testing live: version 1 (1.0.0), tester list active.
+- **2026-08-24** — All 11 app-setup tasks completed (content rating 18+, data safety,
+  target audience, privacy + account-deletion URLs, ads, financial/health/government
+  declarations, category). Render upgraded to paid (server no longer sleeps; DB expiry removed).
+- **2026-08-25** — **Closed test "Alpha" submitted to Google for review**: version
+  **3 (1.0.2)** (client icon + phone/password login), country = **Brasil**, tester list
+  "Testadores CAPA". Store listing (pt-BR) with client icon + banner + 3 screenshots
+  submitted. Advertising-ID declaration = No (verified: no AD_ID permission in the manifest).
+  → Awaiting Google review, then 12+ testers must opt in and stay enrolled 14 days.
