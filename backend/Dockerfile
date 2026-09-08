@@ -25,6 +25,8 @@ COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/legal ./legal
+# Built admin panel (served at /panel by main.ts).
+COPY --from=build /app/panel ./panel
 COPY --from=build /app/package.json ./package.json
 EXPOSE 3000
 # migrate deploy is safe/idempotent; for multi-instance, move it to a release step.
