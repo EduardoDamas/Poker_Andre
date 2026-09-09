@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CAPA CONTEST — Baixar e Instalar</title>
+<meta name="description" content="CAPA CONTEST — torneios de habilidade de Poker. Baixe o aplicativo oficial para Android." />
+<style>
+  :root{
+    --bg:#0A0A0B; --bg2:#101013; --surface:#141417; --surfaceHi:#1C1C21;
+    --border:#2A2B31; --crimson:#E2231A; --crimsonGlow:#FF4438; --crimsonDeep:#B3140C;
+    --gold:#F5C45E; --goldDeep:#C9982E; --champagne:#FBE4A8;
+    --text:#F5F6F7; --text2:#A7ABB4; --text3:#6C7079; --felt:#1B5E3F;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:Roboto,Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif;
+    background:radial-gradient(1200px 600px at 50% -10%, #1C1C21 0%, var(--bg) 60%);
+    color:var(--text);line-height:1.55;min-height:100vh;
+  }
+  .wrap{max-width:820px;margin:0 auto;padding:32px 20px 64px}
+  header{text-align:center;padding:24px 0 8px}
+  /* Troque o bloco .wordmark por <img src="logo-horizontal.png"> quando tiver a logo */
+  .wordmark{font-weight:900;font-style:italic;font-size:40px;letter-spacing:.5px}
+  .wordmark .a{color:var(--crimson)} .wordmark .b{color:var(--text)}
+  .tag{color:var(--text2);margin-top:6px;font-size:15px}
+  .hero{
+    margin-top:28px;background:linear-gradient(180deg,var(--surfaceHi),var(--bg));
+    border:1px solid var(--border);border-radius:20px;padding:28px;text-align:center;
+  }
+  h1{font-size:26px;margin-bottom:8px}
+  h2{font-size:20px;margin:32px 0 12px}
+  p.lead{color:var(--text2);max-width:60ch;margin:0 auto 20px}
+  .btn{
+    display:inline-flex;align-items:center;gap:10px;text-decoration:none;
+    background:linear-gradient(135deg,var(--crimsonGlow),var(--crimsonDeep));
+    color:#fff;font-weight:800;font-size:18px;padding:16px 34px;border-radius:999px;
+    box-shadow:0 8px 24px rgba(226,35,26,.35);
+  }
+  .btn small{display:block;font-weight:500;font-size:12px;opacity:.85}
+  .meta{color:var(--text3);font-size:13px;margin-top:14px}
+  .badge{display:inline-block;border:1px solid var(--gold);color:var(--gold);
+    border-radius:999px;padding:3px 12px;font-size:12px;font-weight:700;margin-top:16px}
+  .steps{counter-reset:s;margin-top:8px}
+  .step{
+    display:flex;gap:14px;background:var(--surface);border:1px solid var(--border);
+    border-radius:14px;padding:16px 18px;margin-bottom:12px;
+  }
+  .step::before{
+    counter-increment:s;content:counter(s);flex:0 0 34px;height:34px;width:34px;
+    display:grid;place-items:center;border-radius:50%;
+    background:linear-gradient(135deg,var(--champagne),var(--goldDeep));color:#1A1206;font-weight:900;
+  }
+  .step h3{font-size:15px;margin-bottom:2px}
+  .step p{color:var(--text2);font-size:14px}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:8px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px}
+  .card h3{color:var(--gold);font-size:14px;margin-bottom:6px}
+  .card p{color:var(--text2);font-size:13px}
+  .faq dt{font-weight:700;margin-top:14px}
+  .faq dd{color:var(--text2);font-size:14px;margin-top:2px}
+  footer{margin-top:40px;text-align:center;color:var(--text3);font-size:13px;border-top:1px solid var(--border);padding-top:20px}
+  footer a{color:var(--text2)}
+  @media(max-width:560px){.cards{grid-template-columns:1fr}.wordmark{font-size:32px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <!-- Substitua por: <img src="logo-horizontal.png" alt="CAPA CONTEST" style="max-width:320px"> -->
+    <div class="wordmark"><span class="a">CAPA</span> <span class="b">CONTEST</span></div>
+    <div class="tag">Torneios Digitais de Cartas e Tabuleiro</div>
+  </header>
+
+  <section class="hero">
+    <h1>Baixe o CAPA CONTEST para Android</h1>
+    <p class="lead">Torneios de <strong>habilidade</strong> de Poker. Estratégia, competição e prêmios — direto no seu celular.</p>
+    <a class="btn" href="https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.3/CAPA-CONTEST.apk">⬇ Baixar aplicativo <small>Android · arquivo .apk</small></a>
+    <div class="meta">Instalação gratuita · Assinado por ANDRE LUIZ LABADESSA LTDA</div>
+    <div class="badge">+18 · Jogue com responsabilidade</div>
+  </section>
+
+  <h2>Como instalar (leva 1 minuto)</h2>
+  <div class="steps">
+    <div class="step"><div><h3>Baixe o aplicativo</h3><p>Toque no botão acima. O arquivo <b>CAPA-CONTEST.apk</b> vai para a pasta Downloads.</p></div></div>
+    <div class="step"><div><h3>Abra o arquivo baixado</h3><p>Toque na notificação de download ou vá em Arquivos → Downloads → CAPA-CONTEST.apk.</p></div></div>
+    <div class="step"><div><h3>Permita a instalação (só na 1ª vez)</h3><p>Se o Android pedir, ative “Permitir desta fonte / instalar apps desconhecidos” e volte.</p></div></div>
+    <div class="step"><div><h3>Instale e abra</h3><p>Toque em Instalar, aguarde e abra o app.</p></div></div>
+    <div class="step"><div><h3>Crie sua conta e jogue</h3><p>Escolha “Criar conta”, preencha seus dados e entre nos torneios.</p></div></div>
+  </div>
+
+  <h2>Como funciona</h2>
+  <div class="cards">
+    <div class="card"><h3>Escolha a sala</h3><p>Salas do Nível 1 ao 7. A entrada varia por nível e é menor para assinantes.</p></div>
+    <div class="card"><h3>Jogue o torneio</h3><p>Texas Hold’em, jogo de habilidade e estratégia — não é sorte.</p></div>
+    <div class="card"><h3>Receba o prêmio</h3><p>Prêmio proporcional à ocupação da sala, limitado ao valor arrecadado.</p></div>
+    <div class="card"><h3>Deposite e saque por Pix</h3><p>Adicione saldo pela Carteira e saque para a sua chave Pix.</p></div>
+  </div>
+
+  <h2>Dúvidas frequentes</h2>
+  <dl class="faq">
+    <dt>É seguro instalar por link?</dt>
+    <dd>Sim. O app é assinado digitalmente e distribuído por link oficial. Baixe sempre pela página oficial.</dd>
+    <dt>Preciso pagar para instalar?</dt>
+    <dd>Não. Instalação e cadastro são gratuitos. Você só usa saldo se entrar em um torneio pago.</dd>
+    <dt>Funciona em iPhone?</dt>
+    <dd>Nesta primeira versão, apenas Android.</dd>
+    <dt>Apareceu um aviso do Play Protect?</dt>
+    <dd>É o aviso padrão do Android para apps fora da loja. Toque em “Instalar mesmo assim”.</dd>
+  </dl>
+
+  <footer>
+    <p><a href="https://capa-contest-api.onrender.com/legal/regulamento">Regulamento</a> ·
+       <a href="https://capa-contest-api.onrender.com/legal/termos">Termos de Uso</a> ·
+       <a href="https://capa-contest-api.onrender.com/legal/privacidade">Privacidade</a></p>
+    <p style="margin-top:8px">CAPA CONTEST · Exclusivo para maiores de 18 anos · Jogue com responsabilidade.</p>
+  </footer>
+</div>
+</body>
+</html>

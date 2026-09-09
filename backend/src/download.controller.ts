@@ -1,15 +1,37 @@
-import { Controller, Get, Res } from '@nestjs/common';
-import { Response } from 'express';
+import { Controller, Get, Header, NotFoundException } from '@nestjs/common';
+import { existsSync, readFileSync } from 'fs';
+import { join } from 'path';
 
-// Dev convenience: serve the latest debug APK over the (port-forwarded) API port
-// so an emulator/host can install it without an extra forwarded port.
+/**
+ * Public (no-auth) install/download page for the direct-link APK distribution.
+ *   GET /baixar (alias /download) → branded install page.
+ * The page's download button links to the GitHub Release asset, so the backend
+ * does not serve the (large) APK itself.
+ *
+ * Resolution mirrors the legal dir: public/ inside the Docker image, or the repo
+ * docs/marketing checkout in local dev.
+ */
 @Controller()
 export class DownloadController {
-  @Get('app')
-  app(@Res() res: Response) {
-    res.download(
-      '/home/winner/Documents/Poker/mobile/build/app/outputs/flutter-apk/app-debug.apk',
-      'capa-contest.apk',
-    );
+  private page(): string {
+    const candidates = [
+      join(__dirname, '..', 'public', 'install.html'),
+      join(__dirname, '..', '..', 'docs', 'marketing', 'install.html'),
+    ];
+    const file = candidates.find((f) => existsSync(f));
+    if (!file) throw new NotFoundException('Página indisponível.');
+    return readFileSync(file, 'utf8');
+  }
+
+  @Get('baixar')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  baixar(): string {
+    return this.page();
+  }
+
+  @Get('download')
+  @Header('Content-Type', 'text/html; charset=utf-8')
+  download(): string {
+    return this.page();
   }
 }
