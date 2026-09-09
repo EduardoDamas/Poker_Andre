@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="900" viewBox="0 0 1400 900">
+  <title>Table marker and seat overlay sheet</title>
+  <desc>Static vector-ready table markers for dealer, blinds, active turn, winner, all-in, pot, side-pot, connection, empty seat, and card slot states.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#171517"/><stop offset="1" stop-color="#070708"/></linearGradient>
+    <linearGradient id="felt" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#3b0b10"/><stop offset="1" stop-color="#16090c"/></linearGradient>
+    <linearGradient id="red" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff4438"/><stop offset=".5" stop-color="#e2231a"/><stop offset="1" stop-color="#9e1009"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0b1"/><stop offset=".5" stop-color="#f5c45e"/><stop offset="1" stop-color="#b87a1d"/></linearGradient>
+    <filter id="shadow" x="-35%" y="-35%" width="170%" height="180%"><feGaussianBlur stdDeviation="9"/></filter>
+    <style>
+      .h{font-family:Inter,Arial,sans-serif;fill:#f5f6f7;font-weight:800;letter-spacing:1.2px}
+      .m{font-family:Inter,Arial,sans-serif;fill:#a7abb4;font-weight:500;letter-spacing:.7px}
+      .token{font-family:Inter,Arial,sans-serif;fill:#101013;font-weight:900;letter-spacing:.5px}
+    </style>
+  </defs>
+  <rect width="1400" height="900" fill="url(#bg)"/>
+  <rect x="30" y="30" width="1340" height="840" rx="30" fill="none" stroke="#3a3034" stroke-width="2"/>
+  <text x="72" y="90" class="h" font-size="30">TABLE MARKERS &amp; SEAT OVERLAYS</text>
+  <text x="72" y="124" class="m" font-size="17">CLIENT THEME · OBSIDIAN RAIL · CRIMSON ACTION · CHAMPAGNE PREMIUM</text>
+
+  <!-- table context -->
+  <g transform="translate(72 178)">
+    <ellipse cx="630" cy="278" rx="540" ry="190" fill="#050506" opacity=".7" filter="url(#shadow)"/>
+    <ellipse cx="630" cy="262" rx="540" ry="190" fill="url(#felt)" stroke="#7f1821" stroke-width="10"/>
+    <ellipse cx="630" cy="262" rx="500" ry="158" fill="#18090c" stroke="#3c1b20" stroke-width="2"/>
+    <text x="630" y="250" text-anchor="middle" class="m" font-size="16">TABLE PREVIEW / OVERLAY SAFE ZONE</text>
+    <text x="630" y="278" text-anchor="middle" class="h" font-size="23">CRIMSON ROOM</text>
+    <!-- seat plates -->
+    <g transform="translate(115 220)"><ellipse cx="0" cy="0" rx="88" ry="36" fill="#111013" stroke="#55464b" stroke-width="3"/><circle cx="0" cy="0" r="24" fill="#2a2428" stroke="#aeb4b7" stroke-width="2"/><text x="0" y="5" text-anchor="middle" class="m" font-size="11">SEAT</text></g>
+    <g transform="translate(1145 220)"><ellipse cx="0" cy="0" rx="88" ry="36" fill="#111013" stroke="#e2231a" stroke-width="5"/><circle cx="0" cy="0" r="24" fill="#2a2428" stroke="#ff4438" stroke-width="3"/><path d="M-10 0a10 10 0 1 0 20 0" fill="none" stroke="#f5f6f7" stroke-width="2"/><text x="0" y="58" text-anchor="middle" class="m" font-size="11">ACTIVE</text></g>
+    <g transform="translate(630 78)"><ellipse cx="0" cy="0" rx="88" ry="36" fill="#111013" stroke="#f5c45e" stroke-width="5"/><circle cx="0" cy="0" r="24" fill="#211808" stroke="#fff0b1" stroke-width="3"/><path d="M0-12l4 8 9 1-6 6 2 9-9-5-9 5 2-9-6-6 9-1z" fill="#f5c45e"/><text x="0" y="58" text-anchor="middle" class="m" font-size="11">WINNER</text></g>
+    <g transform="translate(630 450)"><ellipse cx="0" cy="0" rx="88" ry="36" fill="#111013" stroke="#55464b" stroke-width="3"/><circle cx="0" cy="0" r="24" fill="#2a2428" stroke="#555055" stroke-width="2"/><path d="M-10-10l20 20M10-10L-10 10" stroke="#e2231a" stroke-width="4"/><text x="0" y="58" text-anchor="middle" class="m" font-size="11">OFFLINE</text></g>
+    <!-- pot -->
+    <g transform="translate(630 292)"><ellipse cx="0" cy="40" rx="116" ry="28" fill="#060607" opacity=".75"/><ellipse cx="0" cy="24" rx="108" ry="30" fill="#171519" stroke="#aeb4b7" stroke-width="3"/><path d="M-70 10h140" stroke="#e2231a" stroke-width="7" stroke-linecap="round"/><text x="0" y="31" text-anchor="middle" class="h" font-size="14">POT</text></g>
+    <!-- card slot -->
+    <g transform="translate(504 190)"><rect width="82" height="116" rx="9" fill="#0d0c0e" stroke="#6a555b" stroke-width="3" stroke-dasharray="6 5"/><text x="41" y="62" text-anchor="middle" class="m" font-size="12">CARD</text></g>
+    <g transform="translate(594 190)"><rect width="82" height="116" rx="9" fill="#0d0c0e" stroke="#e2231a" stroke-width="4"/><text x="41" y="62" text-anchor="middle" class="m" font-size="12">DEALING</text></g>
+    <g transform="translate(684 190)"><rect width="82" height="116" rx="9" fill="#0d0c0e" stroke="#f5c45e" stroke-width="4"/><text x="41" y="62" text-anchor="middle" class="m" font-size="12">REVEAL</text></g>
+  </g>
+
+  <!-- token library -->
+  <g transform="translate(72 700)">
+    <text class="h" font-size="18" x="0" y="0">TOKEN LIBRARY</text>
+    <g transform="translate(0 26)"><circle cx="38" cy="38" r="38" fill="url(#gold)" stroke="#fff0b1" stroke-width="3"/><text x="38" y="47" text-anchor="middle" class="token" font-size="28">D</text><text x="38" y="98" text-anchor="middle" class="m" font-size="13">DEALER</text></g>
+    <g transform="translate(150 26)"><circle cx="38" cy="38" r="38" fill="#1c1719" stroke="#e2231a" stroke-width="4"/><text x="38" y="47" text-anchor="middle" class="h" font-size="18">SB</text><text x="38" y="98" text-anchor="middle" class="m" font-size="13">SMALL BLIND</text></g>
+    <g transform="translate(300 26)"><circle cx="38" cy="38" r="38" fill="#1c1719" stroke="#ff4438" stroke-width="4"/><text x="38" y="47" text-anchor="middle" class="h" font-size="18">BB</text><text x="38" y="98" text-anchor="middle" class="m" font-size="13">BIG BLIND</text></g>
+    <g transform="translate(450 26)"><rect width="126" height="76" rx="38" fill="url(#red)"/><text x="63" y="48" text-anchor="middle" class="h" font-size="15">ALL-IN</text><text x="63" y="98" text-anchor="middle" class="m" font-size="13">ACTION BADGE</text></g>
+    <g transform="translate(610 26)"><circle cx="38" cy="38" r="38" fill="#1c1719" stroke="#e2231a" stroke-width="5"/><path d="M38 15a23 23 0 1 0 18 37" fill="none" stroke="#f5f6f7" stroke-width="5" stroke-linecap="round"/><text x="38" y="98" text-anchor="middle" class="m" font-size="13">TURN RING</text></g>
+    <g transform="translate(760 26)"><rect width="126" height="76" rx="38" fill="#1c1719" stroke="#6a555b" stroke-width="3"/><path d="M36 32h54M36 45h42M36 58h30" stroke="#a7abb4" stroke-width="4" stroke-linecap="round"/><text x="63" y="98" text-anchor="middle" class="m" font-size="13">SIDE POT</text></g>
+    <g transform="translate(920 26)"><circle cx="38" cy="38" r="38" fill="#1c1719" stroke="#f5c45e" stroke-width="4"/><path d="M20 41l13 13 27-30" fill="none" stroke="#f5c45e" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><text x="38" y="98" text-anchor="middle" class="m" font-size="13">WINNER</text></g>
+    <g transform="translate(1070 26)"><circle cx="38" cy="38" r="38" fill="#1c1719" stroke="#e2231a" stroke-width="4"/><path d="M22 22l32 32M54 22L22 54" stroke="#e2231a" stroke-width="6" stroke-linecap="round"/><text x="38" y="98" text-anchor="middle" class="m" font-size="13">DISCONNECTED</text></g>
+  </g>
+</svg>

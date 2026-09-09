@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="760" viewBox="0 0 1400 760">
+  <title>System and empty-state illustration sheet</title>
+  <desc>Four calm empty-state motifs for tournaments, search, account restriction, and responsible-play reminders in the client theme.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#171517"/><stop offset="1" stop-color="#070708"/></linearGradient>
+    <linearGradient id="red" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff4438"/><stop offset=".5" stop-color="#e2231a"/><stop offset="1" stop-color="#9e1009"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0b1"/><stop offset=".5" stop-color="#f5c45e"/><stop offset="1" stop-color="#a66b1a"/></linearGradient>
+    <style>.h{font-family:Inter,Arial,sans-serif;fill:#f5f6f7;font-weight:800;letter-spacing:1.1px}.m{font-family:Inter,Arial,sans-serif;fill:#a7abb4;font-weight:500;letter-spacing:.7px}</style>
+  </defs>
+  <rect width="1400" height="760" fill="url(#bg)"/>
+  <rect x="30" y="30" width="1340" height="700" rx="30" fill="none" stroke="#3a3034" stroke-width="2"/>
+  <text x="72" y="90" class="h" font-size="30">EMPTY &amp; SYSTEM STATES</text>
+  <text x="72" y="124" class="m" font-size="17">CALM, SUPPORTIVE MOTIFS · LABELS AND RECOVERY ACTIONS REMAIN EXTERNAL / LOCALIZED</text>
+  <g transform="translate(72 180)">
+    <g transform="translate(0 0)"><rect width="278" height="228" rx="22" fill="#151316" stroke="#4a3035" stroke-width="2"/><text x="24" y="40" class="h" font-size="16">NO TOURNAMENTS</text><path d="M56 102h104v72H56z" fill="#191519" stroke="#e2231a" stroke-width="4"/><path d="M56 120h104M82 102v72M134 102v72" stroke="#e2231a" stroke-width="3"/><path d="M190 92a31 31 0 1 0 1 49" fill="none" stroke="#f5c45e" stroke-width="7" stroke-linecap="round"/><path d="M190 92v17h17" fill="none" stroke="#f5c45e" stroke-width="7" stroke-linecap="round"/><text x="24" y="204" class="m" font-size="13">EMPTY BRACKET + CLOCK</text></g>
+    <g transform="translate(306 0)"><rect width="278" height="228" rx="22" fill="#151316" stroke="#4a3035" stroke-width="2"/><text x="24" y="40" class="h" font-size="16">NO SEARCH RESULTS</text><circle cx="105" cy="116" r="49" fill="none" stroke="#a7abb4" stroke-width="8"/><path d="m140 151 34 34" stroke="#e2231a" stroke-width="10" stroke-linecap="round"/><path d="M84 116h42" stroke="#e2231a" stroke-width="5" stroke-linecap="round"/><text x="24" y="204" class="m" font-size="13">MAGNIFIER + GENTLE NULL</text></g>
+    <g transform="translate(612 0)"><rect width="278" height="228" rx="22" fill="#151316" stroke="#4a3035" stroke-width="2"/><text x="24" y="40" class="h" font-size="16">ACCOUNT RESTRICTED</text><path d="M105 73 170 99v45c0 37-25 57-65 66-40-9-65-29-65-66V99z" fill="#21161a" stroke="#e2231a" stroke-width="5"/><rect x="84" y="124" width="42" height="35" rx="7" fill="#0e0d0f" stroke="#f5f6f7" stroke-width="4"/><path d="M92 124v-12a13 13 0 0 1 26 0v12" fill="none" stroke="#f5f6f7" stroke-width="4"/><text x="24" y="204" class="m" font-size="13">SHIELD + SUPPORTIVE LOCK</text></g>
+    <g transform="translate(918 0)"><rect width="278" height="228" rx="22" fill="#151316" stroke="#4a3035" stroke-width="2"/><text x="24" y="40" class="h" font-size="16">RESPONSIBLE PLAY</text><circle cx="105" cy="118" r="48" fill="#211b0d" stroke="#f5c45e" stroke-width="5"/><path d="M105 82v37l24 15" fill="none" stroke="#fff0b1" stroke-width="6" stroke-linecap="round"/><path d="M72 173c19 15 47 15 66 0" fill="none" stroke="#e2231a" stroke-width="5" stroke-linecap="round"/><text x="24" y="204" class="m" font-size="13">CLOCK + HEART / BALANCE</text></g>
+  </g>
+  <g transform="translate(72 468)">
+    <rect width="1196" height="162" rx="22" fill="#110f11" stroke="#3c292d"/>
+    <text x="28" y="48" class="h" font-size="17">RECOVERY COPY ZONE</text>
+    <text x="28" y="82" class="m" font-size="16">Every empty state keeps the middle calm for a localized title, explanation, and primary recovery action.</text>
+    <rect x="28" y="108" width="210" height="14" rx="7" fill="#e2231a" opacity=".8"/><rect x="258" y="108" width="320" height="14" rx="7" fill="#3e2b30"/><rect x="598" y="108" width="132" height="14" rx="7" fill="#3e2b30"/>
+  </g>
+</svg>

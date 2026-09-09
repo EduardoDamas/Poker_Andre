@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1600" height="600" viewBox="0 0 1600 600">
+  <title>CAPA CONTEST crimson campaign banner</title>
+  <desc>Wide promotional banner using the supplied client emblem, obsidian background, and crimson motion arcs.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#26070b"/><stop offset="0.55" stop-color="#10090b"/><stop offset="1" stop-color="#080809"/></linearGradient>
+    <linearGradient id="arc" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#e2231a" stop-opacity="0"/><stop offset=".5" stop-color="#e2231a" stop-opacity=".9"/><stop offset="1" stop-color="#ff4438" stop-opacity="0"/></linearGradient>
+    <style>
+      .word{font-family:Inter,Arial,sans-serif;font-size:64px;font-weight:800;letter-spacing:2px;fill:#f5f6f7}
+      .tag{font-family:Inter,Arial,sans-serif;font-size:25px;font-weight:500;letter-spacing:1px;fill:#a7abb4}
+      .cta{font-family:Inter,Arial,sans-serif;font-size:19px;font-weight:800;letter-spacing:2px;fill:#fbe4a8}
+    </style>
+  </defs>
+  <rect width="1600" height="600" fill="url(#bg)"/>
+  <path d="M-70 510 C300 260 525 510 810 330 S1300 100 1700 270" fill="none" stroke="url(#arc)" stroke-width="74" opacity=".46"/>
+  <path d="M-60 520 C310 300 535 535 830 350 S1300 135 1700 285" fill="none" stroke="#ff4438" stroke-width="3" opacity=".55"/>
+  <circle cx="1302" cy="111" r="2.5" fill="#fbe4a8"/><circle cx="1421" cy="166" r="2" fill="#fbe4a8"/><circle cx="1170" cy="206" r="2" fill="#fbe4a8"/>
+  <image x="78" y="136" width="330" height="330" preserveAspectRatio="xMidYMid meet" xlink:href="logo.png"/>
+  <text x="505" y="266" class="word">CAPA CONTEST</text>
+  <text x="510" y="316" class="tag">TORNEIOS DIGITAIS DE CARTAS E TABULEIRO</text>
+  <text x="512" y="378" class="cta">JOGUE · COMPITA · DOMINE</text>
+</svg>

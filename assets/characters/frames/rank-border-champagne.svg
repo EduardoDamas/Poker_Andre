@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>Champagne rank avatar border</title>
+  <desc>Transparent premium rank border in restrained champagne gold and crimson.</desc>
+  <defs><linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff0b1"/><stop offset=".5" stop-color="#f5c45e"/><stop offset="1" stop-color="#b87a1d"/></linearGradient></defs>
+  <circle cx="256" cy="256" r="238" fill="none" stroke="#080708" stroke-width="28" opacity=".9"/>
+  <circle cx="256" cy="256" r="226" fill="none" stroke="url(#gold)" stroke-width="12"/>
+  <circle cx="256" cy="256" r="211" fill="none" stroke="#e2231a" stroke-width="4" stroke-dasharray="2 12" opacity=".85"/>
+  <path d="M256 17l12 25 28 4-20 20 5 28-25-13-25 13 5-28-20-20 28-4z" fill="#f5c45e"/>
+  <path d="M256 461l12 25 28 4-20 20 5 28-25-13-25 13 5-28-20-20 28-4z" fill="#f5c45e" transform="rotate(180 256 461)"/>
+</svg>

@@ -53,3 +53,4 @@ coverage/
 # Handoff / restore docs — contain credentials or client PII, keep local only
 RESTORE.md
 HANDOFF_SECRETS.md
+CLAUDE_HANDOFF.md

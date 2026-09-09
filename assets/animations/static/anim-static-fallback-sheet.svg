@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1120" viewBox="0 0 1800 1120">
+  <title>Static motion fallbacks for the client crimson and obsidian poker theme</title>
+  <desc>Reduced-motion reference sheet covering brand intro, loading, card deal, chip movement, win celebration, and reconnect states.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#171517"/>
+      <stop offset="1" stop-color="#070708"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#201b1e"/>
+      <stop offset="1" stop-color="#0e0d0f"/>
+    </linearGradient>
+    <linearGradient id="crimson" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ff3b42"/>
+      <stop offset="0.52" stop-color="#e20b18"/>
+      <stop offset="1" stop-color="#850711"/>
+    </linearGradient>
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ffffff"/>
+      <stop offset="0.45" stop-color="#adb4b9"/>
+      <stop offset="1" stop-color="#53595d"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#fff0a9"/>
+      <stop offset="0.5" stop-color="#d39a37"/>
+      <stop offset="1" stop-color="#70450e"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feGaussianBlur stdDeviation="10"/>
+    </filter>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <style>
+      .label{font-family:Inter,Arial,sans-serif;fill:#f3f4f5;font-weight:700;letter-spacing:1.4px}
+      .muted{font-family:Inter,Arial,sans-serif;fill:#a9a4a6;font-weight:500;letter-spacing:.8px}
+      .num{font-family:Inter,Arial,sans-serif;fill:#efeff0;font-weight:800}
+      .line{fill:none;stroke:#efeff0;stroke-width:5;stroke-linecap:round;stroke-linejoin:round}
+    </style>
+  </defs>
+
+  <rect width="1800" height="1120" fill="url(#bg)"/>
+  <rect x="40" y="34" width="1720" height="1052" rx="34" fill="none" stroke="#3a3034" stroke-width="2"/>
+  <text x="92" y="96" class="label" font-size="30">STATIC MOTION FALLBACKS</text>
+  <text x="92" y="132" class="muted" font-size="18">REDUCED-MOTION / OFFLINE REFERENCE · OBSIDIAN + CRIMSON CLIENT THEME</text>
+  <rect x="1496" y="66" width="184" height="54" rx="27" fill="#261f21" stroke="#6b2229"/>
+  <circle cx="1526" cy="93" r="10" fill="#e20b18"/>
+  <text x="1550" y="100" class="muted" font-size="15">NO MOTION</text>
+
+  <!-- Brand intro -->
+  <g transform="translate(80 178)">
+    <text class="label" font-size="18" x="0" y="0">BRAND INTRO · 4 FRAMES</text>
+    <g transform="translate(0 30)">
+      <rect width="380" height="268" rx="20" fill="url(#panel)" stroke="#3d2a2e"/>
+      <text x="24" y="38" class="muted" font-size="15">01 · CAPE SILHOUETTE</text>
+      <path d="M184 204c-74 12-115-13-133-55 46 5 72-16 89-68l17-49 25 31 17 56c12 37 26 63 55 85z" fill="#8d0914" opacity=".94"/>
+      <path d="M175 92c-13-23-25-43-28-60 20-18 62-21 88-5-1 25-3 43-8 60z" fill="#050506" stroke="#d8dcde" stroke-width="2"/>
+      <path d="M142 90c27-10 67-10 100 0" fill="none" stroke="#e20b18" stroke-width="11"/>
+      <ellipse cx="192" cy="100" rx="72" ry="16" fill="#050506" stroke="#d8dcde" stroke-width="2"/>
+    </g>
+    <g transform="translate(400 30)">
+      <rect width="380" height="268" rx="20" fill="url(#panel)" stroke="#3d2a2e"/>
+      <text x="24" y="38" class="muted" font-size="15">02 · ARC IGNITES</text>
+      <path d="M186 86a68 68 0 1 0 54 109" fill="none" stroke="#5b0a12" stroke-width="31" stroke-linecap="round"/>
+      <path d="M186 86a68 68 0 1 0 54 109" fill="none" stroke="url(#crimson)" stroke-width="24" stroke-linecap="round"/>
+      <path d="M170 77c-16-22-25-43-24-52 25-19 64-21 89-5 0 17 2 31 10 48" fill="#050506" stroke="#bfc4c7" stroke-width="2"/>
+      <path d="M146 86c27-10 68-10 99 0" fill="none" stroke="#e20b18" stroke-width="10"/>
+      <ellipse cx="194" cy="96" rx="74" ry="15" fill="#050506" stroke="#bfc4c7" stroke-width="2"/>
+    </g>
+    <g transform="translate(800 30)">
+      <rect width="380" height="268" rx="20" fill="url(#panel)" stroke="#3d2a2e"/>
+      <text x="24" y="38" class="muted" font-size="15">03 · TOP HAT LOCKUP</text>
+      <path d="M186 91a65 65 0 1 0 58 104" fill="none" stroke="url(#crimson)" stroke-width="26" stroke-linecap="round"/>
+      <path d="M171 77c-15-22-24-43-23-52 25-19 64-21 89-5 1 17 2 32 10 48" fill="#050506" stroke="#e5e7e9" stroke-width="2"/>
+      <path d="M147 86c27-10 68-10 99 0" fill="none" stroke="#e20b18" stroke-width="10"/>
+      <ellipse cx="194" cy="96" rx="74" ry="15" fill="#050506" stroke="#e5e7e9" stroke-width="2"/>
+      <path d="M137 211c36-24 75-30 116-11-38 22-79 26-116 11z" fill="#191619" stroke="#5b474c" stroke-width="2"/>
+    </g>
+    <g transform="translate(1200 30)">
+      <rect width="380" height="268" rx="20" fill="url(#panel)" stroke="#6b2229"/>
+      <text x="24" y="38" class="muted" font-size="15">04 · READY</text>
+      <circle cx="190" cy="140" r="80" fill="#e20b18" opacity=".12" filter="url(#glow)"/>
+      <path d="M185 84a66 66 0 1 0 59 105" fill="none" stroke="url(#crimson)" stroke-width="27" stroke-linecap="round"/>
+      <path d="M171 76c-15-22-24-42-23-51 24-19 64-21 88-5 1 16 2 31 10 47" fill="#050506" stroke="url(#silver)" stroke-width="2"/>
+      <path d="M147 86c27-10 68-10 99 0" fill="none" stroke="#e20b18" stroke-width="10"/>
+      <ellipse cx="194" cy="96" rx="74" ry="15" fill="#050506" stroke="url(#silver)" stroke-width="2"/>
+      <path d="M111 225c38-25 111-35 158-5-44 28-112 31-158 5z" fill="#21080d"/>
+    </g>
+  </g>
+
+  <!-- Loading -->
+  <g transform="translate(80 522)">
+    <text class="label" font-size="18" x="0" y="0">LOADING · 4 FRAMES</text>
+    <g transform="translate(0 30)">
+      <rect width="380" height="220" rx="20" fill="url(#panel)" stroke="#3d2a2e"/>
+      <text x="24" y="38" class="muted" font-size="15">RING 01</text><circle cx="190" cy="125" r="53" fill="none" stroke="#49393d" stroke-width="12"/><path d="M190 72a53 53 0 0 1 45 25" fill="none" stroke="#e20b18" stroke-width="12" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(400 30)">
+      <rect width="380" height="220" rx="20" fill="url(#panel)" stroke="#3d2a2e"/>
+      <text x="24" y="38" class="muted" font-size="15">RING 02</text><circle cx="190" cy="125" r="53" fill="none" stroke="#49393d" stroke-width="12"/><path d="M190 72a53 53 0 0 1 53 53" fill="none" stroke="#e20b18" stroke-width="12" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(800 30)">
+      <rect width="380" height="220" rx="20" fill="url(#panel)" stroke="#3d2a2e"/>
+      <text x="24" y="38" class="muted" font-size="15">RING 03</text><circle cx="190" cy="125" r="53" fill="none" stroke="#49393d" stroke-width="12"/><path d="M190 72a53 53 0 0 1 0 106" fill="none" stroke="#e20b18" stroke-width="12" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(1200 30)">
+      <rect width="380" height="220" rx="20" fill="url(#panel)" stroke="#3d2a2e"/>
+      <text x="24" y="38" class="muted" font-size="15">RING 04</text><circle cx="190" cy="125" r="53" fill="none" stroke="#49393d" stroke-width="12"/><path d="M190 178a53 53 0 1 1 0-106" fill="none" stroke="#e20b18" stroke-width="12" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <!-- Deal and chip movement -->
+  <g transform="translate(80 820)">
+    <text class="label" font-size="18" x="0" y="0">GAMEPLAY TRANSITIONS · STATIC KEYFRAMES</text>
+    <g transform="translate(0 30)">
+      <rect width="760" height="190" rx="20" fill="url(#panel)" stroke="#3d2a2e"/>
+      <text x="24" y="38" class="muted" font-size="15">CARD DEAL · 01 → 04</text>
+      <ellipse cx="380" cy="142" rx="260" ry="22" fill="#050506" opacity=".65"/>
+      <rect x="124" y="88" width="80" height="112" rx="8" fill="#17181a" stroke="#aeb5b9" transform="rotate(-18 164 144)"/>
+      <rect x="267" y="74" width="80" height="112" rx="8" fill="#17181a" stroke="#aeb5b9" transform="rotate(-6 307 130)"/>
+      <rect x="407" y="74" width="80" height="112" rx="8" fill="#17181a" stroke="#aeb5b9" transform="rotate(6 447 130)"/>
+      <rect x="548" y="88" width="80" height="112" rx="8" fill="#17181a" stroke="#aeb5b9" transform="rotate(18 588 144)"/>
+      <path d="M145 102h38M287 88h38M427 88h38M568 102h38" stroke="#e20b18" stroke-width="7" opacity=".9"/>
+    </g>
+    <g transform="translate(800 30)">
+      <rect width="760" height="190" rx="20" fill="url(#panel)" stroke="#3d2a2e"/>
+      <text x="24" y="38" class="muted" font-size="15">CHIPS TO POT · 01 → 04</text>
+      <ellipse cx="382" cy="155" rx="235" ry="18" fill="#050506" opacity=".8"/>
+      <g fill="#e20b18" stroke="#f1c7c9" stroke-width="2">
+        <ellipse cx="170" cy="137" rx="38" ry="12"/><ellipse cx="170" cy="125" rx="38" ry="12"/><ellipse cx="170" cy="113" rx="38" ry="12"/>
+        <ellipse cx="378" cy="144" rx="38" ry="12"/><ellipse cx="378" cy="132" rx="38" ry="12"/>
+        <ellipse cx="588" cy="147" rx="38" ry="12"/><ellipse cx="588" cy="135" rx="38" ry="12"/><ellipse cx="588" cy="123" rx="38" ry="12"/><ellipse cx="588" cy="111" rx="38" ry="12"/>
+      </g>
+      <path d="M205 122c55-30 99-31 140 3M413 135c55-26 100-29 141-5" fill="none" stroke="#e20b18" stroke-width="4" stroke-dasharray="10 10" opacity=".7"/>
+      <circle cx="380" cy="152" r="42" fill="#0b0b0c" stroke="#dfe3e5" stroke-width="2"/><path d="M380 125a28 28 0 1 0 24 45" fill="none" stroke="#e20b18" stroke-width="9" stroke-linecap="round"/>
+    </g>
+  </g>
+
+  <!-- footer states -->
+  <g transform="translate(80 1040)">
+    <circle cx="6" cy="-4" r="6" fill="#e20b18"/><text x="22" y="2" class="muted" font-size="15">WIN / REWARD: crimson burst + gold trophy</text>
+    <circle cx="374" cy="-4" r="6" fill="#d39a37"/><text x="390" y="2" class="muted" font-size="15">RECONNECT: silver signal + red accent</text>
+    <circle cx="780" cy="-4" r="6" fill="#aeb4b7"/><text x="796" y="2" class="muted" font-size="15">ALL KEYFRAMES HAVE STATIC FALLBACKS</text>
+  </g>
+</svg>

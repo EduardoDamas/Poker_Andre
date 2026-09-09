@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-label="blinds">
+  <circle cx="31" cy="48" r="21" fill="#1A1A1A" stroke="#E2231A" stroke-width="5"/><circle cx="65" cy="48" r="21" fill="#1A1A1A" stroke="#F5F6F7" stroke-width="5"/><path d="M31 37v22M65 37v22" stroke="#F5F6F7" stroke-width="4"/>
+</svg>
+

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="88" viewBox="0 0 360 88" role="img" aria-label="JOIN TABLE">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#FF4438"/><stop offset="1" stop-color="#FF4438"/></linearGradient><filter id="s"><feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#000" flood-opacity=".5"/></filter></defs>
+  <rect x="12" y="10" width="336" height="68" rx="18" fill="#FF4438" stroke="#F5F6F7" stroke-width="2" filter="url(#s)"/>
+  
+  <text x="180" y="53" text-anchor="middle" font-family="Inter,Arial" font-size="20" font-weight="700" fill="#F5F6F7">JOIN TABLE</text>
+</svg>

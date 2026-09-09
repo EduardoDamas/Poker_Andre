@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>Locked avatar silhouette</title>
+  <desc>Neutral crimson and obsidian avatar placeholder with a clear lock affordance.</desc>
+  <defs>
+    <radialGradient id="bg" cx="40%" cy="30%" r="80%"><stop stop-color="#2b2024"/><stop offset="1" stop-color="#09090a"/></radialGradient>
+    <linearGradient id="red" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff4438"/><stop offset="1" stop-color="#9e1009"/></linearGradient>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="8"/></filter>
+  </defs>
+  <circle cx="256" cy="256" r="240" fill="#000" opacity=".55" filter="url(#shadow)"/>
+  <circle cx="256" cy="256" r="232" fill="url(#bg)" stroke="#5a272d" stroke-width="7"/>
+  <circle cx="256" cy="256" r="211" fill="none" stroke="#e2231a" stroke-width="4" stroke-dasharray="3 14" opacity=".8"/>
+  <path d="M256 128c-56 0-96 44-96 104 0 35 14 63 36 82-56 21-91 57-103 105h326c-12-48-47-84-103-105 22-19 36-47 36-82 0-60-40-104-96-104z" fill="#0b0b0c" stroke="#adb4b9" stroke-width="5"/>
+  <path d="M171 249c18 21 48 34 85 34s67-13 85-34" fill="none" stroke="#e2231a" stroke-width="8" stroke-linecap="round" opacity=".8"/>
+  <g transform="translate(320 330)">
+    <circle cx="0" cy="0" r="65" fill="#0a090a" stroke="#e2231a" stroke-width="7"/>
+    <rect x="-25" y="-4" width="50" height="40" rx="8" fill="#151316" stroke="#f4f6f7" stroke-width="5"/>
+    <path d="M-15-4v-16a15 15 0 0 1 30 0v16" fill="none" stroke="#f4f6f7" stroke-width="5" stroke-linecap="round"/>
+  </g>
+</svg>

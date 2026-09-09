@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="960" viewBox="0 0 1500 960">
+  <title>Playing card interaction states</title>
+  <desc>Reference sheet for default, hover, selected, winner, dimmed, and locked card states in the crimson and obsidian theme.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#171517"/><stop offset="1" stop-color="#070708"/></linearGradient>
+    <linearGradient id="ivory" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fffdf8"/><stop offset="1" stop-color="#e7e2d8"/></linearGradient>
+    <linearGradient id="red" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ff3b42"/><stop offset="1" stop-color="#a40611"/></linearGradient>
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f7fafb"/><stop offset="1" stop-color="#6a7175"/></linearGradient>
+    <filter id="shadow" x="-40%" y="-30%" width="180%" height="180%"><feGaussianBlur stdDeviation="9"/></filter>
+    <style>
+      .h{font-family:Inter,Arial,sans-serif;fill:#f3f4f5;font-weight:800;letter-spacing:1.2px}
+      .m{font-family:Inter,Arial,sans-serif;fill:#aaa4a7;font-weight:500;letter-spacing:.7px}
+      .cardtext{font-family:Georgia,serif;font-weight:700}
+    </style>
+  </defs>
+  <rect width="1500" height="960" fill="url(#bg)"/>
+  <rect x="32" y="32" width="1436" height="896" rx="28" fill="none" stroke="#3a3034" stroke-width="2"/>
+  <text x="72" y="94" class="h" font-size="30">CARD INTERACTION STATES</text>
+  <text x="72" y="129" class="m" font-size="18">VECTOR-SAFE REFERENCE · 2.5 : 3.5 GEOMETRY · WARM IVORY FACE</text>
+
+  <g transform="translate(70 188)">
+    <!-- card 1 -->
+    <g transform="translate(0 0)">
+      <text x="18" y="0" class="h" font-size="16">DEFAULT</text>
+      <rect x="0" y="26" width="190" height="266" rx="15" fill="#050506" opacity=".65" filter="url(#shadow)"/>
+      <rect x="0" y="18" width="190" height="266" rx="15" fill="url(#ivory)" stroke="#b6b0a8" stroke-width="2"/>
+      <rect x="13" y="31" width="164" height="240" rx="10" fill="none" stroke="#c8c0b4"/>
+      <text x="26" y="62" class="cardtext" font-size="28" fill="#14181f">A</text><text x="25" y="87" class="cardtext" font-size="25" fill="#14181f">♠</text>
+      <text x="95" y="183" text-anchor="middle" class="cardtext" font-size="74" fill="#14181f">♠</text>
+      <g transform="translate(165 247) rotate(180)"><text class="cardtext" font-size="28" fill="#14181f">A</text><text y="26" class="cardtext" font-size="25" fill="#14181f">♠</text></g>
+    </g>
+    <!-- card 2 -->
+    <g transform="translate(232 0)">
+      <text x="18" y="0" class="h" font-size="16">HOVER</text>
+      <rect x="-6" y="12" width="202" height="278" rx="19" fill="#e20b18" opacity=".18"/>
+      <rect x="0" y="18" width="190" height="266" rx="15" fill="url(#ivory)" stroke="#ff3b42" stroke-width="5"/>
+      <rect x="13" y="31" width="164" height="240" rx="10" fill="none" stroke="#d8322b" stroke-width="2"/>
+      <text x="26" y="62" class="cardtext" font-size="28" fill="#d8322b">K</text><text x="25" y="87" class="cardtext" font-size="25" fill="#d8322b">♥</text>
+      <text x="95" y="183" text-anchor="middle" class="cardtext" font-size="74" fill="#d8322b">♥</text>
+      <g transform="translate(165 247) rotate(180)"><text class="cardtext" font-size="28" fill="#d8322b">K</text><text y="26" class="cardtext" font-size="25" fill="#d8322b">♥</text></g>
+    </g>
+    <!-- card 3 -->
+    <g transform="translate(464 0)">
+      <text x="18" y="0" class="h" font-size="16">SELECTED</text>
+      <rect x="0" y="8" width="190" height="266" rx="15" fill="#e20b18" opacity=".26"/>
+      <rect x="0" y="18" width="190" height="266" rx="15" fill="url(#ivory)" stroke="#d39a37" stroke-width="6"/>
+      <path d="M12 41h166M12 261h166" stroke="#e20b18" stroke-width="2" opacity=".55"/>
+      <text x="26" y="62" class="cardtext" font-size="28" fill="#14181f">10</text><text x="24" y="87" class="cardtext" font-size="24" fill="#14181f">♣</text>
+      <text x="95" y="183" text-anchor="middle" class="cardtext" font-size="74" fill="#1e8e5a">♣</text>
+      <g transform="translate(165 247) rotate(180)"><text class="cardtext" font-size="28" fill="#14181f">10</text><text y="26" class="cardtext" font-size="24" fill="#1e8e5a">♣</text></g>
+      <circle cx="170" cy="39" r="11" fill="#e20b18"/><path d="M165 39l4 4 7-8" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+    <!-- card 4 -->
+    <g transform="translate(696 0)">
+      <text x="18" y="0" class="h" font-size="16">WINNER</text>
+      <rect x="-8" y="10" width="206" height="282" rx="20" fill="#d39a37" opacity=".22"/>
+      <rect x="0" y="18" width="190" height="266" rx="15" fill="url(#ivory)" stroke="url(#silver)" stroke-width="5"/>
+      <rect x="8" y="26" width="174" height="250" rx="12" fill="none" stroke="#d39a37" stroke-width="2"/>
+      <text x="26" y="62" class="cardtext" font-size="28" fill="#d8322b">Q</text><text x="25" y="87" class="cardtext" font-size="25" fill="#d8322b">♦</text>
+      <text x="95" y="183" text-anchor="middle" class="cardtext" font-size="74" fill="#2a6fdb">♦</text>
+      <g transform="translate(165 247) rotate(180)"><text class="cardtext" font-size="28" fill="#d8322b">Q</text><text y="26" class="cardtext" font-size="25" fill="#2a6fdb">♦</text></g>
+      <path d="M95 0l8 14h16l-13 10 5 16-16-9-16 9 5-16-13-10h16z" fill="#d39a37" transform="translate(0 0)"/>
+    </g>
+    <!-- card 5 -->
+    <g transform="translate(928 0)">
+      <text x="18" y="0" class="h" font-size="16">DIMMED / FOLDED</text>
+      <rect x="0" y="18" width="190" height="266" rx="15" fill="#29272a" stroke="#504b4d" stroke-width="2"/>
+      <rect x="13" y="31" width="164" height="240" rx="10" fill="none" stroke="#504b4d"/>
+      <text x="26" y="62" class="cardtext" font-size="28" fill="#777174">7</text><text x="25" y="87" class="cardtext" font-size="25" fill="#777174">♠</text>
+      <text x="95" y="183" text-anchor="middle" class="cardtext" font-size="74" fill="#777174">♠</text>
+      <g transform="translate(165 247) rotate(180)"><text class="cardtext" font-size="28" fill="#777174">7</text><text y="26" class="cardtext" font-size="25" fill="#777174">♠</text></g>
+      <rect x="35" y="135" width="120" height="34" rx="17" fill="#0a090a" stroke="#e20b18"/><text x="95" y="157" text-anchor="middle" class="m" font-size="13" fill="#f3f4f5">FOLDED</text>
+    </g>
+    <!-- card 6 -->
+    <g transform="translate(1160 0)">
+      <text x="18" y="0" class="h" font-size="16">LOCKED / HIDDEN</text>
+      <rect x="0" y="18" width="190" height="266" rx="15" fill="#111113" stroke="#57494d" stroke-width="2"/>
+      <rect x="13" y="31" width="164" height="240" rx="10" fill="#181418" stroke="#6b2229"/>
+      <path d="M95 83a55 55 0 1 1 0 110 55 55 0 0 1 0-110z" fill="none" stroke="#e20b18" stroke-width="14" opacity=".75"/>
+      <path d="M95 102a37 37 0 1 0 31 58" fill="none" stroke="#f2f3f4" stroke-width="7" stroke-linecap="round"/>
+      <rect x="72" y="147" width="46" height="37" rx="8" fill="#09090a" stroke="#f2f3f4" stroke-width="3"/><path d="M80 147v-10a15 15 0 0 1 30 0v10" fill="none" stroke="#f2f3f4" stroke-width="3"/>
+    </g>
+  </g>
+
+  <g transform="translate(72 580)">
+    <text class="h" font-size="20">TABLE COMBINATION EXAMPLE</text>
+    <text x="0" y="34" class="m" font-size="16">Active player ring + selected cards + winner treatment remain legible without color alone.</text>
+    <rect x="0" y="64" width="1356" height="242" rx="24" fill="#100e10" stroke="#3d2a2e"/>
+    <ellipse cx="688" cy="205" rx="470" ry="70" fill="#380b10" stroke="#8d1721" stroke-width="5"/>
+    <ellipse cx="688" cy="203" rx="420" ry="56" fill="#120d0f" stroke="#2f2225" stroke-width="2"/>
+    <g transform="translate(545 112)"><rect width="88" height="124" rx="10" fill="url(#ivory)" stroke="#d39a37" stroke-width="4"/><text x="13" y="32" class="cardtext" font-size="22" fill="#d8322b">A</text><text x="13" y="54" class="cardtext" font-size="19" fill="#d8322b">♥</text><text x="44" y="83" text-anchor="middle" class="cardtext" font-size="45" fill="#d8322b">♥</text></g>
+    <g transform="translate(646 112)"><rect width="88" height="124" rx="10" fill="url(#ivory)" stroke="#e20b18" stroke-width="5"/><text x="13" y="32" class="cardtext" font-size="22" fill="#14181f">K</text><text x="13" y="54" class="cardtext" font-size="19" fill="#14181f">♠</text><text x="44" y="83" text-anchor="middle" class="cardtext" font-size="45" fill="#14181f">♠</text></g>
+    <g transform="translate(747 112)"><rect width="88" height="124" rx="10" fill="#29272a" stroke="#504b4d" stroke-width="3"/><text x="44" y="72" text-anchor="middle" class="m" font-size="15">HIDDEN</text></g>
+    <circle cx="688" cy="268" r="13" fill="#e20b18"/><text x="716" y="275" class="m" font-size="16">ACTIVE PLAYER · timer ring + label</text>
+  </g>
+
+  <g transform="translate(72 884)"><circle cx="6" cy="-4" r="6" fill="#e20b18"/><text x="22" y="2" class="m" font-size="15">Crimson = action / selection</text><circle cx="250" cy="-4" r="6" fill="#d39a37"/><text x="266" y="2" class="m" font-size="15">Gold = winner / premium</text><circle cx="510" cy="-4" r="6" fill="#aeb4b7"/><text x="526" y="2" class="m" font-size="15">Silver = focus / system</text></g>
+</svg>
