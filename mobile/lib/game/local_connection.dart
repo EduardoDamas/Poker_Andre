@@ -95,6 +95,21 @@ class LocalGameConnection implements GameConnection {
     }
   }
 
+  /// Seats for the round-table layout: me at position 0, then the bots, then
+  /// empty seats up to the room capacity (absent players → empty seats).
+  int get _capacity => roomCapacity < botCount + 1 ? botCount + 1 : roomCapacity;
+  List<SeatInfo?> _seatList(bool inHand) {
+    final list = <SeatInfo?>[
+      SeatInfo(position: 0, userId: userId, hasCards: inHand, isMe: true),
+      for (var i = 1; i <= botCount; i++)
+        SeatInfo(position: i, userId: 'bot$i', hasCards: inHand),
+    ];
+    for (var i = botCount + 1; i < _capacity; i++) {
+      list.add(null); // empty seat
+    }
+    return list;
+  }
+
   void _emitState() {
     final acting = _hand.actingPlayerId;
     _emit(_snap.copyWith(
@@ -106,6 +121,8 @@ class LocalGameConnection implements GameConnection {
       legalActions: acting == userId ? _hand.legalActions() : const [],
       isMyTurn: acting == userId,
       handComplete: false,
+      maxSeats: _capacity,
+      seats: _seatList(true),
     ));
   }
 
@@ -131,6 +148,8 @@ class LocalGameConnection implements GameConnection {
       handComplete: true,
       resultText: text,
       prizeCents: prize,
+      maxSeats: _capacity,
+      seats: _seatList(false),
     ));
   }
 
@@ -154,6 +173,11 @@ class LocalGameConnection implements GameConnection {
       return; // ignore illegal taps
     }
     _advance();
+  }
+
+  @override
+  Future<void> leaveTable() async {
+    // Offline solo game — nothing to release on a server.
   }
 
   @override

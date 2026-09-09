@@ -65,6 +65,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Image.asset('assets/brand/logo-symbol.png',
+                      height: 104,
+                      filterQuality: FilterQuality.high,
+                      errorBuilder: (_, _, _) => const SizedBox(height: 8)),
+                  const SizedBox(height: 14),
                   const _Wordmark(),
                   const SizedBox(height: 10),
                   Text('Torneios Digitais de Cartas e Tabuleiro',

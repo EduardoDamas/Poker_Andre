@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../game/game_connection.dart';
 import '../game/game_snapshot.dart';
@@ -41,6 +42,12 @@ class _TableScreenState extends State<TableScreen> {
 
   void _act(String type, {int? amount}) => widget.connection.act(type, amount: amount);
 
+  /// Leave the table (frees the seat on the server) and return to the lobby.
+  Future<void> _leave() async {
+    await widget.connection.leaveTable();
+    if (mounted) Navigator.of(context).pop();
+  }
+
   Future<void> _promptAmount(String type) async {
     final controller = TextEditingController();
     final amount = await showModalBottomSheet<int>(
@@ -77,7 +84,10 @@ class _TableScreenState extends State<TableScreen> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        leading: const BackButton(color: Brand.textPri),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Brand.textPri),
+          onPressed: _leave,
+        ),
         title: Text(widget.title, style: Brand.h3),
         actions: [
           IconButton(
@@ -98,7 +108,7 @@ class _TableScreenState extends State<TableScreen> {
           if (s.status == ConnStatus.connecting) {
             return const _Centered(child: CircularProgressIndicator(color: Brand.crimson));
           }
-          return _TableView(snapshot: s, onAct: _act, onAmount: _promptAmount);
+          return _TableView(snapshot: s, onAct: _act, onAmount: _promptAmount, onLeave: _leave);
         },
       ),
     );
@@ -137,7 +147,8 @@ class _TableView extends StatelessWidget {
   final GameSnapshot snapshot;
   final void Function(String type, {int? amount}) onAct;
   final Future<void> Function(String type) onAmount;
-  const _TableView({required this.snapshot, required this.onAct, required this.onAmount});
+  final Future<void> Function() onLeave;
+  const _TableView({required this.snapshot, required this.onAct, required this.onAmount, required this.onLeave});
 
   @override
   Widget build(BuildContext context) {
@@ -146,17 +157,36 @@ class _TableView extends StatelessWidget {
       // ---- Felt area ----
       Expanded(
         child: Container(
-          decoration: BoxDecoration(
-            gradient: Brand.feltGrad,
-            border: const Border(bottom: BorderSide(color: Brand.feltTrim, width: 2)),
+          decoration: const BoxDecoration(
+            gradient: RadialGradient(radius: 1.2, colors: [Brand.feltDeep, Brand.bg]),
+            border: Border(bottom: BorderSide(color: Brand.feltTrim, width: 2)),
           ),
           child: SafeArea(
             bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 60, 16, 16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
+            child: Stack(
+              children: [
+                // The round table surface.
+                Center(
+                  child: FractionallySizedBox(
+                    widthFactor: 0.82,
+                    heightFactor: 0.66,
+                    child: DecoratedBox(
+                      decoration: ShapeDecoration(
+                        gradient: Brand.feltGrad,
+                        shape: const OvalBorder(side: BorderSide(color: Brand.feltTrim, width: 3)),
+                        shadows: Brand.cardShadow,
+                      ),
+                    ),
+                  ),
+                ),
+                // Characters seated around the table; absent players leave an empty seat.
+                if (s.seats.isNotEmpty) Positioned.fill(child: _TableSeats(snapshot: s)),
+                // Center: street chip + community board.
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 60, 16, 16),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
                   // Street chip + pot placeholder.
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -190,8 +220,10 @@ class _TableView extends StatelessWidget {
                       const SizedBox(height: 12),
                       Text('Aguardando oponente…', style: Brand.caption.copyWith(color: Brand.champagne)),
                     ]),
-                ],
-              ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -228,6 +260,12 @@ class _TableView extends StatelessWidget {
                         ]),
                       ),
                     ],
+                    const SizedBox(height: 16),
+                    GradientButton('Sair da mesa',
+                        key: const Key('leaveTable'),
+                        icon: Icons.logout,
+                        variant: BtnVariant.crimson,
+                        onPressed: onLeave),
                   ],
                 )
               else
@@ -288,5 +326,104 @@ class _TableView extends StatelessWidget {
         ),
       ),
     ]);
+  }
+}
+
+/// Lays out the seats evenly around the round table. Occupied seats show a
+/// character avatar; empty seats show a faint placeholder ring. The local
+/// player is anchored at the bottom of the table.
+class _TableSeats extends StatelessWidget {
+  final GameSnapshot snapshot;
+  const _TableSeats({required this.snapshot});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = snapshot;
+    final max = s.maxSeats > 0 ? s.maxSeats : s.seats.length;
+    if (max <= 0) return const SizedBox.shrink();
+
+    final byPos = <int, SeatInfo>{};
+    int? myPos;
+    for (final seat in s.seats) {
+      if (seat == null) continue;
+      byPos[seat.position] = seat;
+      if (seat.isMe) myPos = seat.position;
+    }
+
+    return LayoutBuilder(builder: (context, c) {
+      const seatSize = 52.0;
+      final cx = c.maxWidth / 2, cy = c.maxHeight / 2;
+      final rx = (c.maxWidth / 2) - seatSize * 0.55;
+      final ry = (c.maxHeight / 2) - seatSize * 0.55;
+      final children = <Widget>[];
+      for (var i = 0; i < max; i++) {
+        // Rotate so that my seat (or seat 0) sits at the bottom (pi/2 on screen).
+        final offset = myPos == null ? i : i - myPos;
+        final angle = (math.pi / 2) + (offset / max) * 2 * math.pi;
+        final dx = cx + rx * math.cos(angle) - seatSize / 2;
+        final dy = cy + ry * math.sin(angle) - seatSize / 2;
+        final seat = byPos[i];
+        final acting = seat != null && s.actingPlayerId == seat.userId;
+        children.add(Positioned(
+          left: dx.clamp(0.0, c.maxWidth - seatSize),
+          top: dy.clamp(0.0, c.maxHeight - seatSize),
+          child: _SeatWidget(size: seatSize, seat: seat, acting: acting),
+        ));
+      }
+      return Stack(children: children);
+    });
+  }
+}
+
+class _SeatWidget extends StatelessWidget {
+  final double size;
+  final SeatInfo? seat;
+  final bool acting;
+  const _SeatWidget({required this.size, required this.seat, required this.acting});
+
+  @override
+  Widget build(BuildContext context) {
+    final seat = this.seat;
+    if (seat == null) {
+      // Empty seat — a faint placeholder ring.
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.black.withValues(alpha: 0.28),
+          border: Border.all(color: Brand.feltTrim.withValues(alpha: 0.35), width: 1.5),
+        ),
+        child: Icon(Icons.person_outline,
+            color: Brand.feltTrim.withValues(alpha: 0.45), size: size * 0.5),
+      );
+    }
+    final ring = acting
+        ? Brand.gold
+        : (seat.isMe ? Brand.crimson : Brand.feltTrim.withValues(alpha: 0.7));
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: ring, width: acting ? 3 : 2),
+            boxShadow: acting ? Brand.glow(Brand.gold) : Brand.cardShadow,
+          ),
+          child: ClipOval(
+            child: Image.asset(
+              'assets/characters/avatars/chr-avatar-default.png',
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.high,
+            ),
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(seat.isMe ? 'Você' : 'Jogador',
+            style: Brand.micro.copyWith(color: seat.isMe ? Brand.champagne : Brand.textSec)),
+      ],
+    );
   }
 }

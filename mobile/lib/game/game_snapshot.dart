@@ -1,5 +1,20 @@
 enum ConnStatus { connecting, connected, error }
 
+/// One occupied seat as broadcast in `table:state`. Absent players are
+/// represented by a `null` entry in [GameSnapshot.seats] (the seat stays empty).
+class SeatInfo {
+  final int position;
+  final String userId;
+  final bool hasCards;
+  final bool isMe;
+  const SeatInfo({
+    required this.position,
+    required this.userId,
+    this.hasCards = false,
+    this.isMe = false,
+  });
+}
+
 /// Immutable view of the table as the player sees it. Built from socket events
 /// (game:state / hand:hole / hand:result) by the GameConnection.
 class GameSnapshot {
@@ -14,6 +29,8 @@ class GameSnapshot {
   final bool handComplete;
   final String? resultText; // human-readable outcome
   final int? prizeCents; // winner's prize (R$) when you win, per the prize table
+  final int maxSeats; // total seats at the table (round-table layout)
+  final List<SeatInfo?> seats; // one entry per seat; null = empty seat
 
   const GameSnapshot({
     this.status = ConnStatus.connecting,
@@ -27,6 +44,8 @@ class GameSnapshot {
     this.handComplete = false,
     this.resultText,
     this.prizeCents,
+    this.maxSeats = 0,
+    this.seats = const [],
   });
 
   GameSnapshot copyWith({
@@ -41,6 +60,8 @@ class GameSnapshot {
     bool? handComplete,
     String? resultText,
     int? prizeCents,
+    int? maxSeats,
+    List<SeatInfo?>? seats,
   }) {
     return GameSnapshot(
       status: status ?? this.status,
@@ -54,6 +75,8 @@ class GameSnapshot {
       handComplete: handComplete ?? this.handComplete,
       resultText: resultText ?? this.resultText,
       prizeCents: prizeCents ?? this.prizeCents,
+      maxSeats: maxSeats ?? this.maxSeats,
+      seats: seats ?? this.seats,
     );
   }
 }

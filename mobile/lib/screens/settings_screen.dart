@@ -20,7 +20,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Configurações')),
       body: Container(
-        decoration: const BoxDecoration(gradient: Brand.obsidianGrad),
+        decoration: const BoxDecoration(
+          gradient: Brand.obsidianGrad,
+          image: DecorationImage(
+            image: AssetImage('assets/environments/env-settings.webp'),
+            fit: BoxFit.cover,
+            colorFilter: ColorFilter.mode(Color(0x990A0A0B), BlendMode.srcOver),
+          ),
+        ),
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [

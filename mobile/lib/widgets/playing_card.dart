@@ -78,26 +78,37 @@ class _DealIn extends StatelessWidget {
   }
 }
 
-/// Face-down card — crimson gradient with the brand monogram.
+/// Face-down card — the custom CAPA CONTEST card-back artwork.
 class CardBack extends StatelessWidget {
   final double width;
   const CardBack({super.key, this.width = 44});
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(width * 0.16);
     return Container(
       width: width,
       height: width * 1.4,
       margin: const EdgeInsets.symmetric(horizontal: 3),
-      decoration: BoxDecoration(
-        gradient: Brand.crimsonGrad,
-        borderRadius: BorderRadius.circular(width * 0.16),
-        border: Border.all(color: Brand.crimsonGlow, width: 0.8),
-        boxShadow: Brand.cardShadow,
-      ),
-      child: Center(
-        child: Text('C',
-            style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.85), fontWeight: FontWeight.w900, fontSize: width * 0.5, fontStyle: FontStyle.italic)),
+      decoration: BoxDecoration(borderRadius: radius, boxShadow: Brand.cardShadow),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: Image.asset(
+          'assets/cards/card-back-default.png',
+          fit: BoxFit.cover,
+          filterQuality: FilterQuality.high,
+          // If the asset is ever missing, fall back to a plain crimson back.
+          errorBuilder: (_, _, _) => DecoratedBox(
+            decoration: const BoxDecoration(gradient: Brand.crimsonGrad),
+            child: Center(
+              child: Text('C',
+                  style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontWeight: FontWeight.w900,
+                      fontSize: width * 0.5,
+                      fontStyle: FontStyle.italic)),
+            ),
+          ),
+        ),
       ),
     );
   }

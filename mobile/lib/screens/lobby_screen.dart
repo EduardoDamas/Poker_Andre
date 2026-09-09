@@ -104,7 +104,14 @@ class _LobbyScreenState extends State<LobbyScreen> {
         ],
       ),
       body: Container(
-        decoration: const BoxDecoration(gradient: Brand.obsidianGrad),
+        decoration: const BoxDecoration(
+          gradient: Brand.obsidianGrad,
+          image: DecorationImage(
+            image: AssetImage('assets/environments/env-lobby-obsidian.webp'),
+            fit: BoxFit.cover,
+            colorFilter: ColorFilter.mode(Color(0x800A0A0B), BlendMode.srcOver),
+          ),
+        ),
         child: SafeArea(
           top: false,
           child: RefreshIndicator(

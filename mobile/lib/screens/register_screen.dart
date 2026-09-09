@@ -94,6 +94,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Image.asset('assets/brand/logo-symbol.png',
+                      height: 72,
+                      errorBuilder: (_, _, _) => const SizedBox(height: 8)),
+                  const SizedBox(height: 16),
                   Text('Cadastro', style: Brand.h2, textAlign: TextAlign.center),
                   const SizedBox(height: 8),
                   Text('Preencha seus dados para criar sua conta.',

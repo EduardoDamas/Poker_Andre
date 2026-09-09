@@ -157,7 +157,14 @@ class _TournamentsScreenState extends State<TournamentsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Torneios')),
       body: Container(
-        decoration: const BoxDecoration(gradient: Brand.obsidianGrad),
+        decoration: const BoxDecoration(
+          gradient: Brand.obsidianGrad,
+          image: DecorationImage(
+            image: AssetImage('assets/environments/env-tournament-arena.webp'),
+            fit: BoxFit.cover,
+            colorFilter: ColorFilter.mode(Color(0x800A0A0B), BlendMode.srcOver),
+          ),
+        ),
         child: _loading
             ? const Center(child: CircularProgressIndicator(color: Brand.crimson))
             : RefreshIndicator(

@@ -95,6 +95,7 @@ class _Logo extends StatelessWidget {
     return Image.asset(
       'assets/brand/logo.png',
       height: 140,
+      filterQuality: FilterQuality.high,
       errorBuilder: (_, _, _) => Container(
         decoration: BoxDecoration(boxShadow: Brand.glow(Brand.crimson)),
         child: RichText(
