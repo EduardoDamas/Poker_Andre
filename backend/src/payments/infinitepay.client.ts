@@ -8,13 +8,15 @@ export interface CheckoutLink {
 /**
  * Thin client for InfinitePay's Checkout API (create a hosted payment link).
  *
- * Shape from the merchant's Documentação:
- *   POST {base}/links  { handle, order_nsu, items:[{description, price, quantity}], webhook_url }
- * `price` is in integer cents (same unit as the wallet ledger).
+ * Shape from the merchant's Documentação (confirmed 2026-09-01):
+ *   POST https://api.infinitepay.io/invoices/public/checkout/links
+ *     { handle, order_nsu, items:[{description, price, quantity}], webhook_url }
+ * `price` is in integer cents (same unit as the wallet ledger). The endpoint is
+ * public (no API key needed on this account).
  *
  * Config from the environment (no secret in code):
  *   INFINITEPAY_HANDLE    — the merchant's InfiniteTag (e.g. andre-luiz-g4j)
- *   INFINITEPAY_API_BASE  — optional, default https://api.checkout.infinitepay.io
+ *   INFINITEPAY_API_BASE  — optional, default https://api.infinitepay.io
  *   INFINITEPAY_API_KEY   — optional bearer token, if the account requires one
  *   PUBLIC_BASE_URL       — our public https base, used to build webhook_url
  *
@@ -32,7 +34,7 @@ export class InfinitePayClient {
     if (!handle) return null;
     return {
       handle,
-      base: (process.env.INFINITEPAY_API_BASE ?? 'https://api.checkout.infinitepay.io').replace(/\/$/, ''),
+      base: (process.env.INFINITEPAY_API_BASE ?? 'https://api.infinitepay.io').replace(/\/$/, ''),
       token: process.env.INFINITEPAY_API_KEY,
       publicBase: process.env.PUBLIC_BASE_URL?.replace(/\/$/, ''),
       webhookSecret: process.env.INFINITEPAY_WEBHOOK_SECRET,
@@ -60,7 +62,7 @@ export class InfinitePayClient {
       body.webhook_url = `${cfg.publicBase}/payments/webhook/infinitepay${token}`;
     }
 
-    const res = await fetch(`${cfg.base}/links`, {
+    const res = await fetch(`${cfg.base}/invoices/public/checkout/links`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

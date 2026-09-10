@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../api/auth_api.dart';
 import '../theme.dart';
 import '../format.dart';
@@ -67,11 +68,18 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _deposit() async {
-    final cents = await _askAmountCents('Depositar via Pix');
+    final cents = await _askAmountCents('Depositar');
     if (cents == null || cents <= 0) return;
     try {
-      await widget.authApi.requestDeposit(widget.session.accessToken, cents);
-      _toast('Depósito registrado! Aguarde a confirmação do administrador.');
+      // Mint a hosted checkout link and open it; the wallet is credited
+      // automatically once the payment is confirmed (gateway webhook).
+      final url = await widget.authApi.createCardDeposit(widget.session.accessToken, cents);
+      final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!ok) {
+        _toast('Não foi possível abrir a página de pagamento.');
+        return;
+      }
+      _toast('Após concluir o pagamento, seu saldo é creditado automaticamente.');
     } catch (e) {
       _toast('$e');
     }

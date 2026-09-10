@@ -158,6 +158,27 @@ class AuthApi {
     }
   }
 
+  /// Start an automatic deposit via the payment gateway (InfinitePay checkout).
+  /// Returns the hosted checkout URL to open in the browser; the wallet is
+  /// credited automatically once the payment is confirmed (webhook).
+  /// POST /payments/deposit.
+  Future<String> createCardDeposit(String token, int amountCents) async {
+    final res = await _send(() => _client.post(
+          _u('/payments/deposit'),
+          headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer $token'},
+          body: jsonEncode({'amountCents': amountCents}),
+        ));
+    if (res.statusCode == 400) {
+      throw AuthException('Pagamento indisponível no momento.');
+    }
+    if (res.statusCode != 201 && res.statusCode != 200) {
+      throw AuthException('Não foi possível iniciar o pagamento.');
+    }
+    final url = (jsonDecode(res.body) as Map<String, dynamic>)['url'] as String?;
+    if (url == null || url.isEmpty) throw AuthException('Link de pagamento indisponível.');
+    return url;
+  }
+
   /// Request a Pix withdrawal (POST /wallet/withdraw).
   Future<void> requestWithdrawal(String token, int amountCents, String pixKey) async {
     final res = await _send(() => _client.post(
