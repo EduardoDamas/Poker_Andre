@@ -6,7 +6,7 @@ import '../format.dart';
 import '../theme.dart';
 import '../widgets/premium.dart';
 
-/// Torneios — pick a room level and pay the entry via InfinitePay (Pix/cartão),
+/// Torneios — pick a room level and pay the entry via InfinitePay (card only for now),
 /// plus the subscription plans. Entry prices reflect whether you're a subscriber.
 class TournamentsScreen extends StatefulWidget {
   final AuthSession session;
@@ -93,7 +93,8 @@ class _TournamentsScreenState extends State<TournamentsScreen> {
   }
 
   void _chooseMethod(int level) {
-    final pix = _entryFor(level, 'pix');
+    // Pix is disabled for now (card-only) — the merchant re-enables Pix in
+    // InfinitePay once the bank reconciliation is set up.
     final card = _entryFor(level, 'card');
     showModalBottomSheet(
       context: context,
@@ -111,16 +112,6 @@ class _TournamentsScreenState extends State<TournamentsScreen> {
                   style: Brand.micro.copyWith(color: Brand.gold)),
             ]),
           ),
-          if (pix != null)
-            ListTile(
-              leading: const Icon(Icons.pix, color: Brand.gold),
-              title: const Text('Pagar com Pix'),
-              trailing: Text(brl(pix.amountCents), style: Brand.label.copyWith(color: Brand.gold)),
-              onTap: () {
-                Navigator.pop(ctx);
-                _openCheckout(pix.url);
-              },
-            ),
           if (card != null)
             ListTile(
               leading: const Icon(Icons.credit_card, color: Brand.gold),
@@ -218,13 +209,13 @@ class _TournamentsScreenState extends State<TournamentsScreen> {
             Text('Torneios CAPA', style: Brand.h2),
           ]),
           const SizedBox(height: 10),
-          Text('Escolha o nível da sala e pague a inscrição por Pix ou cartão. '
+          Text('Escolha o nível da sala e pague a inscrição com cartão. '
               'O vencedor recebe o prêmio conforme a ocupação da sala.', style: Brand.body),
         ]),
       );
 
   Widget _levelCard(int level) {
-    final pix = _entryFor(level, 'pix');
+    final card = _entryFor(level, 'card');
     return GlassCard(
       onTap: () => _chooseMethod(level),
       padding: const EdgeInsets.all(14),
@@ -235,7 +226,7 @@ class _TournamentsScreenState extends State<TournamentsScreen> {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Nível $level', style: Brand.h3),
             const SizedBox(height: 3),
-            Text('Entrada ${pix != null ? brl(pix.amountCents) : '--'} (Pix)', style: Brand.caption),
+            Text('Entrada ${card != null ? brl(card.amountCents) : '--'} (cartão)', style: Brand.caption),
           ]),
         ),
         const Icon(Icons.chevron_right, color: Brand.textTer),

@@ -159,8 +159,8 @@ class _WalletScreenState extends State<WalletScreen> {
               ]),
             ),
             const SizedBox(height: 16),
-            Text('Fase 1: depósitos e saques via Pix são processados manualmente pelo '
-                'administrador. A automação total chega na Fase 2.', style: Brand.caption),
+            Text('Depósitos com cartão são creditados automaticamente. Saques via Pix '
+                'são processados pelo administrador.', style: Brand.caption),
           ],
         ),
       ),
