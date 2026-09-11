@@ -168,7 +168,21 @@ export function parseWebhook(payload: unknown): {
 
   const trustReceipt = process.env.INFINITEPAY_WEBHOOK_TRUST_RECEIPT === '1';
   const paidFlag = p.paid === true || d.paid === true || p.success === true || d.success === true;
-  const paid = PAID_STATUSES.has(rawStatus) || paidFlag || (trustReceipt && !FAILED_STATUSES.has(rawStatus));
+
+  // InfinitePay's checkout webhook carries NO status field — it fires only on a
+  // successful capture, carrying a positive `paid_amount` and a `transaction_nsu`.
+  // Treat that receipt shape as "paid" (still gated by the shared token + a matching
+  // PENDING order + the amount check downstream). Confirmed from the real payload
+  // 2026-09-11.
+  const paidAmount = p.paid_amount ?? d.paid_amount;
+  const hasTransaction = Boolean(p.transaction_nsu ?? d.transaction_nsu);
+  const receiptPaid = typeof paidAmount === 'number' && paidAmount > 0 && hasTransaction;
+
+  const paid =
+    PAID_STATUSES.has(rawStatus) ||
+    paidFlag ||
+    receiptPaid ||
+    (trustReceipt && !FAILED_STATUSES.has(rawStatus));
   const failed = FAILED_STATUSES.has(rawStatus);
 
   const amt = p.amount ?? d.amount ?? p.price ?? d.price ?? p.paid_amount ?? d.paid_amount;
