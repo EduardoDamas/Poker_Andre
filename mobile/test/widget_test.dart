@@ -9,17 +9,16 @@ import 'package:capa_contest/api/tables_api.dart';
 import 'package:capa_contest/screens/login_screen.dart';
 import 'package:capa_contest/theme.dart';
 
-/// F1 gate — phone-OTP login flow (offline, with a mocked backend).
+/// F1 gate — phone + password login flow (offline, with a mocked backend).
 void main() {
   Widget appWith(AuthApi api, {TablesApi? tablesApi}) => MaterialApp(
         theme: buildCapaTheme(),
         home: LoginScreen(api: api, tablesApi: tablesApi),
       );
 
-  testWidgets('login: phone → code → lobby on valid OTP', (tester) async {
+  testWidgets('login: phone + password → lobby', (tester) async {
     final mock = MockClient((req) async {
-      if (req.url.path == '/auth/otp/request') return http.Response('{}', 200);
-      if (req.url.path == '/auth/otp/verify') {
+      if (req.url.path == '/auth/login') {
         return http.Response(
           jsonEncode({
             'accessToken': 'jwt-token',
@@ -33,48 +32,40 @@ void main() {
     // Lobby fetch returns an empty list (we only assert we reached the lobby).
     final tablesMock = MockClient((req) async => http.Response('[]', 200));
 
-    await tester.pumpWidget(appWith(AuthApi(client: mock), tablesApi: TablesApi(client: tablesMock)));
+    await tester.pumpWidget(
+        appWith(AuthApi(client: mock), tablesApi: TablesApi(client: tablesMock)));
 
-    // Step 1: phone.
-    expect(find.byKey(const Key('phoneField')), findsOneWidget);
     await tester.enterText(find.byKey(const Key('phoneField')), '+5511999998888');
-    await tester.tap(find.byKey(const Key('sendCodeBtn')));
-    await tester.pumpAndSettle();
-
-    // Step 2: code.
-    expect(find.byKey(const Key('codeField')), findsOneWidget);
-    await tester.enterText(find.byKey(const Key('codeField')), '123456');
-    await tester.tap(find.byKey(const Key('verifyBtn')));
+    await tester.enterText(find.byKey(const Key('passwordField')), 'teste12345');
+    await tester.tap(find.byKey(const Key('loginBtn')));
     await tester.pumpAndSettle();
 
     // Logged in → lobby (the "Mesas" app bar).
     expect(find.text('Mesas'), findsOneWidget);
   });
 
-  testWidgets('login: shows an error on a wrong code', (tester) async {
-    final mock = MockClient((req) async {
-      if (req.url.path == '/auth/otp/request') return http.Response('{}', 200);
-      return http.Response('unauthorized', 401); // verify fails
-    });
+  testWidgets('login: shows an error on wrong credentials', (tester) async {
+    final mock = MockClient((req) async => http.Response(
+        jsonEncode({'message': 'Telefone ou senha inválidos.'}), 401));
 
     await tester.pumpWidget(appWith(AuthApi(client: mock)));
     await tester.enterText(find.byKey(const Key('phoneField')), '+5511999998888');
-    await tester.tap(find.byKey(const Key('sendCodeBtn')));
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('codeField')), '000000');
-    await tester.tap(find.byKey(const Key('verifyBtn')));
+    await tester.enterText(find.byKey(const Key('passwordField')), 'errada123');
+    await tester.tap(find.byKey(const Key('loginBtn')));
     await tester.pumpAndSettle();
 
     expect(find.byKey(const Key('errorText')), findsOneWidget);
-    expect(find.text('Bem-vindo, Eduardo'), findsNothing);
+    expect(find.text('Mesas'), findsNothing);
   });
 
-  testWidgets('login: rate-limit (429) surfaces a friendly message', (tester) async {
-    final mock = MockClient((req) async => http.Response('too many', 429));
+  testWidgets('login: server error surfaces a message, not a crash', (tester) async {
+    final mock = MockClient((req) async => http.Response('oops', 500));
     await tester.pumpWidget(appWith(AuthApi(client: mock)));
     await tester.enterText(find.byKey(const Key('phoneField')), '+5511999998888');
-    await tester.tap(find.byKey(const Key('sendCodeBtn')));
+    await tester.enterText(find.byKey(const Key('passwordField')), 'teste12345');
+    await tester.tap(find.byKey(const Key('loginBtn')));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Too many requests'), findsOneWidget);
+
+    expect(find.byKey(const Key('errorText')), findsOneWidget);
   });
 }

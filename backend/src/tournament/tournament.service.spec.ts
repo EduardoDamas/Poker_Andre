@@ -71,10 +71,11 @@ describe('TournamentService (entry escrow + prize payout)', () => {
 
   it('entry is idempotent (same reference cannot double-charge)', async () => {
     const u = await fundedUser(5000n);
-    await tourn.escrowEntry({ tournamentId: 't3', userId: u, level: 1, subscription: 'NONE' });
-    await expect(
-      tourn.escrowEntry({ tournamentId: 't3', userId: u, level: 1, subscription: 'NONE' }),
-    ).rejects.toThrow();
+    const first = await tourn.escrowEntry({ tournamentId: 't3', userId: u, level: 1, subscription: 'NONE' });
+    // A repeat (rejoin after a server restart) reuses the escrow — no throw,
+    // no second charge.
+    const again = await tourn.escrowEntry({ tournamentId: 't3', userId: u, level: 1, subscription: 'NONE' });
+    expect(again.txnId).toBe(first.txnId);
     expect(await balanceOf(u)).toBe(3000n); // charged only once
   });
 

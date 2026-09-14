@@ -419,12 +419,19 @@ export class TableService {
     return false;
   }
 
-  /** Seats held by this socket in RUNNING money tournaments (kept on disconnect). */
+  /** True when a disconnect must NOT free this table's seats immediately:
+   *  a running money tournament, or any hand in progress (reconnect support). */
+  private protectsSeatOnDisconnect(table: Table): boolean {
+    const t = table.tournament;
+    return (!!t && t.started && !t.settled) || table.handInProgress;
+  }
+
+  /** Seats this socket holds that are protected on disconnect — the gateway
+   *  schedules a grace timer to withdraw them if the player doesn't return. */
   liveSeatsOf(socketId: string): { tableId: string; userId: string }[] {
     const out: { tableId: string; userId: string }[] = [];
     for (const table of this.tables.values()) {
-      const t = table.tournament;
-      if (!t || !t.started || t.settled) continue;
+      if (!this.protectsSeatOnDisconnect(table)) continue;
       const seat = table.seats.find((s) => s?.socketId === socketId);
       if (seat) out.push({ tableId: table.id, userId: seat.userId });
     }
@@ -441,15 +448,10 @@ export class TableService {
   vacateDisconnected(socketId: string): Table[] {
     const changed: Table[] = [];
     for (const table of this.tables.values()) {
-      const t = table.tournament;
-      if (t && t.started && !t.settled) continue; // live money game — rejoinable
+      if (this.protectsSeatOnDisconnect(table)) continue; // rejoinable — grace timer
       const idx = table.seats.findIndex((s) => s?.socketId === socketId);
       if (idx === -1) continue;
       table.seats[idx] = null;
-      if (!t && this.seatedSlots(table).length < 2) {
-        table.hand = null;
-        table.handInProgress = false;
-      }
       changed.push(table);
     }
     return changed;

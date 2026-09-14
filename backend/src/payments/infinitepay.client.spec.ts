@@ -29,7 +29,7 @@ describe('InfinitePayClient', () => {
 
     expect(link).toEqual({ url: 'https://link.infinitepay.io/x', orderNsu: 'SUB-abc-MONTHLY' });
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe('https://api.checkout.infinitepay.io/links');
+    expect(url).toBe('https://api.infinitepay.io/invoices/public/checkout/links');
     const body = JSON.parse(init.body as string);
     expect(body).toMatchObject({
       handle: 'andre-luiz-g4j',
