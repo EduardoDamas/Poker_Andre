@@ -193,19 +193,33 @@ export class GameGateway implements OnGatewayConnection {
   }
 
   // Drive consecutive robot turns (with a short delay), broadcasting state.
+  // Advance the hand when the actor is not a live human: a robot plays its
+  // decision; a player who LEFT the table (empty seat) is auto-folded so the
+  // remaining players keep competing.
   private driveRobots(tableId: string): void {
     const table = this.tables.getTable(tableId);
     if (!table?.hand) return;
-    const robotId = this.tables.robotToAct(table);
-    if (!robotId) return; // a real player's turn, or no actor
+    const actorId = this.tables.robotToAct(table) ?? this.tables.absentToAct(table);
+    if (!actorId) return; // a live player's turn, or no actor
     setTimeout(async () => {
       const t = this.tables.getTable(tableId);
-      if (!t?.hand || t.hand.actingPlayerId !== robotId) return;
+      if (!t?.hand || t.hand.actingPlayerId !== actorId) return;
       try {
-        const res = await this.tables.act(tableId, robotId, this.tables.robotDecision(t));
+        const action =
+          this.tables.robotToAct(t) === actorId
+            ? this.tables.robotDecision(t)
+            : ({ type: 'fold' } as Action);
+        const res = await this.tables.act(tableId, actorId, action);
         if (res.complete) {
           this.server.to(room(tableId)).emit('hand:result', res.result);
           this.server.to(room(tableId)).emit('table:state', this.tables.publicState(t));
+          if (this.tables.isTournament(t) && res.result.tournament && !res.result.tournament.over) {
+            // Tournament continues → deal the next hand.
+            setTimeout(
+              () => this.continueTournament(tableId),
+              Number(process.env.TOURNAMENT_HAND_DELAY_MS ?? '1500'),
+            );
+          }
         } else {
           this.broadcastGameState(tableId);
           this.driveRobots(tableId);
@@ -396,12 +410,37 @@ export class GameGateway implements OnGatewayConnection {
   }
 
   @SubscribeMessage('table:leave')
-  onLeave(@ConnectedSocket() client: Socket, @MessageBody() body: { tableId: string }): Ack {
+  async onLeave(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() body: { tableId: string },
+  ): Promise<Ack> {
     const user = (client.data as SocketData).user;
-    const table = this.tables.leave(body.tableId, user.sub);
-    client.leave(room(body.tableId));
-    if (table) {
-      this.server.to(room(body.tableId)).emit('table:state', this.tables.publicState(table));
+    const res = await this.tables.leave(body.tableId, user.sub);
+    client.leave(room(body.tableId)); // before the emits: the leaver gets nothing
+    if (!res) return { ok: true };
+    const { table, result } = res;
+
+    this.server.to(room(body.tableId)).emit('table:state', this.tables.publicState(table));
+
+    if (result) {
+      // The withdrawal ended the hand and/or the tournament (walkover) — the
+      // remaining players see the result; the last one standing sees the prize.
+      this.logger.log(
+        `leave ${body.tableId} user=${user.sub} → result over=${result.tournament?.over} winner=${result.tournament?.winnerId}`,
+      );
+      this.server.to(room(body.tableId)).emit('hand:result', result);
+      if (this.tables.isTournament(table) && result.tournament && !result.tournament.over) {
+        // ≥2 still competing — deal the next hand.
+        setTimeout(
+          () => this.continueTournament(body.tableId),
+          Number(process.env.TOURNAMENT_HAND_DELAY_MS ?? '1500'),
+        );
+      }
+    } else if (table.handInProgress) {
+      // The hand goes on without the leaver; if the action already sits on
+      // their empty seat (or a robot), drive it.
+      this.broadcastGameState(body.tableId);
+      this.driveRobots(body.tableId);
     }
     return { ok: true };
   }

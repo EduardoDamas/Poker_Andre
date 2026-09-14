@@ -60,7 +60,16 @@ class SocketGameConnection implements GameConnection {
     });
     _socket.on('hand:hole', (data) {
       final cards = (data['cards'] as List).cast<String>();
-      _emit(_snapshot.copyWith(holeCards: cards));
+      // New hole cards = a new hand: clear the previous hand's result/banner
+      // and board so the result text never overlaps live action buttons.
+      _emit(GameSnapshot(
+        status: _snapshot.status,
+        street: 'preflop',
+        board: const [],
+        holeCards: cards,
+        maxSeats: _snapshot.maxSeats,
+        seats: _snapshot.seats,
+      ));
     });
     // Seat occupancy for the round-table layout. `seats` is one entry per seat,
     // null = empty. Absent players leave their seat empty; the rest are drawn.

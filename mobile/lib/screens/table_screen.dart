@@ -138,7 +138,7 @@ class _Centered extends StatelessWidget {
   const _Centered({required this.child});
   @override
   Widget build(BuildContext context) => Container(
-        decoration: const BoxDecoration(gradient: Brand.feltGrad),
+        decoration: const BoxDecoration(gradient: Brand.obsidianGrad),
         child: Center(child: child),
       );
 }
@@ -158,29 +158,43 @@ class _TableView extends StatelessWidget {
       Expanded(
         child: Container(
           decoration: const BoxDecoration(
-            gradient: RadialGradient(radius: 1.2, colors: [Brand.feltDeep, Brand.bg]),
-            border: Border(bottom: BorderSide(color: Brand.feltTrim, width: 2)),
+            // Near-black stage so the table artwork's dark background blends in.
+            gradient: RadialGradient(radius: 1.2, colors: [Color(0xFF16161A), Brand.bg]),
+            border: Border(bottom: BorderSide(color: Brand.crimsonDeep, width: 2)),
           ),
           child: SafeArea(
             bottom: false,
             child: Stack(
               children: [
-                // The round table surface.
+                // The table artwork and the seats share one coordinate space so
+                // the characters hug the rail on any screen shape.
                 Center(
-                  child: FractionallySizedBox(
-                    widthFactor: 0.82,
-                    heightFactor: 0.66,
-                    child: DecoratedBox(
-                      decoration: ShapeDecoration(
-                        gradient: Brand.feltGrad,
-                        shape: const OvalBorder(side: BorderSide(color: Brand.feltTrim, width: 3)),
-                        shadows: Brand.cardShadow,
+                  child: AspectRatio(
+                    aspectRatio: 1.5, // tbl-crimson-base.webp is 1536×1024
+                    child: Stack(children: [
+                      Positioned.fill(
+                        child: Image.asset(
+                          'assets/table/tbl-crimson-base.webp',
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.high,
+                          // Fallback: the old drawn felt, if the asset is missing.
+                          errorBuilder: (_, _, _) => DecoratedBox(
+                            decoration: ShapeDecoration(
+                              gradient: Brand.feltGrad,
+                              shape: const OvalBorder(
+                                  side: BorderSide(color: Brand.feltTrim, width: 3)),
+                              shadows: Brand.cardShadow,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
+                      // Characters seated around the table; absent players leave
+                      // an empty seat.
+                      if (s.seats.isNotEmpty)
+                        Positioned.fill(child: _TableSeats(snapshot: s)),
+                    ]),
                   ),
                 ),
-                // Characters seated around the table; absent players leave an empty seat.
-                if (s.seats.isNotEmpty) Positioned.fill(child: _TableSeats(snapshot: s)),
                 // Center: street chip + community board.
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 60, 16, 16),
@@ -352,9 +366,12 @@ class _TableSeats extends StatelessWidget {
 
     return LayoutBuilder(builder: (context, c) {
       const seatSize = 52.0;
-      final cx = c.maxWidth / 2, cy = c.maxHeight / 2;
-      final rx = (c.maxWidth / 2) - seatSize * 0.55;
-      final ry = (c.maxHeight / 2) - seatSize * 0.55;
+      // Ellipse matched to the tbl-crimson-base artwork: the rail's center sits
+      // at ~40% of the frame height (the pedestal fills the lower part), spanning
+      // ~92% × 60% of it — so avatars straddle the leather rail.
+      final cx = c.maxWidth / 2, cy = c.maxHeight * 0.40;
+      final rx = c.maxWidth * 0.46;
+      final ry = c.maxHeight * 0.30;
       final children = <Widget>[];
       for (var i = 0; i < max; i++) {
         // Rotate so that my seat (or seat 0) sits at the bottom (pi/2 on screen).

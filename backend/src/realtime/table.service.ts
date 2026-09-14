@@ -282,17 +282,95 @@ export class TableService {
     return { table, position };
   }
 
-  leave(id: string, userId: string): Table | null {
+  /**
+   * Leave the table.
+   *
+   * Casual tables keep the old behavior (leaving mid-hand abandons it; nothing
+   * was escrowed). For a STARTED money tournament, leaving is a WITHDRAWAL:
+   * the player is out for good (their entry stays in the prize pool), a live
+   * hand folds them — immediately if it is their turn, otherwise the gateway
+   * auto-folds their empty seat when the action reaches it — and the remaining
+   * players keep competing. When only one live entrant remains, the tournament
+   * settles to that player (walkover) and the result payload is returned for
+   * the gateway to broadcast. Leaving BEFORE the first hand only vacates the
+   * seat: the paid entry stays valid and the player may return.
+   */
+  async leave(
+    id: string,
+    userId: string,
+  ): Promise<{ table: Table; result?: HandResultPayload } | null> {
     const table = this.tables.get(id);
     if (!table) return null;
     const idx = table.seats.findIndex((s) => s?.userId === userId);
     if (idx !== -1) table.seats[idx] = null;
-    // Leaving mid-hand abandons it (no settlement; chips were never escrowed).
-    if (this.seatedSlots(table).length < 2) {
+
+    const t = table.tournament;
+    if (!t) {
+      // Casual table: leaving mid-hand abandons it (no settlement; chips were
+      // never escrowed).
+      if (this.seatedSlots(table).length < 2) {
+        table.hand = null;
+        table.handInProgress = false;
+      }
+      return { table };
+    }
+
+    // Not entered, already out, or the tournament never started — just vacate
+    // the seat. A paid entry before the first hand stays valid for a return.
+    if (!t.entries.has(userId) || t.eliminated.has(userId) || !t.started || t.settled) {
+      return { table };
+    }
+
+    // Withdrawal: the player is out; their entry stays in the pool.
+    t.eliminated.add(userId);
+
+    // If it is the leaver's turn in a live hand, fold them now so play resumes.
+    if (table.hand && !table.hand.isComplete() && table.hand.actingPlayerId === userId) {
+      try {
+        table.hand.act(userId, { type: 'fold' });
+      } catch {
+        /* not in this hand — nothing to fold */
+      }
+    }
+
+    // The fold may have finished the hand (everyone else had folded already).
+    if (table.hand?.isComplete()) {
+      const out = table.hand.result();
+      const payload: HandResultPayload = {
+        board: out.board,
+        pots: out.pots.map((p) => ({ amount: p.amount, winnerIds: p.winnerIds })),
+        payouts: out.payouts,
+        finalStacks: out.finalStacks,
+      };
       table.hand = null;
       table.handInProgress = false;
+      payload.tournament = await this.applyTournamentHandResult(table, out.finalStacks);
+      return { table, result: payload };
     }
-    return table;
+
+    // Between hands (or the hand continues without them): if only one live
+    // entrant is left, the tournament ends now — last player standing wins.
+    if (!table.handInProgress && this.liveEntrants(table).length === 1) {
+      const status = await this.applyTournamentHandResult(table, {});
+      return {
+        table,
+        result: {
+          board: [],
+          pots: [],
+          payouts: {},
+          finalStacks: { ...t.stacks },
+          tournament: status,
+        },
+      };
+    }
+    return { table };
+  }
+
+  /** The acting player's id when their seat is empty (they left mid-hand). */
+  absentToAct(table: Table): string | null {
+    const id = table.hand?.actingPlayerId;
+    if (!id) return null;
+    return this.seatedSlots(table).some((s) => s.userId === id) ? null : id;
   }
 
   seatedCount(table: Table): number {
