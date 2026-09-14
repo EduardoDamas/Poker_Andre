@@ -46,8 +46,50 @@ model User {
   deposits      Deposit[]
   paymentOrders PaymentOrder[]
   seats         Seat[]
+  points        PointsAccount?
+  pointsTxns    PointsTransaction[]
 
   @@index([status])
+}
+
+// ── Points economy ──────────────────────────────────────────────────────────
+// A VIRTUAL currency, fully separate from the BRL wallet ledger:
+//   freePoints — earned playing (solo vs bots) and via the daily wheel/streaks.
+//   paidPoints — premium points (wheel/streak rewards; later purchasable).
+// Conversion both ways at 1 paid = 1000 free. Every change writes a
+// PointsTransaction; daily spins and milestones are idempotent via a unique
+// referenceId (points-spin-<user>-<day> / points-milestone-<user>-<days>).
+
+model PointsAccount {
+  userId      String   @id
+  freePoints  BigInt   @default(0)
+  paidPoints  BigInt   @default(0)
+  streakDays  Int      @default(0)
+  lastSpinDay String? // "YYYY-MM-DD" (UTC) of the last daily wheel spin
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model PointsTransaction {
+  id          String        @id @default(uuid())
+  userId      String
+  kind        PointsTxnKind
+  freeDelta   BigInt        @default(0)
+  paidDelta   BigInt        @default(0)
+  referenceId String?       @unique
+  memo        String?
+  createdAt   DateTime      @default(now())
+  user        User          @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+}
+
+enum PointsTxnKind {
+  WHEEL
+  CONVERSION
+  MILESTONE
+  GAME_REWARD
+  ADJUST
 }
 
 enum Role {

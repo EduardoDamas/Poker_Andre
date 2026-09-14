@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../game/game_connection.dart';
@@ -27,15 +28,39 @@ const _actionLabels = {
 class TableScreen extends StatefulWidget {
   final GameConnection connection;
   final String title;
-  const TableScreen({super.key, required this.connection, this.title = 'Mesa'});
+
+  /// Called once per hand the local player WINS (e.g. solo points reward).
+  final void Function()? onHandWon;
+  const TableScreen(
+      {super.key, required this.connection, this.title = 'Mesa', this.onHandWon});
 
   @override
   State<TableScreen> createState() => _TableScreenState();
 }
 
 class _TableScreenState extends State<TableScreen> {
+  StreamSubscription<GameSnapshot>? _winWatch;
+  bool _rewardedThisHand = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final onWon = widget.onHandWon;
+    if (onWon != null) {
+      _winWatch = widget.connection.stream.listen((s) {
+        if (!s.handComplete) {
+          _rewardedThisHand = false;
+        } else if (!_rewardedThisHand && (s.resultText?.contains('venceu') ?? false)) {
+          _rewardedThisHand = true;
+          onWon();
+        }
+      });
+    }
+  }
+
   @override
   void dispose() {
+    _winWatch?.cancel();
     widget.connection.dispose();
     super.dispose();
   }

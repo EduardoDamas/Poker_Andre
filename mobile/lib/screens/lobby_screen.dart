@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import '../api/auth_api.dart';
+import '../api/points_api.dart';
 import '../api/tables_api.dart';
 import '../game/game_connection.dart';
 import '../models/table_info.dart';
 import '../format.dart';
 import '../theme.dart';
+import '../widgets/lucky_wheel.dart';
 import '../widgets/premium.dart';
 import 'table_screen.dart';
 import 'tournaments_screen.dart';
@@ -28,12 +30,33 @@ class LobbyScreen extends StatefulWidget {
 class _LobbyScreenState extends State<LobbyScreen> {
   late Future<List<TableInfo>> _future;
   int _balance = 0;
+  final _pointsApi = PointsApi();
+  static bool _wheelOfferedThisSession = false;
 
   @override
   void initState() {
     super.initState();
     _future = widget.api.fetchTables(widget.session.accessToken);
     _fetchBalance();
+    _offerDailyWheel();
+  }
+
+  /// Daily check-in: when today's spin is still available, the wheel pops up
+  /// automatically (once per app session — declining doesn't nag again).
+  Future<void> _offerDailyWheel() async {
+    if (_wheelOfferedThisSession) return;
+    _wheelOfferedThisSession = true;
+    try {
+      final s = await _pointsApi.fetchStatus(widget.session.accessToken);
+      if (!mounted || !s.canSpinToday) return;
+      await showLuckyWheel(
+        context,
+        segments: s.wheel,
+        spin: () => _pointsApi.spin(widget.session.accessToken),
+      );
+    } catch (_) {
+      // Offline or points unavailable — the lobby works normally without it.
+    }
   }
 
   void _reload() {
@@ -124,7 +147,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
                 _Header(name: name, balance: _balance),
                 const SizedBox(height: 20),
                 _FeaturedCard(onTap: () => Navigator.push(
-                    context, MaterialPageRoute(builder: (_) => const SoloSetupScreen()))),
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => SoloSetupScreen(session: widget.session)))),
                 const SizedBox(height: 24),
                 const SectionHeader('Salas (online)'),
                 const SizedBox(height: 12),

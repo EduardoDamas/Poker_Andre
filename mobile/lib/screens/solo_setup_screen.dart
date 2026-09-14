@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../api/auth_api.dart' show AuthSession;
+import '../api/points_api.dart';
 import '../engine/bot.dart';
 import '../game/local_connection.dart';
 import '../theme.dart';
@@ -8,7 +10,9 @@ import 'table_screen.dart';
 
 /// Configure and start an offline solo match against AI bots.
 class SoloSetupScreen extends StatefulWidget {
-  const SoloSetupScreen({super.key});
+  /// When logged in, solo wins earn free points (reported to the server).
+  final AuthSession? session;
+  const SoloSetupScreen({super.key, this.session});
   @override
   State<SoloSetupScreen> createState() => _SoloSetupScreenState();
 }
@@ -29,8 +33,18 @@ class _SoloSetupScreenState extends State<SoloSetupScreen> {
       difficulty: _difficulty,
       entryCents: _entryCentsByLevel[_level]!,
     );
+    final session = widget.session;
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => TableScreen(connection: connection, title: 'Solo vs Bots')),
+      MaterialPageRoute(
+        builder: (_) => TableScreen(
+          connection: connection,
+          title: 'Solo vs Bots',
+          // Winning a solo hand earns free points (server caps per day).
+          onHandWon: session == null
+              ? null
+              : () => PointsApi().reportSoloWin(session.accessToken),
+        ),
+      ),
     );
   }
 
