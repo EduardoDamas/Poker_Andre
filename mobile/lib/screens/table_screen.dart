@@ -178,14 +178,19 @@ class _TableView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = snapshot;
-    return Column(children: [
-      // ---- Felt area ----
-      Expanded(
-        child: Container(
-          decoration: const BoxDecoration(
+    final size = MediaQuery.of(context).size;
+    // Landscape: the player panel docks to the RIGHT so the felt area keeps
+    // roughly the artwork's 3:2 shape and the table fills the screen.
+    final landscape = size.width > size.height;
+
+    final felt = Container(
+          decoration: BoxDecoration(
             // Near-black stage so the table artwork's dark background blends in.
-            gradient: RadialGradient(radius: 1.2, colors: [Color(0xFF16161A), Brand.bg]),
-            border: Border(bottom: BorderSide(color: Brand.crimsonDeep, width: 2)),
+            gradient: const RadialGradient(
+                radius: 1.2, colors: [Color(0xFF16161A), Brand.bg]),
+            border: landscape
+                ? const Border(right: BorderSide(color: Brand.crimsonDeep, width: 2))
+                : const Border(bottom: BorderSide(color: Brand.crimsonDeep, width: 2)),
           ),
           child: SafeArea(
             bottom: false,
@@ -276,17 +281,21 @@ class _TableView extends StatelessWidget {
               ],
             ),
           ),
-        ),
-      ),
-      // ---- Player panel (FIXED height so the table above never moves) ----
-      Container(
+        );
+
+    // ---- Player panel (fixed footprint so the table never moves) ----
+    final panel = Container(
         width: double.infinity,
         decoration: const BoxDecoration(gradient: Brand.obsidianGrad),
         child: SafeArea(
-          top: false,
+          top: landscape,
+          bottom: !landscape,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-            child: Column(children: [
+            child: Column(
+                mainAxisAlignment:
+                    landscape ? MainAxisAlignment.center : MainAxisAlignment.start,
+                children: [
               // Slot 1 — status line (constant height).
               SizedBox(
                 height: 44,
@@ -337,9 +346,10 @@ class _TableView extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               // Slot 3 — action bar: ALWAYS the same place and height. Buttons
-              // appear here in-place (no separate popping panel).
+              // appear here in-place (no separate popping panel). In landscape
+              // (side panel) they stack vertically, full panel width.
               SizedBox(
-                height: 112,
+                height: landscape ? 184 : 112,
                 child: Center(
                   child: s.handComplete
                       ? Column(mainAxisSize: MainAxisSize.min, children: [
@@ -373,37 +383,67 @@ class _TableView extends StatelessWidget {
                               onPressed: onLeave),
                         ])
                       : s.isMyTurn
-                          // ALL actions side by side in one row — every button
-                          // always visible, always in the same place.
-                          ? Row(
-                              children: [
-                                for (final a in s.legalActions) ...[
-                                  Expanded(
-                                    child: GradientButton(
-                                      _actionLabels[a] ?? a,
-                                      key: Key('action_$a'),
-                                      variant: a == 'fold'
-                                          ? BtnVariant.danger
-                                          : (a == 'bet' || a == 'raise')
-                                              ? BtnVariant.gold
-                                              : BtnVariant.crimson,
-                                      onPressed: () => (a == 'bet' || a == 'raise')
-                                          ? onAmount(a)
-                                          : onAct(a),
-                                    ),
-                                  ),
-                                  if (a != s.legalActions.last) const SizedBox(width: 8),
-                                ],
-                              ],
-                            )
+                          // ALL actions always visible, always in the same
+                          // place: one row in portrait, stacked in landscape.
+                          ? (landscape
+                              ? Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    for (final a in s.legalActions) ...[
+                                      GradientButton(
+                                        _actionLabels[a] ?? a,
+                                        key: Key('action_$a'),
+                                        variant: a == 'fold'
+                                            ? BtnVariant.danger
+                                            : (a == 'bet' || a == 'raise')
+                                                ? BtnVariant.gold
+                                                : BtnVariant.crimson,
+                                        onPressed: () => (a == 'bet' || a == 'raise')
+                                            ? onAmount(a)
+                                            : onAct(a),
+                                      ),
+                                      if (a != s.legalActions.last)
+                                        const SizedBox(height: 8),
+                                    ],
+                                  ],
+                                )
+                              : Row(
+                                  children: [
+                                    for (final a in s.legalActions) ...[
+                                      Expanded(
+                                        child: GradientButton(
+                                          _actionLabels[a] ?? a,
+                                          key: Key('action_$a'),
+                                          variant: a == 'fold'
+                                              ? BtnVariant.danger
+                                              : (a == 'bet' || a == 'raise')
+                                                  ? BtnVariant.gold
+                                                  : BtnVariant.crimson,
+                                          onPressed: () =>
+                                              (a == 'bet' || a == 'raise')
+                                                  ? onAmount(a)
+                                                  : onAct(a),
+                                        ),
+                                      ),
+                                      if (a != s.legalActions.last)
+                                        const SizedBox(width: 8),
+                                    ],
+                                  ],
+                                ))
                           : const SizedBox.shrink(),
                 ),
               ),
             ]),
           ),
         ),
-      ),
-    ]);
+      );
+
+    return landscape
+        ? Row(children: [
+            Expanded(child: felt),
+            SizedBox(width: 320, child: panel),
+          ])
+        : Column(children: [Expanded(child: felt), panel]);
   }
 }
 
