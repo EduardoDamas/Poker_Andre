@@ -146,8 +146,8 @@ class _BoardSlot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 46,
-      height: 46 * 1.4,
+      width: 42,
+      height: 42 * 1.4,
       margin: const EdgeInsets.symmetric(horizontal: 3),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.18),
@@ -217,49 +217,60 @@ class _TableView extends StatelessWidget {
                       // an empty seat.
                       if (s.seats.isNotEmpty)
                         Positioned.fill(child: _TableSeats(snapshot: s)),
+                      // Street chip + community board, pinned to the FELT
+                      // centre of the artwork (the rail's centre sits at ~40%
+                      // of the frame — the pedestal fills the lower part).
+                      Align(
+                        alignment: const Alignment(0, -0.2),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.35),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                    color: Brand.feltTrim.withValues(alpha: 0.5)),
+                              ),
+                              child: Text(_streetLabels[s.street] ?? s.street,
+                                  style:
+                                      Brand.micro.copyWith(color: Brand.champagne)),
+                            ),
+                            const SizedBox(height: 10),
+                            // Board: real cards once dealt; placeholders during
+                            // pre-flop; a "waiting" hint before any hand.
+                            if (s.board.isNotEmpty)
+                              Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    // Key by position+card so each card animates
+                                    // in once, when its street is dealt.
+                                    for (var i = 0; i < s.board.length; i++)
+                                      PlayingCard(s.board[i],
+                                          width: 42,
+                                          key: ValueKey('board-$i-${s.board[i]}')),
+                                  ])
+                            else if (s.holeCards.isNotEmpty || s.handComplete)
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: List.generate(5, (_) => const _BoardSlot()),
+                              )
+                            else
+                              Column(mainAxisSize: MainAxisSize.min, children: [
+                                const CardBack(width: 40),
+                                const SizedBox(height: 8),
+                                Text('Aguardando oponente…',
+                                    style: Brand.caption
+                                        .copyWith(color: Brand.champagne)),
+                              ]),
+                          ],
+                        ),
+                      ),
                     ]),
-                  ),
-                ),
-                // Center: street chip + community board.
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 60, 16, 16),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                  // Street chip + pot placeholder.
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: Brand.feltTrim.withValues(alpha: 0.5)),
-                    ),
-                    child: Text(_streetLabels[s.street] ?? s.street,
-                        style: Brand.micro.copyWith(color: Brand.champagne)),
-                  ),
-                  const SizedBox(height: 24),
-                  // Board: real cards once dealt; placeholders during pre-flop;
-                  // a "waiting" hint only when no hand has been dealt to me.
-                  if (s.board.isNotEmpty)
-                    Row(mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          // Key by position+card so each card animates in once,
-                          // exactly when its street is dealt (flop/turn/river).
-                          for (var i = 0; i < s.board.length; i++)
-                            PlayingCard(s.board[i], width: 46, key: ValueKey('board-$i-${s.board[i]}')),
-                        ])
-                  else if (s.holeCards.isNotEmpty || s.handComplete)
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(5, (_) => const _BoardSlot()),
-                    )
-                  else
-                    Column(children: [
-                      const CardBack(width: 40),
-                      const SizedBox(height: 12),
-                      Text('Aguardando oponente…', style: Brand.caption.copyWith(color: Brand.champagne)),
-                    ]),
-                    ],
                   ),
                 ),
               ],
