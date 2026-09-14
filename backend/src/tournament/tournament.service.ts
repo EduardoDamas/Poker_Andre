@@ -64,6 +64,14 @@ export class TournamentService {
   }): Promise<{ txnId: string; entryCents: bigint }> {
     const { tournamentId, userId, level, subscription } = params;
     const entryCents = entryFeeCents(level, subscription);
+    const referenceId = `tourn-entry-${tournamentId}-${userId}`;
+
+    // Idempotent: if this entry was already escrowed (e.g. the server restarted and
+    // lost its in-memory tournament state), reuse the existing transaction instead
+    // of charging again or throwing a duplicate-referenceId error. This lets an
+    // already-paid player re-enter the same room after a redeploy.
+    const existing = await this.prisma.ledgerTransaction.findUnique({ where: { referenceId } });
+    if (existing) return { txnId: existing.id, entryCents };
 
     const player = await this.wallet.ensurePlayerAccount(userId);
     const balance = await this.ledger.balanceOf(player.id);
@@ -74,7 +82,7 @@ export class TournamentService {
 
     const txnId = await this.ledger.post({
       kind: 'TOURNAMENT_BUYIN',
-      referenceId: `tourn-entry-${tournamentId}-${userId}`,
+      referenceId,
       memo: `Inscrição torneio ${tournamentId} nível ${level} (${subscription})`,
       postings: [
         { accountId: player.id, amountCents: -entryCents },

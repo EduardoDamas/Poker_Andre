@@ -170,7 +170,9 @@ export class GameGateway implements OnGatewayConnection {
       }
       return { ok: true, position };
     } catch (err) {
-      return { ok: false, error: (err as Error).message };
+      const msg = (err as Error).message;
+      this.logger.warn(`join FAILED table=${body.tableId} user=${user.sub}: ${msg}`);
+      return { ok: false, error: msg };
     }
   }
 
