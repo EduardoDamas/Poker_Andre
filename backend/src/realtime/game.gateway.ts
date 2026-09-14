@@ -223,7 +223,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         if (res.complete) {
           this.server.to(room(tableId)).emit('hand:result', res.result);
           this.server.to(room(tableId)).emit('table:state', this.tables.publicState(t));
-          if (this.tables.isTournament(t) && res.result.tournament && !res.result.tournament.over) {
+          if (res.result.tournament?.reverted) {
+            setTimeout(
+              () => this.server.to(room(tableId)).emit('table:waiting', {}),
+              1800,
+            );
+          } else if (this.tables.isTournament(t) && res.result.tournament && !res.result.tournament.over) {
             // Tournament continues → deal the next hand.
             setTimeout(
               () => this.continueTournament(tableId),
@@ -386,6 +391,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           this.mtSubTournament.delete(body.tableId);
           this.mtSubPlayers.delete(body.tableId);
           resolveSub(winnerId);
+        } else if (res.result.tournament?.reverted) {
+          // Opponents withdrew — no payout; show "waiting" after the banner.
+          setTimeout(
+            () => this.server.to(room(body.tableId)).emit('table:waiting', {}),
+            1800,
+          );
         } else if (table && this.tables.isTournament(table) && res.result.tournament && !res.result.tournament.over) {
           // Tournament that isn't over yet → deal the next hand automatically.
           setTimeout(() => this.continueTournament(body.tableId), Number(process.env.TOURNAMENT_HAND_DELAY_MS ?? '1500'));
@@ -437,14 +448,24 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     this.server.to(room(body.tableId)).emit('table:state', this.tables.publicState(table));
 
+    if (res.reverted) {
+      // Everyone else withdrew between hands — back to "waiting for players".
+      this.server.to(room(body.tableId)).emit('table:waiting', {});
+    }
+
     if (result) {
-      // The withdrawal ended the hand and/or the tournament (walkover) — the
-      // remaining players see the result; the last one standing sees the prize.
+      // The withdrawal ended the hand — the remaining players see the result.
       this.logger.log(
-        `leave ${body.tableId} user=${user.sub} → result over=${result.tournament?.over} winner=${result.tournament?.winnerId}`,
+        `leave ${body.tableId} user=${user.sub} → result over=${result.tournament?.over} reverted=${result.tournament?.reverted}`,
       );
       this.server.to(room(body.tableId)).emit('hand:result', result);
-      if (this.tables.isTournament(table) && result.tournament && !result.tournament.over) {
+      if (result.tournament?.reverted) {
+        // No walkover payout — after the pot banner, show "waiting" again.
+        setTimeout(
+          () => this.server.to(room(body.tableId)).emit('table:waiting', {}),
+          1800,
+        );
+      } else if (this.tables.isTournament(table) && result.tournament && !result.tournament.over) {
         // ≥2 still competing — deal the next hand.
         setTimeout(
           () => this.continueTournament(body.tableId),

@@ -141,6 +141,13 @@ export class TournamentService {
       postings,
     });
 
+    // This tournament INSTANCE is finished — release its idempotency keys so
+    // the static lobby room (poker-l1..l7) can host a fresh tournament: the
+    // next payout must not collide, and returning players must pay a NEW
+    // entry (the old escrow reference would otherwise be reused as a free
+    // ticket forever). Renaming keeps the audit trail intact.
+    await this.releaseReferences(tournamentId, participants.map((p) => p.userId), txnId);
+
     return {
       txnId,
       collectedCents,
@@ -150,5 +157,23 @@ export class TournamentService {
       occupancy,
       multiplier,
     };
+  }
+
+  /**
+   * Rename the entry/payout referenceIds of a finished (settled or abandoned)
+   * tournament instance by suffixing a unique tag, freeing the static room id
+   * for the next instance while preserving the ledger history.
+   */
+  async releaseReferences(tournamentId: string, userIds: string[], tag: string): Promise<void> {
+    const refs = [
+      `tourn-payout-${tournamentId}`,
+      ...userIds.map((u) => `tourn-entry-${tournamentId}-${u}`),
+    ];
+    for (const ref of refs) {
+      await this.prisma.ledgerTransaction.updateMany({
+        where: { referenceId: ref },
+        data: { referenceId: `${ref}#${tag}` },
+      });
+    }
   }
 }

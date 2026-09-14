@@ -109,6 +109,9 @@ export interface TournamentStatus {
   winnerId?: string;
   prizeCents?: number; // money paid to the winner (cents)
   multiplier?: number;
+  // Everyone else WITHDREW (not busted): no payout — the table went back to
+  // "waiting for players" so the survivor plays when someone new joins.
+  reverted?: boolean;
 }
 
 export interface HandResultPayload {
@@ -197,7 +200,19 @@ export class TableService {
    */
   async enterTournament(table: Table, userId: string, subscription: Subscription): Promise<void> {
     const t = table.tournament;
-    if (!t || t.entries.has(userId)) return;
+    if (!t) return;
+    if (t.entries.has(userId)) {
+      if (!t.eliminated.has(userId)) return; // already in and live
+      if (t.started && !t.settled) {
+        // Withdrew from a RUNNING tournament — out until this one ends.
+        throw new Error('Você saiu deste torneio. Aguarde a próxima partida.');
+      }
+      // Not started (e.g. the table reverted to waiting): the paid entry is
+      // still valid — reinstate with a fresh stack.
+      t.eliminated.delete(userId);
+      t.stacks[userId] = TOURNEY_STARTING_STACK;
+      return;
+    }
     await this.tournament.escrowEntry({
       tournamentId: table.id,
       userId,
@@ -216,6 +231,20 @@ export class TableService {
   tournamentReadyToStart(table: Table): boolean {
     const t = table.tournament;
     return !!t && !t.started && !table.handInProgress && this.liveEntrants(table).length >= 2;
+  }
+
+  /**
+   * Everyone else withdrew: no payout — put the table back into "waiting for
+   * players". Survivors keep their (still valid) entries with fresh stacks and
+   * the game starts again when someone new joins.
+   */
+  private revertToWaiting(table: Table): void {
+    const t = table.tournament!;
+    t.started = false;
+    t.handsPlayed = 0;
+    table.hand = null;
+    table.handInProgress = false;
+    for (const id of this.liveEntrants(table)) t.stacks[id] = TOURNEY_STARTING_STACK;
   }
 
   join(
@@ -298,7 +327,7 @@ export class TableService {
   async leave(
     id: string,
     userId: string,
-  ): Promise<{ table: Table; result?: HandResultPayload } | null> {
+  ): Promise<{ table: Table; result?: HandResultPayload; reverted?: boolean } | null> {
     const table = this.tables.get(id);
     if (!table) return null;
     const idx = table.seats.findIndex((s) => s?.userId === userId);
@@ -348,20 +377,21 @@ export class TableService {
       return { table, result: payload };
     }
 
-    // Between hands (or the hand continues without them): if only one live
-    // entrant is left, the tournament ends now — last player standing wins.
-    if (!table.handInProgress && this.liveEntrants(table).length === 1) {
-      const status = await this.applyTournamentHandResult(table, {});
-      return {
-        table,
-        result: {
-          board: [],
-          pots: [],
-          payouts: {},
-          finalStacks: { ...t.stacks },
-          tournament: status,
-        },
-      };
+    // Between hands (or the hand continues without them): withdrawals never
+    // pay a walkover — with one live entrant left the table goes back to
+    // "waiting for players"; with none left the abandoned instance is closed
+    // (entries released so the room restarts clean).
+    if (!table.handInProgress) {
+      const live = this.liveEntrants(table);
+      if (live.length === 1) {
+        this.revertToWaiting(table);
+        return { table, reverted: true };
+      }
+      if (live.length === 0 && !t.settled) {
+        await this.tournament.releaseReferences(id, [...t.entries.keys()], `abandoned-${id}-${Date.now()}`);
+        this.tables.delete(id);
+        return { table };
+      }
     }
     return { table };
   }
@@ -538,6 +568,19 @@ export class TableService {
     const live = this.liveEntrants(table);
     if (live.length > 1) {
       return { over: false, remaining: live.length };
+    }
+
+    // Only one live entrant. A prize is paid only when the tournament was WON
+    // BY PLAY (everyone else busted to zero chips). If any opponent withdrew
+    // while still holding chips, there is no walkover payout: the table goes
+    // back to "waiting for players" and the survivor plays on when someone
+    // new joins.
+    const wonByPlay = [...t.entries.keys()].every(
+      (id) => live.includes(id) || (t.stacks[id] ?? 0) <= 0,
+    );
+    if (!wonByPlay) {
+      this.revertToWaiting(table);
+      return { over: false, remaining: live.length, reverted: true };
     }
 
     // Tournament over — the last player standing wins this table.

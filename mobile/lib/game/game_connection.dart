@@ -56,7 +56,25 @@ class SocketGameConnection implements GameConnection {
       _emit(_snapshot.copyWith(status: ConnStatus.connected));
       final join = <String, dynamic>{'tableId': tableId, 'maxSeats': maxSeats};
       if (level != null) join['level'] = level; // money tournament room
-      _socket.emit('table:join', join);
+      // Surface a rejected join (insufficient balance, withdrew from a running
+      // tournament, blocked account…) instead of freezing on "Aguardando".
+      _socket.emitWithAck('table:join', join, ack: (resp) {
+        if (resp is Map && resp['ok'] == false) {
+          _emit(_snapshot.copyWith(
+            status: ConnStatus.error,
+            error: '${resp['error'] ?? 'Não foi possível entrar na mesa.'}',
+          ));
+        }
+      });
+    });
+    // The table went back to "waiting for players" (opponents withdrew — no
+    // walkover payout): clear any hand/result state, keep seats.
+    _socket.on('table:waiting', (_) {
+      _emit(GameSnapshot(
+        status: _snapshot.status,
+        maxSeats: _snapshot.maxSeats,
+        seats: _snapshot.seats,
+      ));
     });
     _socket.on('hand:hole', (data) {
       final cards = (data['cards'] as List).cast<String>();

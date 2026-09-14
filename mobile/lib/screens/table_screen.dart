@@ -267,99 +267,124 @@ class _TableView extends StatelessWidget {
           ),
         ),
       ),
-      // ---- Player panel ----
+      // ---- Player panel (FIXED height so the table above never moves) ----
       Container(
         width: double.infinity,
         decoration: const BoxDecoration(gradient: Brand.obsidianGrad),
         child: SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
             child: Column(children: [
-              // Turn / result banner.
-              if (s.handComplete)
-                Column(
-                  key: const Key('resultBanner'),
-                  children: [
-                    Text(s.resultText ?? 'Mão encerrada.', style: Brand.h3.copyWith(color: Brand.gold)),
-                    if (s.prizeCents != null) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          gradient: Brand.goldGrad,
-                          borderRadius: BorderRadius.circular(999),
-                          boxShadow: Brand.glow(Brand.gold),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          const Icon(Icons.emoji_events, size: 16, color: Brand.onGold),
-                          const SizedBox(width: 6),
-                          Text('Prêmio ${brl(s.prizeCents!)}',
-                              style: const TextStyle(color: Brand.onGold, fontWeight: FontWeight.w800, fontSize: 16)),
+              // Slot 1 — status line (constant height).
+              SizedBox(
+                height: 44,
+                child: Center(
+                  child: s.handComplete
+                      ? Text(s.resultText ?? 'Mão encerrada.',
+                          key: const Key('resultBanner'),
+                          maxLines: 2,
+                          textAlign: TextAlign.center,
+                          overflow: TextOverflow.ellipsis,
+                          style: Brand.h3.copyWith(color: Brand.gold, fontSize: 15))
+                      : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                          if (s.isMyTurn) ...[
+                            const Icon(Icons.timer_outlined, size: 16, color: Brand.gold),
+                            const SizedBox(width: 6),
+                          ],
+                          Text(s.isMyTurn ? 'Sua vez' : 'Aguardando…',
+                              key: const Key('turnBanner'),
+                              style: Brand.h3
+                                  .copyWith(color: s.isMyTurn ? Brand.gold : Brand.textSec)),
                         ]),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-                    GradientButton('Sair da mesa',
-                        key: const Key('leaveTable'),
-                        icon: Icons.logout,
-                        variant: BtnVariant.crimson,
-                        onPressed: onLeave),
-                  ],
-                )
-              else
-                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                  if (s.isMyTurn) ...[
-                    const Icon(Icons.timer_outlined, size: 16, color: Brand.gold),
-                    const SizedBox(width: 6),
-                  ],
-                  Text(s.isMyTurn ? 'Sua vez' : 'Aguardando…',
-                      key: const Key('turnBanner'),
-                      style: Brand.h3.copyWith(color: s.isMyTurn ? Brand.gold : Brand.textSec)),
-                ]),
-              const SizedBox(height: 14),
-              // My hole cards (large), glow on my turn.
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: s.isMyTurn ? Brand.glow(Brand.gold) : null,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: s.holeCards.length >= 2
-                      ? [
-                          PlayingCard(s.holeCards[0], width: 64, key: ValueKey('hole-0-${s.holeCards[0]}')),
-                          PlayingCard(s.holeCards[1], width: 64, key: ValueKey('hole-1-${s.holeCards[1]}')),
-                        ]
-                      : const [CardBack(width: 64), CardBack(width: 64)],
                 ),
               ),
-              const SizedBox(height: 18),
-              // Action dock.
-              if (s.isMyTurn)
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  alignment: WrapAlignment.center,
-                  children: [
-                    for (final a in s.legalActions)
-                      GradientButton(
-                        _actionLabels[a] ?? a,
-                        key: Key('action_$a'),
-                        expand: false,
-                        variant: a == 'fold'
-                            ? BtnVariant.danger
-                            : (a == 'bet' || a == 'raise')
-                                ? BtnVariant.gold
-                                : BtnVariant.crimson,
-                        onPressed: () => (a == 'bet' || a == 'raise') ? onAmount(a) : onAct(a),
-                      ),
-                  ],
-                )
-              else
-                const SizedBox(height: 8),
+              // Slot 2 — my hole cards (constant height), glow on my turn.
+              SizedBox(
+                height: 104,
+                child: Center(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: s.isMyTurn ? Brand.glow(Brand.gold) : null,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: s.holeCards.length >= 2
+                          ? [
+                              PlayingCard(s.holeCards[0],
+                                  width: 64, key: ValueKey('hole-0-${s.holeCards[0]}')),
+                              PlayingCard(s.holeCards[1],
+                                  width: 64, key: ValueKey('hole-1-${s.holeCards[1]}')),
+                            ]
+                          : const [CardBack(width: 64), CardBack(width: 64)],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Slot 3 — action bar: ALWAYS the same place and height. Buttons
+              // appear here in-place (no separate popping panel).
+              SizedBox(
+                height: 112,
+                child: Center(
+                  child: s.handComplete
+                      ? Column(mainAxisSize: MainAxisSize.min, children: [
+                          if (s.prizeCents != null) ...[
+                            Container(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                              decoration: BoxDecoration(
+                                gradient: Brand.goldGrad,
+                                borderRadius: BorderRadius.circular(999),
+                                boxShadow: Brand.glow(Brand.gold),
+                              ),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                const Icon(Icons.emoji_events,
+                                    size: 16, color: Brand.onGold),
+                                const SizedBox(width: 6),
+                                Text('Prêmio ${brl(s.prizeCents!)}',
+                                    style: const TextStyle(
+                                        color: Brand.onGold,
+                                        fontWeight: FontWeight.w800,
+                                        fontSize: 15)),
+                              ]),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
+                          GradientButton('Sair da mesa',
+                              key: const Key('leaveTable'),
+                              icon: Icons.logout,
+                              expand: false,
+                              variant: BtnVariant.crimson,
+                              onPressed: onLeave),
+                        ])
+                      : s.isMyTurn
+                          ? Wrap(
+                              spacing: 10,
+                              runSpacing: 8,
+                              alignment: WrapAlignment.center,
+                              children: [
+                                for (final a in s.legalActions)
+                                  GradientButton(
+                                    _actionLabels[a] ?? a,
+                                    key: Key('action_$a'),
+                                    expand: false,
+                                    variant: a == 'fold'
+                                        ? BtnVariant.danger
+                                        : (a == 'bet' || a == 'raise')
+                                            ? BtnVariant.gold
+                                            : BtnVariant.crimson,
+                                    onPressed: () =>
+                                        (a == 'bet' || a == 'raise') ? onAmount(a) : onAct(a),
+                                  ),
+                              ],
+                            )
+                          : const SizedBox.shrink(),
+                ),
+              ),
             ]),
           ),
         ),
