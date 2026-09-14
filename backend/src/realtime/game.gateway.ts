@@ -107,6 +107,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     for (const table of this.tables.vacateDisconnected(client.id)) {
       this.server.to(room(table.id)).emit('table:state', this.tables.publicState(table));
     }
+    // Live money games: give the player a grace window to reconnect; if the
+    // same dead socket still holds the seat afterwards, withdraw them exactly
+    // as an explicit "Sair da mesa" would (fold → revert/continue, honest
+    // occupancy). A rejoin rebinds the seat to a NEW socket id, which cancels
+    // this naturally.
+    const grace = Number(process.env.TOURNAMENT_DISCONNECT_GRACE_MS ?? '60000');
+    for (const { tableId, userId } of this.tables.liveSeatsOf(client.id)) {
+      setTimeout(() => {
+        const table = this.tables.getTable(tableId);
+        const seat = table?.seats.find((s) => s?.userId === userId);
+        if (!seat || seat.socketId !== client.id) return; // rejoined or already left
+        this.logger.log(`disconnect grace expired: withdrawing ${userId} from ${tableId}`);
+        void this.settleLeave(tableId, userId);
+      }, grace);
+    }
   }
 
   private extractToken(client: Socket): string | null {
@@ -441,46 +456,54 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() body: { tableId: string },
   ): Promise<Ack> {
     const user = (client.data as SocketData).user;
-    const res = await this.tables.leave(body.tableId, user.sub);
     client.leave(room(body.tableId)); // before the emits: the leaver gets nothing
-    if (!res) return { ok: true };
+    await this.settleLeave(body.tableId, user.sub);
+    return { ok: true };
+  }
+
+  /**
+   * Withdraw [userId] from [tableId] and broadcast the aftermath. Shared by the
+   * explicit "Sair da mesa" and the disconnect grace timer.
+   */
+  private async settleLeave(tableId: string, userId: string): Promise<void> {
+    const res = await this.tables.leave(tableId, userId);
+    if (!res) return;
     const { table, result } = res;
 
-    this.server.to(room(body.tableId)).emit('table:state', this.tables.publicState(table));
+    this.server.to(room(tableId)).emit('table:state', this.tables.publicState(table));
 
     if (res.reverted) {
       // Everyone else withdrew between hands — back to "waiting for players".
-      this.server.to(room(body.tableId)).emit('table:waiting', {});
+      this.server.to(room(tableId)).emit('table:waiting', {});
     }
 
     if (result) {
       // The withdrawal ended the hand — the remaining players see the result.
       this.logger.log(
-        `leave ${body.tableId} user=${user.sub} → result over=${result.tournament?.over} reverted=${result.tournament?.reverted}`,
+        `leave ${tableId} user=${userId} → result over=${result.tournament?.over} reverted=${result.tournament?.reverted}`,
       );
-      this.server.to(room(body.tableId)).emit('hand:result', result);
+      this.server.to(room(tableId)).emit('hand:result', result);
       if (result.tournament?.reverted) {
         // No walkover payout — after the pot banner, show "waiting" again.
         setTimeout(
-          () => this.server.to(room(body.tableId)).emit('table:waiting', {}),
+          () => this.server.to(room(tableId)).emit('table:waiting', {}),
           1800,
         );
       } else if (this.tables.isTournament(table) && result.tournament && !result.tournament.over) {
         // ≥2 still competing — deal the next hand.
         setTimeout(
-          () => this.continueTournament(body.tableId),
+          () => this.continueTournament(tableId),
           Number(process.env.TOURNAMENT_HAND_DELAY_MS ?? '1500'),
         );
       } else if (result.tournament?.over) {
-        this.tables.resetSettled(body.tableId); // free the room for the next group
+        this.tables.resetSettled(tableId); // free the room for the next group
       }
     } else if (table.handInProgress) {
       // The hand goes on without the leaver; if the action already sits on
       // their empty seat (or a robot), drive it.
-      this.broadcastGameState(body.tableId);
-      this.driveRobots(body.tableId);
+      this.broadcastGameState(tableId);
+      this.driveRobots(tableId);
     }
-    return { ok: true };
   }
 
   private broadcastGameState(tableId: string): void {

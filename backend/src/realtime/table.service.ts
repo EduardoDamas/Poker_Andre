@@ -419,11 +419,24 @@ export class TableService {
     return false;
   }
 
+  /** Seats held by this socket in RUNNING money tournaments (kept on disconnect). */
+  liveSeatsOf(socketId: string): { tableId: string; userId: string }[] {
+    const out: { tableId: string; userId: string }[] = [];
+    for (const table of this.tables.values()) {
+      const t = table.tournament;
+      if (!t || !t.started || t.settled) continue;
+      const seat = table.seats.find((s) => s?.socketId === socketId);
+      if (seat) out.push({ tableId: table.id, userId: seat.userId });
+    }
+    return out;
+  }
+
   /**
    * A socket dropped (app killed, network gone): free its seats so the lobby
    * doesn't show ghost occupancy — EXCEPT in a live money tournament (started,
-   * unsettled), where the seat is kept so the player can rejoin; there, only an
-   * explicit "Sair da mesa" withdraws them. Returns the changed tables.
+   * unsettled), where the seat is kept so the player can rejoin; there the
+   * gateway schedules a grace timer that withdraws them if they don't return.
+   * Returns the changed tables.
    */
   vacateDisconnected(socketId: string): Table[] {
     const changed: Table[] = [];

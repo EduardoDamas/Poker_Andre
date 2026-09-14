@@ -27,6 +27,12 @@ class FakeConnection implements GameConnection {
   GameSnapshot get current => _snap;
   @override
   void act(String type, {int? amount}) => acted.add({'type': type, 'amount': amount});
+  bool left = false;
+  @override
+  Future<void> leaveTable() async {
+    left = true;
+  }
+
   @override
   void dispose() {
     disposed = true;

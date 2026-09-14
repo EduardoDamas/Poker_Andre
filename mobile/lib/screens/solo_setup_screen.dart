@@ -77,24 +77,27 @@ class _SoloSetupScreenState extends State<SoloSetupScreen> {
             const SizedBox(height: 28),
             const SectionHeader('Número de bots'),
             const SizedBox(height: 12),
+            // 1..7 opponents — 7 bots + you fill the 8-seat table.
             Row(
-              children: List.generate(5, (i) {
+              children: List.generate(7, (i) {
                 final n = i + 1;
                 final sel = _bots == n;
                 return Expanded(
                   child: GestureDetector(
                     onTap: () => setState(() => _bots = n),
                     child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      height: 52,
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      height: 48,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         gradient: sel ? Brand.crimsonGrad : null,
                         color: sel ? null : Brand.surface,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: sel ? Brand.crimson : Brand.border),
                       ),
-                      child: Text('$n', style: Brand.h3.copyWith(color: sel ? Colors.white : Brand.textSec)),
+                      child: Text('$n',
+                          style: Brand.h3
+                              .copyWith(color: sel ? Colors.white : Brand.textSec)),
                     ),
                   ),
                 );
