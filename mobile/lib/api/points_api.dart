@@ -183,6 +183,19 @@ class PointsApi {
     throw AuthException(_message(res.body) ?? 'Não foi possível converter.');
   }
 
+  /// Claim the share-your-win reward (server grants once per settled win).
+  /// Returns the free points awarded; throws with the server's message.
+  Future<int> claimShareWin(String token) async {
+    final res = await _client.post(Uri.parse('$baseUrl/points/share-win'),
+        headers: _headers(token));
+    if (res.statusCode == 201 || res.statusCode == 200) {
+      return ((jsonDecode(res.body) as Map<String, dynamic>)['awarded'] as num?)
+              ?.toInt() ??
+          0;
+    }
+    throw AuthException(_message(res.body) ?? 'Não foi possível registrar a divulgação.');
+  }
+
   /// Best-effort solo-win report (server enforces the daily cap).
   Future<void> reportSoloWin(String token) async {
     try {

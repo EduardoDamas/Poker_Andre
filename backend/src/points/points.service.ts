@@ -9,6 +9,9 @@ export const PAID_TO_FREE_RATE = 1000n;
 export const SOLO_WIN_FREE_POINTS = 100n;
 export const SOLO_DAILY_FREE_CAP = 2000n;
 
+/** Generous reward for sharing a tournament win on social media (per win). */
+export const SHARE_WIN_FREE_POINTS = 5000n;
+
 /**
  * The daily wheel, server-authoritative. `weight` is the draw probability in
  * tenths of a percent (sums to 1000). The mobile app renders these segments in
@@ -281,6 +284,45 @@ export class PointsService {
       }
       throw err;
     }
+  }
+
+  /**
+   * Reward for sharing a tournament win on social media. Gated on a REAL,
+   * settled win (TournamentWin row) and granted at most once per win — the
+   * unique referenceId makes a double-claim impossible.
+   */
+  async shareWin(userId: string) {
+    const win = await this.prisma.tournamentWin.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!win) {
+      throw new BadRequestException('Você ainda não tem vitórias para compartilhar.');
+    }
+    try {
+      await this.prisma.$transaction([
+        this.prisma.pointsTransaction.create({
+          data: {
+            userId,
+            kind: PointsTxnKind.SHARE,
+            freeDelta: SHARE_WIN_FREE_POINTS,
+            referenceId: `points-share-${win.id}`,
+            memo: `Divulgação da vitória (Nível ${win.level})`,
+          },
+        }),
+        this.prisma.pointsAccount.upsert({
+          where: { userId },
+          update: { freePoints: { increment: SHARE_WIN_FREE_POINTS } },
+          create: { userId, freePoints: SHARE_WIN_FREE_POINTS },
+        }),
+      ]);
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new BadRequestException('Você já recebeu os pontos desta vitória.');
+      }
+      throw err;
+    }
+    return { awarded: Number(SHARE_WIN_FREE_POINTS) };
   }
 
   /**

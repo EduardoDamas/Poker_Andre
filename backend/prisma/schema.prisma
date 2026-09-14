@@ -48,6 +48,7 @@ model User {
   seats         Seat[]
   points        PointsAccount?
   pointsTxns    PointsTransaction[]
+  tournamentWins TournamentWin[]
 
   @@index([status])
 }
@@ -89,7 +90,23 @@ enum PointsTxnKind {
   CONVERSION
   MILESTONE
   GAME_REWARD
+  SHARE
   ADJUST
+}
+
+// One row per settled tournament win — feeds the rankings (daily/weekly/
+// monthly), the public winners feed, and the share-your-win points reward.
+model TournamentWin {
+  id         String   @id @default(uuid())
+  userId     String
+  level      Int
+  prizeCents BigInt
+  multiplier Int
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
 }
 
 enum Role {

@@ -141,6 +141,12 @@ export class TournamentService {
       postings,
     });
 
+    // Record the win — feeds the rankings, the winners feed, and the
+    // share-your-win reward.
+    await this.prisma.tournamentWin.create({
+      data: { userId: winnerId, level, prizeCents: winnerCents, multiplier },
+    });
+
     // This tournament INSTANCE is finished — release its idempotency keys so
     // the static lobby room (poker-l1..l7) can host a fresh tournament: the
     // next payout must not collide, and returning players must pay a NEW

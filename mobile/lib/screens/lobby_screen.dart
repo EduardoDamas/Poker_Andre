@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../api/auth_api.dart';
 import '../api/points_api.dart';
 import '../api/tables_api.dart';
@@ -8,6 +9,7 @@ import '../format.dart';
 import '../theme.dart';
 import '../widgets/lucky_wheel.dart';
 import '../widgets/premium.dart';
+import 'rankings_screen.dart';
 import 'table_screen.dart';
 import 'tournaments_screen.dart';
 import 'wallet_screen.dart';
@@ -107,11 +109,33 @@ class _LobbyScreenState extends State<LobbyScreen> {
       level: table.level, // tournament room → entry fee charged
     );
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => TableScreen(connection: connection, title: table.name)),
+      MaterialPageRoute(
+        builder: (_) => TableScreen(
+          connection: connection,
+          title: table.name,
+          onShareWin: _shareWin, // "Compartilhar vitória" → Facebook + pontos
+        ),
+      ),
     ).then((_) {
       _reload();
       _fetchBalance();
     });
+  }
+
+  /// Opens the Facebook share dialog for the player's win, then claims the
+  /// share reward (server grants it once per settled win). Returns the points
+  /// awarded, or throws with the server's message.
+  Future<int> _shareWin() async {
+    const page = 'https://capa-contest-api.onrender.com/baixar';
+    final quote = Uri.encodeComponent(
+        'Acabei de vencer um torneio no CAPA CONTEST! Baixe e venha jogar: $page');
+    await launchUrl(
+      Uri.parse('https://www.facebook.com/sharer/sharer.php'
+          '?u=${Uri.encodeComponent(page)}&quote=$quote'),
+      mode: LaunchMode.externalApplication,
+    );
+    final res = await _pointsApi.claimShareWin(widget.session.accessToken);
+    return res;
   }
 
   @override
@@ -122,6 +146,15 @@ class _LobbyScreenState extends State<LobbyScreen> {
         // Keep the "Mesas" title (test anchor) but as a brand wordmark row.
         title: const Text('Mesas'),
         actions: [
+          IconButton(
+            key: const Key('rankingsBtn'),
+            icon: const Icon(Icons.emoji_events_outlined, color: Brand.gold),
+            tooltip: 'Ranking',
+            onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => RankingsScreen(session: widget.session))),
+          ),
           IconButton(key: const Key('reloadBtn'), icon: const Icon(Icons.refresh, color: Brand.textSec), onPressed: _reload),
           const SizedBox(width: 4),
         ],

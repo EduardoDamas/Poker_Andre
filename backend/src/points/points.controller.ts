@@ -42,4 +42,10 @@ export class PointsController {
   soloWin(@CurrentUser() user: JwtPayload) {
     return this.points.soloWin(user.sub);
   }
+
+  /** Share-your-win reward — once per settled tournament win. */
+  @Post('share-win')
+  shareWin(@CurrentUser() user: JwtPayload) {
+    return this.points.shareWin(user.sub);
+  }
 }

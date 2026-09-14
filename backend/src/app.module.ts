@@ -11,6 +11,7 @@ import { TablesModule } from './tables/tables.module';
 import { TournamentModule } from './tournament/tournament.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PointsModule } from './points/points.module';
+import { RankingsModule } from './rankings/rankings.module';
 import { HealthController } from './health.controller';
 import { DownloadController } from './download.controller';
 import { LegalController } from './legal.controller';
@@ -28,6 +29,7 @@ import { LegalController } from './legal.controller';
     TournamentModule,
     PaymentsModule,
     PointsModule,
+    RankingsModule,
   ],
   controllers: [HealthController, DownloadController, LegalController],
   providers: [

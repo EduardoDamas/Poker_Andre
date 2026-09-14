@@ -31,8 +31,16 @@ class TableScreen extends StatefulWidget {
 
   /// Called once per hand the local player WINS (e.g. solo points reward).
   final void Function()? onHandWon;
+
+  /// When set, a winner sees "Compartilhar vitória" — opens the share dialog
+  /// and returns the points awarded (online tables only).
+  final Future<int> Function()? onShareWin;
   const TableScreen(
-      {super.key, required this.connection, this.title = 'Mesa', this.onHandWon});
+      {super.key,
+      required this.connection,
+      this.title = 'Mesa',
+      this.onHandWon,
+      this.onShareWin});
 
   @override
   State<TableScreen> createState() => _TableScreenState();
@@ -66,6 +74,23 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   void _act(String type, {int? amount}) => widget.connection.act(type, amount: amount);
+
+  Future<void> _shareWin() async {
+    final fn = widget.onShareWin;
+    if (fn == null) return;
+    try {
+      final pts = await fn();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('+$pts pontos pela divulgação!')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('$e'.replaceFirst('Exception: ', ''))));
+      }
+    }
+  }
 
   /// Leave the table (frees the seat on the server) and return to the lobby.
   Future<void> _leave() async {
@@ -133,7 +158,12 @@ class _TableScreenState extends State<TableScreen> {
           if (s.status == ConnStatus.connecting) {
             return const _Centered(child: CircularProgressIndicator(color: Brand.crimson));
           }
-          return _TableView(snapshot: s, onAct: _act, onAmount: _promptAmount, onLeave: _leave);
+          return _TableView(
+              snapshot: s,
+              onAct: _act,
+              onAmount: _promptAmount,
+              onLeave: _leave,
+              onShare: widget.onShareWin == null ? null : _shareWin);
         },
       ),
     );
@@ -173,7 +203,13 @@ class _TableView extends StatelessWidget {
   final void Function(String type, {int? amount}) onAct;
   final Future<void> Function(String type) onAmount;
   final Future<void> Function() onLeave;
-  const _TableView({required this.snapshot, required this.onAct, required this.onAmount, required this.onLeave});
+  final Future<void> Function()? onShare;
+  const _TableView(
+      {required this.snapshot,
+      required this.onAct,
+      required this.onAmount,
+      required this.onLeave,
+      this.onShare});
 
   @override
   Widget build(BuildContext context) {
@@ -375,12 +411,23 @@ class _TableView extends StatelessWidget {
                             ),
                             const SizedBox(height: 10),
                           ],
-                          GradientButton('Sair da mesa',
-                              key: const Key('leaveTable'),
-                              icon: Icons.logout,
-                              expand: false,
-                              variant: BtnVariant.crimson,
-                              onPressed: onLeave),
+                          Row(mainAxisSize: MainAxisSize.min, children: [
+                            if (onShare != null && s.prizeCents != null) ...[
+                              GradientButton('Compartilhar',
+                                  key: const Key('shareWin'),
+                                  icon: Icons.share,
+                                  expand: false,
+                                  variant: BtnVariant.gold,
+                                  onPressed: onShare),
+                              const SizedBox(width: 8),
+                            ],
+                            GradientButton('Sair da mesa',
+                                key: const Key('leaveTable'),
+                                icon: Icons.logout,
+                                expand: false,
+                                variant: BtnVariant.crimson,
+                                onPressed: onLeave),
+                          ]),
                         ])
                       : s.isMyTurn
                           // ALL actions always visible, always in the same
