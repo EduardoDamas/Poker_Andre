@@ -373,24 +373,27 @@ class _TableView extends StatelessWidget {
                               onPressed: onLeave),
                         ])
                       : s.isMyTurn
-                          ? Wrap(
-                              spacing: 10,
-                              runSpacing: 8,
-                              alignment: WrapAlignment.center,
+                          // ALL actions side by side in one row — every button
+                          // always visible, always in the same place.
+                          ? Row(
                               children: [
-                                for (final a in s.legalActions)
-                                  GradientButton(
-                                    _actionLabels[a] ?? a,
-                                    key: Key('action_$a'),
-                                    expand: false,
-                                    variant: a == 'fold'
-                                        ? BtnVariant.danger
-                                        : (a == 'bet' || a == 'raise')
-                                            ? BtnVariant.gold
-                                            : BtnVariant.crimson,
-                                    onPressed: () =>
-                                        (a == 'bet' || a == 'raise') ? onAmount(a) : onAct(a),
+                                for (final a in s.legalActions) ...[
+                                  Expanded(
+                                    child: GradientButton(
+                                      _actionLabels[a] ?? a,
+                                      key: Key('action_$a'),
+                                      variant: a == 'fold'
+                                          ? BtnVariant.danger
+                                          : (a == 'bet' || a == 'raise')
+                                              ? BtnVariant.gold
+                                              : BtnVariant.crimson,
+                                      onPressed: () => (a == 'bet' || a == 'raise')
+                                          ? onAmount(a)
+                                          : onAct(a),
+                                    ),
                                   ),
+                                  if (a != s.legalActions.last) const SizedBox(width: 8),
+                                ],
                               ],
                             )
                           : const SizedBox.shrink(),
