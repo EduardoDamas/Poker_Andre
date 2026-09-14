@@ -10,6 +10,7 @@ import { createHash, randomInt } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { OTP_DELIVERY, OtpDelivery } from './otp-provider';
 import { isBlocked } from '../user-status';
+import { normalizePhone } from '../phone';
 
 const CODE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 const MAX_ATTEMPTS = 5;
@@ -56,7 +57,8 @@ export class OtpService {
   }
 
   /** Generate, store (hashed) and deliver a 6-digit login code. */
-  async request(phone: string): Promise<void> {
+  async request(rawPhone: string): Promise<void> {
+    const phone = normalizePhone(rawPhone);
     this.enforceRateLimit(phone);
     const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
     await this.prisma.otpCode.create({
@@ -73,7 +75,8 @@ export class OtpService {
    * Verify a code and, on success, issue a JWT. The user must already be
    * registered; a successful verification marks them ACTIVE (phone confirmed).
    */
-  async verify(phone: string, code: string): Promise<AuthToken> {
+  async verify(rawPhone: string, code: string): Promise<AuthToken> {
+    const phone = normalizePhone(rawPhone);
     const challenge = await this.prisma.otpCode.findFirst({
       where: { phone, consumedAt: null },
       orderBy: { createdAt: 'desc' },

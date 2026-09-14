@@ -4,6 +4,7 @@ import {
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
+  OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
@@ -43,7 +44,7 @@ export interface SocketData {
  * Unauthenticated sockets are disconnected immediately.
  */
 @WebSocketGateway({ cors: { origin: '*' } })
-export class GameGateway implements OnGatewayConnection {
+export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger('GameGateway');
 
   @WebSocketServer()
@@ -96,6 +97,15 @@ export class GameGateway implements OnGatewayConnection {
       this.logger.log(`Socket ${client.id} authenticated as ${payload.sub}`);
     } catch {
       this.reject(client, 'Invalid or expired token.');
+    }
+  }
+
+  handleDisconnect(client: Socket): void {
+    // Free ghost seats (app killed / connection dropped) so the lobby count is
+    // honest. Live money-tournament seats are kept for rejoin — see
+    // TableService.vacateDisconnected.
+    for (const table of this.tables.vacateDisconnected(client.id)) {
+      this.server.to(room(table.id)).emit('table:state', this.tables.publicState(table));
     }
   }
 
@@ -219,6 +229,8 @@ export class GameGateway implements OnGatewayConnection {
               () => this.continueTournament(tableId),
               Number(process.env.TOURNAMENT_HAND_DELAY_MS ?? '1500'),
             );
+          } else if (res.result.tournament?.over) {
+            this.tables.resetSettled(tableId); // free the room for the next group
           }
         } else {
           this.broadcastGameState(tableId);
@@ -377,6 +389,9 @@ export class GameGateway implements OnGatewayConnection {
         } else if (table && this.tables.isTournament(table) && res.result.tournament && !res.result.tournament.over) {
           // Tournament that isn't over yet → deal the next hand automatically.
           setTimeout(() => this.continueTournament(body.tableId), Number(process.env.TOURNAMENT_HAND_DELAY_MS ?? '1500'));
+        } else if (res.result.tournament?.over) {
+          // Settled — free the room so the next group starts fresh (0/8).
+          this.tables.resetSettled(body.tableId);
         }
       } else {
         this.broadcastGameState(body.tableId);
@@ -435,6 +450,8 @@ export class GameGateway implements OnGatewayConnection {
           () => this.continueTournament(body.tableId),
           Number(process.env.TOURNAMENT_HAND_DELAY_MS ?? '1500'),
         );
+      } else if (result.tournament?.over) {
+        this.tables.resetSettled(body.tableId); // free the room for the next group
       }
     } else if (table.handInProgress) {
       // The hand goes on without the leaver; if the action already sits on

@@ -373,6 +373,45 @@ export class TableService {
     return this.seatedSlots(table).some((s) => s.userId === id) ? null : id;
   }
 
+  /**
+   * Drop a SETTLED (non-sub) tournament table from the registry so the static
+   * lobby room (poker-l1..l7) reads 0/8 again and the next group gets a fresh
+   * tournament. Without this, a finished tournament bricks its room: seats of
+   * players still viewing the result keep counting, and startTournamentHand
+   * refuses to deal on a settled table forever.
+   */
+  resetSettled(id: string): boolean {
+    const table = this.tables.get(id);
+    if (table?.tournament?.settled && !table.tournament.subTable) {
+      this.tables.delete(id);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * A socket dropped (app killed, network gone): free its seats so the lobby
+   * doesn't show ghost occupancy — EXCEPT in a live money tournament (started,
+   * unsettled), where the seat is kept so the player can rejoin; there, only an
+   * explicit "Sair da mesa" withdraws them. Returns the changed tables.
+   */
+  vacateDisconnected(socketId: string): Table[] {
+    const changed: Table[] = [];
+    for (const table of this.tables.values()) {
+      const t = table.tournament;
+      if (t && t.started && !t.settled) continue; // live money game — rejoinable
+      const idx = table.seats.findIndex((s) => s?.socketId === socketId);
+      if (idx === -1) continue;
+      table.seats[idx] = null;
+      if (!t && this.seatedSlots(table).length < 2) {
+        table.hand = null;
+        table.handInProgress = false;
+      }
+      changed.push(table);
+    }
+    return changed;
+  }
+
   seatedCount(table: Table): number {
     return this.seatedSlots(table).length;
   }

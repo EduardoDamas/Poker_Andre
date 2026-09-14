@@ -9,6 +9,7 @@ import { Prisma, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { isValidCpf, normalizeCpf } from './cpf';
+import { normalizePhone } from './phone';
 import { isAdult } from './age';
 import { isBlocked } from './user-status';
 import { hashPassword, verifyPassword } from './password';
@@ -46,7 +47,8 @@ export class AuthService {
     try {
       const user = await this.prisma.user.create({
         data: {
-          phone: dto.phone,
+          // Canonical E.164 — formatting variants must not create a 2nd account.
+          phone: normalizePhone(dto.phone),
           displayName: dto.displayName,
           cpf,
           birthDate,
@@ -74,7 +76,7 @@ export class AuthService {
    * OTP delivery isn't required — used for testing before OTP is live.
    */
   async loginWithPassword(phone: string, password: string): Promise<AuthToken> {
-    const user = await this.prisma.user.findUnique({ where: { phone } });
+    const user = await this.prisma.user.findUnique({ where: { phone: normalizePhone(phone) } });
     // Same message whether the phone is unknown, has no password, or the password
     // is wrong — don't leak which accounts exist.
     if (!user || !user.passwordHash || !verifyPassword(password, user.passwordHash)) {
