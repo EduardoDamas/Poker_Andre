@@ -11,6 +11,10 @@ const SUB_LABELS: Record<string, string> = {
 };
 const SUB_TIERS: SubscriptionTier[] = ['NONE', 'MONTHLY', 'QUARTERLY', 'SEMIANNUAL', 'ANNUAL'];
 
+// The list (and the counters) refresh on their own so the total stays current.
+const REFRESH_MS = 60_000;
+const DAY_MS = 24 * 3600 * 1000;
+
 export function Players({ token, onForbidden }: { token: string; onForbidden: () => void }) {
   const [players, setPlayers] = useState<Player[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +30,11 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
       });
   }, [token, onForbidden]);
 
-  useEffect(load, [load]);
+  useEffect(() => {
+    load();
+    const timer = setInterval(load, REFRESH_MS);
+    return () => clearInterval(timer);
+  }, [load]);
 
   async function run(id: string, fn: () => Promise<unknown>) {
     setBusy(id);
@@ -76,6 +84,8 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
   if (!players) return <p className="muted">Carregando…</p>;
 
   return (
+    <>
+    <PlayerCounts players={players} />
     <table>
       <thead>
         <tr>
@@ -131,6 +141,36 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
         ))}
       </tbody>
     </table>
+    </>
+  );
+}
+
+// Registration counters for tracking growth. Admin accounts are not players.
+function PlayerCounts({ players }: { players: Player[] }) {
+  const real = players.filter((p) => p.role !== 'ADMIN');
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const weekAgo = Date.now() - 7 * DAY_MS;
+  const joined = (p: Player) => new Date(p.createdAt).getTime();
+
+  const counts: [string, number][] = [
+    ['Jogadores cadastrados', real.length],
+    ['Ativos', real.filter((p) => p.status === 'ACTIVE' && !p.blocked).length],
+    ['Pendentes', real.filter((p) => p.status === 'PENDING' && !p.blocked).length],
+    ['Bloqueados', real.filter((p) => p.blocked).length],
+    ['Novos hoje', real.filter((p) => joined(p) >= startOfToday.getTime()).length],
+    ['Últimos 7 dias', real.filter((p) => joined(p) >= weekAgo).length],
+  ];
+
+  return (
+    <div className="stats">
+      {counts.map(([label, value]) => (
+        <div key={label} className="stat">
+          <div className="stat-value">{value}</div>
+          <div className="stat-label">{label}</div>
+        </div>
+      ))}
+    </div>
   );
 }
 

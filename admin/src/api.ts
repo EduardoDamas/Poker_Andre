@@ -36,6 +36,7 @@ export interface Player {
   status: string;
   role: string;
   subscription: string;
+  createdAt: string;
   balanceCents: string;
   blocked: boolean;
   blockedUntil: string | null;
