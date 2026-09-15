@@ -136,7 +136,8 @@ Local: `cd admin && npm install && npm run dev` → http://localhost:5173 (point
 
 ## 7. Deploy (backend → Render)
 
-Auto-deploy is OFF. After pushing to `main`:
+Auto-deploy is **ON** (verified 2026-09-15 via the Render API) — pushing to `main` deploys
+production. To deploy manually (e.g. after an env-var change):
 ```
 rk=$(tr -d '\r\n' < .render-key.txt)
 sid="srv-d9rlhdf40ujc73bpamj0"
@@ -180,8 +181,10 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 
 - **Prod API:** https://capa-contest-api.onrender.com (paid Render plan, no sleep).
 - **Install page:** https://capa-contest-api.onrender.com/baixar
-- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.3/CAPA-CONTEST.apk`
-  (GitHub Release asset — replace it to publish a new build; the `/baixar` link is unchanged).
+- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.4/CAPA-CONTEST.apk`
+  (GitHub Release asset). To publish a build: create a new release with the APK, then update the
+  link in `backend/public/install.html` (+ `docs/marketing/install.html`) and deploy — the public
+  `/baixar` URL never changes.
 - **Card payments (InfinitePay):** LIVE + validated with a real R$1 charge. Card-only for now
   (Pix disabled at InfinitePay per client). Deposit button mints a checkout link; webhook credits
   the wallet (`parseWebhook` treats `paid_amount`+`transaction_nsu` as paid).
@@ -194,8 +197,10 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 
 ## 10. Pending tasks (backlog)
 
-- [ ] **Publish `1.0.4+22`** to the GitHub Release (the download link may still serve an older
-      build). Upload `mobile/dist/CAPA-CONTEST.apk` via the web UI (Astrill breaks CLI upload).
+- [x] **Publish `1.0.4+22`** — release `v1.0.4`; `/baixar` points at it.
+- [ ] **Entry balance check is outside the ledger transaction** (`TournamentService.escrowEntry`):
+      one player entering two rooms at the same instant could overdraw. Move the check into the
+      serializable transaction.
 - [ ] **Password recovery** — needs a delivery channel decision (WhatsApp recommended). Interim:
       admin resets `ADMIN_PASSWORD`-style via the panel. WhatsApp OTP providers exist in code
       (`OTP_PROVIDER=whatsapp`, needs Meta creds).
