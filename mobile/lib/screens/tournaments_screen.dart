@@ -246,7 +246,10 @@ class _TournamentsScreenState extends State<TournamentsScreen> {
           const Icon(Icons.workspace_premium, color: Brand.gold, size: 22),
           const SizedBox(width: 12),
           Expanded(child: Text(_planName(p.plan), style: Brand.h3)),
-          Text(brl(p.priceCents), style: Brand.label.copyWith(color: Brand.gold)),
+          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text(brl(p.cardPriceCents), style: Brand.label.copyWith(color: Brand.gold)),
+            Text('no cartão', style: Brand.micro),
+          ]),
         ]),
       );
 }

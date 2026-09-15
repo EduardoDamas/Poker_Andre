@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../config.dart';
 import '../theme.dart';
 import '../widgets/premium.dart';
 
@@ -40,13 +42,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _toggle('Push', _notifications, (v) => setState(() => _notifications = v)),
             const SizedBox(height: 16),
             _section('Jogo responsável'),
-            _link('Limites de depósito', Icons.shield_outlined),
-            _link('Autoexclusão', Icons.block_outlined),
+            _link('Regulamento dos torneios', Icons.gavel_outlined,
+                url: '${AppConfig.apiBase}/legal/regulamento'),
+            _link('Autoexclusão e limites', Icons.block_outlined,
+                onTap: () => _info(
+                    'Autoexclusão e limites',
+                    'Para solicitar autoexclusão ou definir limites de depósito, fale com o '
+                        'suporte pelo canal oficial. Em breve isso estará disponível direto no app.')),
             const SizedBox(height: 16),
             _section('Sobre'),
-            _link('Termos de uso', Icons.description_outlined),
-            _link('Privacidade', Icons.lock_outline),
-            _link('Versão 1.0.0', Icons.info_outline),
+            _link('Termos de uso', Icons.description_outlined,
+                url: '${AppConfig.apiBase}/legal/termos'),
+            _link('Privacidade', Icons.lock_outline,
+                url: '${AppConfig.apiBase}/legal/privacidade'),
+            _link('Versão 1.0.4', Icons.info_outline),
             const SizedBox(height: 24),
             GradientButton('Sair da conta', variant: BtnVariant.danger, icon: Icons.logout,
                 onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst)),
@@ -71,14 +80,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ]),
       );
 
-  Widget _link(String label, IconData icon) => Container(
+  Future<void> _openUrl(String url) async {
+    final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Não foi possível abrir o link.')));
+    }
+  }
+
+  void _info(String title, String body) => showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Brand.surface,
+          title: Text(title, style: Brand.h3),
+          content: Text(body, style: Brand.body),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Entendi')),
+          ],
+        ),
+      );
+
+  Widget _link(String label, IconData icon, {String? url, VoidCallback? onTap}) => Container(
         margin: const EdgeInsets.only(bottom: 8),
         child: Material(
           color: Brand.surface,
           borderRadius: BorderRadius.circular(14),
           child: InkWell(
             borderRadius: BorderRadius.circular(14),
-            onTap: () {},
+            onTap: onTap ?? (url != null ? () => _openUrl(url) : null),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: Border.all(color: Brand.border)),

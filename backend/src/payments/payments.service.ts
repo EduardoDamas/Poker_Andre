@@ -9,8 +9,13 @@ import { Subscription, SUBSCRIPTIONS, subscriptionPriceCents } from '../tourname
 
 export interface SubscriptionPlanInfo {
   plan: Subscription;
-  priceCents: string; // string — BigInt is not JSON-serialisable
+  priceCents: string; // base price (string — BigInt is not JSON-serialisable)
+  cardPriceCents: string; // card price = base × 1.25 (card is the only method now)
 }
+
+// Card surcharge — same +25% as tournament entries (card = pix × 1.25).
+const CARD_SURCHARGE_NUM = 5n;
+const CARD_SURCHARGE_DEN = 4n;
 
 /**
  * Serves the InfinitePay checkout data the app needs: the correct tournament
@@ -40,9 +45,13 @@ export class PaymentsService {
 
   /** Purchasable subscription plans with prices (NONE excluded — it's the free tier). */
   subscriptionPlans(): SubscriptionPlanInfo[] {
-    return SUBSCRIPTIONS.filter((s) => s !== 'NONE').map((plan) => ({
-      plan,
-      priceCents: subscriptionPriceCents(plan).toString(),
-    }));
+    return SUBSCRIPTIONS.filter((s) => s !== 'NONE').map((plan) => {
+      const base = subscriptionPriceCents(plan);
+      return {
+        plan,
+        priceCents: base.toString(),
+        cardPriceCents: ((base * CARD_SURCHARGE_NUM) / CARD_SURCHARGE_DEN).toString(),
+      };
+    });
   }
 }

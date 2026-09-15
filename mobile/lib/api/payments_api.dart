@@ -31,13 +31,16 @@ class EntryLink {
 /// A purchasable subscription plan and its price.
 class SubscriptionPlan {
   final String plan; // MONTHLY | QUARTERLY | SEMIANNUAL | ANNUAL
-  final int priceCents;
+  final int priceCents; // base price
+  final int cardPriceCents; // card price (base × 1.25) — what's charged now
 
-  SubscriptionPlan({required this.plan, required this.priceCents});
+  SubscriptionPlan(
+      {required this.plan, required this.priceCents, required this.cardPriceCents});
 
   factory SubscriptionPlan.fromJson(Map<String, dynamic> j) => SubscriptionPlan(
         plan: j['plan'] as String,
         priceCents: int.tryParse('${j['priceCents']}') ?? 0,
+        cardPriceCents: int.tryParse('${j['cardPriceCents'] ?? j['priceCents']}') ?? 0,
       );
 }
 
