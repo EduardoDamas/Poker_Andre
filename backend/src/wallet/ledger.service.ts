@@ -45,9 +45,11 @@ export class LedgerService {
   }
 
   // Serializable transactions on shared accounts (EXTERNAL, PRIZE_POOL, ...) can
-  // conflict when many tables settle at once. A write-conflict is transient, so
-  // we retry with small randomised backoff. A unique-constraint failure
-  // (duplicate referenceId) is NOT retried — it is a real idempotency rejection.
+  // conflict when many tables settle at once — or when a whole table enters a
+  // tournament at the same instant. A write-conflict is transient (the attempt
+  // was rolled back), so we retry with exponential, fully-jittered backoff so the
+  // contenders spread out instead of colliding again. A unique-constraint
+  // failure (duplicate referenceId) is NOT retried — it is a real idempotency rejection.
   private async postWithRetry(params: {
     kind: TxnKind;
     postings: Posting[];
@@ -55,7 +57,7 @@ export class LedgerService {
     memo?: string;
   }): Promise<string> {
     const { kind, postings, referenceId, memo } = params;
-    const MAX_ATTEMPTS = 6;
+    const MAX_ATTEMPTS = 10;
 
     for (let attempt = 1; ; attempt++) {
       try {
@@ -103,8 +105,11 @@ export class LedgerService {
     return e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2034';
   }
 
+  // Full jitter: a random wait in [0, cap), cap doubling from 20ms up to 640ms.
+  // Worst case across all retries is ~3s (typically well under 1s).
   private backoff(attempt: number): Promise<void> {
-    const ms = attempt * 10 + Math.floor(Math.random() * 15);
+    const cap = Math.min(20 * 2 ** (attempt - 1), 640);
+    const ms = Math.floor(Math.random() * cap);
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 

@@ -79,6 +79,18 @@ describe('TournamentService (entry escrow + prize payout)', () => {
     expect(await balanceOf(u)).toBe(3000n); // charged only once
   });
 
+  it('a full table entering at the same instant is charged once each (write-conflict retry)', async () => {
+    // All 8 entries hit the shared PRIZE_POOL balance row concurrently; serializable
+    // conflicts must be retried, not surfaced to the player as a failed join.
+    const ids: string[] = [];
+    for (let i = 0; i < 8; i++) ids.push(await fundedUser(2000n));
+    await Promise.all(
+      ids.map((u) => tourn.escrowEntry({ tournamentId: 't-rush', userId: u, level: 1, subscription: 'NONE' })),
+    );
+    for (const u of ids) expect(await balanceOf(u)).toBe(0n);
+    expect(await systemBalance('PRIZE_POOL')).toBe(16000n);
+  });
+
   it('full table (8 non-subscribers) pays winner 25% of a 200× prize, conserves money', async () => {
     // 8 players, level 1, entry R$20 each → collected R$160 = 16000 cents.
     const subs: Subscription[] = Array(8).fill('NONE');
