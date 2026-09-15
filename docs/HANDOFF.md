@@ -1,0 +1,218 @@
+# CAPA CONTEST — Handoff & Setup (run on another machine)
+
+Everything needed to continue development, build, and deploy on a **new computer**.
+Committed to git, so it travels with the repo. **Secret values are NOT here** — they
+live in gitignored files you copy manually (see §2).
+
+Last updated: 2026-09-15. App version: **1.0.4+22**.
+
+---
+
+## 0. What this project is
+
+- **CAPA CONTEST** — Android Texas Hold'em app (Brazil, real-money via card), distributed by
+  **direct APK link** (NOT the Play Store — Play rejected skill-game + real money).
+- **backend/** — NestJS + Prisma + PostgreSQL. Deployed on **Render** (Docker).
+- **mobile/** — Flutter app (Android).
+- **admin/** — React + Vite admin panel; also served by the backend at `/panel`.
+- Money is a **double-entry ledger in integer cents** (never floats). A separate **virtual
+  points economy** (free/paid points, daily wheel, streaks) is unrelated to the BRL wallet.
+
+---
+
+## 1. Prerequisites (install on the new machine)
+
+| Tool | Version used | Notes |
+|---|---|---|
+| Node.js + npm | Node 20+ | backend + admin |
+| Flutter SDK | stable (Dart 3.12+) | was at `C:\flutter` (not on PATH → call `C:\flutter\bin\flutter.bat`) |
+| Android SDK | build-tools 36.0.0 | was at `C:\Android\Sdk`; `apksigner` under `build-tools\36.0.0\` |
+| JDK | 17 | bundled with Android Studio / Flutter |
+| PostgreSQL | 17 | local dev + tests only (prod DB is on Render) |
+| gh CLI | 2.x | for GitHub Releases (APK upload) |
+| Git | any | pushes use a token-in-URL (see §3) |
+
+---
+
+## 2. Secret files to copy manually (DO NOT COMMIT)
+
+These are **gitignored on purpose**. Copy them from the old machine (USB / secure channel),
+place at the same paths. Without them you cannot deploy, push, or sign the app.
+
+| File | Contains | Used for |
+|---|---|---|
+| `.gh-token.txt` | GitHub classic PAT (scope `repo`) for user `EduardoDamas` | pushing to the deploy repo. **Expires** — regenerate at github.com/settings/tokens |
+| `.render-key.txt` | Render API key | triggering deploys, reading logs, setting env vars |
+| `backend/.env` | `DATABASE_URL`, `JWT_SECRET`, `ADMIN_*`, etc. | local backend/dev + tests |
+| `admin/.env` | `VITE_API_BASE` (local: `http://localhost:3000`) | admin dev server |
+| `mobile/android/key.properties` | keystore passwords + alias (`upload`) | signing release APKs |
+| `mobile/android/upload-keystore.jks` | **THE release keystore** | signing. **CRITICAL — losing it blocks all future app updates.** Back it up separately. SHA-1 `51:80:26:C3:1C:F4:FD:36:87:88:28:80:0F:02:44:49:AB:54:31:8F` |
+
+> Never aggregate these into one committed file. If a secret is lost: PAT → regenerate;
+> Render key → Render dashboard; keystore → **cannot be regenerated** (see the release-keystore note).
+
+Live credentials you'll also need (keep out of git):
+- **Admin panel** `https://capa-contest-api.onrender.com/panel` → user `admin`, password is the
+  `ADMIN_PASSWORD` env var on Render (rotate to a strong value).
+- **Render**: owner `mastercred962@gmail.com`, service `srv-d9rlhdf40ujc73bpamj0`.
+- **InfinitePay**: handle `andre-luiz-g4j`; `INFINITEPAY_WEBHOOK_SECRET` is set on Render.
+
+---
+
+## 3. Get the code + push setup
+
+The working tree tracks two remotes:
+- `origin` → `aaroncastro5678913-cpu/winpoker` (read-only from this account).
+- `deploy` → `EduardoDamas/Poker_Andre` (**public**; Render deploys from its `main`).
+
+Clone the deploy repo on the new machine:
+```
+git clone https://github.com/EduardoDamas/Poker_Andre.git Poker
+```
+Push (credential helpers get overridden, so use a token-in-URL):
+```
+tok=$(tr -d '\r\n' < .gh-token.txt)
+git push "https://x-access-token:${tok}@github.com/EduardoDamas/Poker_Andre.git" master:main
+```
+Local branch is `master`; it maps to the remote `main`.
+
+---
+
+## 4. Backend — install, dev, test
+
+```
+cd backend
+npm install
+npx prisma generate
+# dev (needs a reachable DATABASE_URL):
+npm run start:dev            # nest start --watch
+npm run build                # nest build (no DB needed)
+```
+
+**Tests** need a local Postgres. IMPORTANT gotcha (see §8): port **5434 is broken** on the old
+machine — tests were run on **5544**:
+```
+# start PG on 5544, then:
+TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
+```
+Full suite was **287 passing / 49 suites**. On a healthy machine, plain `npx jest` with the
+`.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`).
+
+Migrations apply automatically on Render boot (`prisma migrate deploy` in the Docker CMD).
+
+---
+
+## 5. Mobile — build the APK
+
+```
+cd mobile
+C:\flutter\bin\flutter.bat pub get
+C:\flutter\bin\flutter.bat analyze lib
+C:\flutter\bin\flutter.bat test
+C:\flutter\bin\flutter.bat build apk --release
+```
+Output: `mobile/build/app/outputs/flutter-apk/app-release.apk`. Signing is automatic when
+`android/key.properties` + `upload-keystore.jks` are present (else it falls back to debug
+signing — a debug-signed APK will NOT install over the real one). Verify:
+```
+"C:\Android\Sdk\build-tools\36.0.0\apksigner.bat" verify --print-certs app-release.apk
+# expect SHA-1 51:80:26:...:31:8F
+```
+Staged builds are copied to `mobile/dist/capa-contest-<version>.apk` (gitignored).
+Default backend URL is baked in `mobile/lib/config.dart` → `https://capa-contest-api.onrender.com`.
+
+Launcher icon: `flutter_launcher_icons` config in pubspec → `dart run flutter_launcher_icons`.
+
+---
+
+## 6. Admin panel
+
+Local: `cd admin && npm install && npm run dev` → http://localhost:5173 (point at prod with
+`VITE_API_BASE=https://capa-contest-api.onrender.com`). Hosted: the built panel is bundled into
+`backend/panel/` and served at **`/panel`** (rebuild with `npm run build` in admin/, copy `dist`
+→ `backend/panel/`, redeploy). Login is `admin` + `ADMIN_PASSWORD` (Render env).
+
+---
+
+## 7. Deploy (backend → Render)
+
+Auto-deploy is OFF. After pushing to `main`:
+```
+rk=$(tr -d '\r\n' < .render-key.txt)
+sid="srv-d9rlhdf40ujc73bpamj0"
+curl -s -X POST -H "Authorization: Bearer ${rk}" -H "Content-Type: application/json" \
+  "https://api.render.com/v1/services/${sid}/deploys" -d '{}'
+# poll GET .../deploys/<id> until "live"; then check /health
+curl -s https://capa-contest-api.onrender.com/health
+```
+Read logs (ownerId `tea-d9rkvfv40ujc73bo5pc0`):
+```
+curl -s -H "Authorization: Bearer ${rk}" \
+  "https://api.render.com/v1/logs?ownerId=tea-d9rkvfv40ujc73bo5pc0&resource=${sid}&limit=50"
+```
+Set an env var (e.g. to rotate the panel password):
+```
+curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/json" \
+  "https://api.render.com/v1/services/${sid}/env-vars/ADMIN_PASSWORD" -d '{"value":"<new>"}'
+# then trigger a deploy for it to take effect
+```
+
+---
+
+## 8. Environment gotchas (bit us repeatedly)
+
+- **Astrill VPN.** Its OpenWeb mode registers a **Winsock LSP (`ASProxy64.dll`)** that injects
+  into the JVM and **crashes every Gradle build**. Fix: `netsh winsock reset` (admin) + reboot;
+  keep Astrill on **WireGuard/OpenVPN**, never OpenWeb. Also: Astrill **severs large uploads** —
+  the 60 MB GitHub-release APK upload fails via CLI; use the **GitHub web UI** to attach the APK,
+  or turn Astrill off for the upload.
+- **Port 5434 is broken** at the OS level ("could not bind ... Permission denied") — Postgres
+  won't listen there. Use another port (we used **5544**) for local tests.
+- **Android emulator crashes** on the old machine (GPU/`UpdateLayeredWindowIndirect` + socket
+  errors), even with `-gpu swiftshader_indirect`. Automated screenshots weren't possible there —
+  test on a real device.
+- **Gradle file locks**: an occasional "file is being used by another program" on build — stop
+  the daemon (`cd mobile/android && ./gradlew --stop`) and rebuild.
+
+---
+
+## 9. Current state & what's live
+
+- **Prod API:** https://capa-contest-api.onrender.com (paid Render plan, no sleep).
+- **Install page:** https://capa-contest-api.onrender.com/baixar
+- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.3/CAPA-CONTEST.apk`
+  (GitHub Release asset — replace it to publish a new build; the `/baixar` link is unchanged).
+- **Card payments (InfinitePay):** LIVE + validated with a real R$1 charge. Card-only for now
+  (Pix disabled at InfinitePay per client). Deposit button mints a checkout link; webhook credits
+  the wallet (`parseWebhook` treats `paid_amount`+`transaction_nsu` as paid).
+- **Features shipped:** poker engine, tournaments (7 levels), auto card deposit, virtual points +
+  daily lucky wheel + streak milestones, rankings (daily/weekly/monthly), winners feed,
+  share-your-win-on-Facebook (+5000 free points), immersive full-screen, responsive landscape
+  table, crimson table art, custom card back.
+
+---
+
+## 10. Pending tasks (backlog)
+
+- [ ] **Publish `1.0.4+22`** to the GitHub Release (the download link may still serve an older
+      build). Upload `mobile/dist/CAPA-CONTEST.apk` via the web UI (Astrill breaks CLI upload).
+- [ ] **Password recovery** — needs a delivery channel decision (WhatsApp recommended). Interim:
+      admin resets `ADMIN_PASSWORD`-style via the panel. WhatsApp OTP providers exist in code
+      (`OTP_PROVIDER=whatsapp`, needs Meta creds).
+- [ ] **Rotate the admin panel password** to a strong value only the client holds.
+- [ ] **Subscriptions purchase** — prices now show card (+25%); wiring the actual purchase is
+      pending (either dynamic InfinitePay checkout like deposits, or static links from the client).
+- [ ] **Repo hygiene** — untracked theme-asset `.zip`s + duplicated extract folders under
+      `mobile/assets/` should be gitignored/removed.
+- [ ] **Legal exclusão/limites** — "Autoexclusão e limites" currently shows a support note; build
+      the real in-app tool for responsible-gaming compliance.
+
+---
+
+## 11. Where else to look
+
+- `docs/` — SCOPE, PRIZE_RULES, DEPLOY, legal (final PDFs), marketing kit (`docs/marketing/`),
+  design prompt book (`docs/design/`).
+- `RESTORE.md` / `CLAUDE_HANDOFF.md` — older local-only notes (gitignored); this file supersedes them.
+- Claude Code's memory (`~/.claude/.../memory/`) is machine-local and does NOT travel with the
+  repo — this doc is the source of truth for a new machine.
