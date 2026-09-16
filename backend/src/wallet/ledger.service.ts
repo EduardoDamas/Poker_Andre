@@ -57,7 +57,7 @@ export class LedgerService {
     memo?: string;
   }): Promise<string> {
     const { kind, postings, referenceId, memo } = params;
-    const MAX_ATTEMPTS = 10;
+    const MAX_ATTEMPTS = 16;
 
     for (let attempt = 1; ; attempt++) {
       try {
@@ -105,10 +105,13 @@ export class LedgerService {
     return e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2034';
   }
 
-  // Full jitter: a random wait in [0, cap), cap doubling from 20ms up to 640ms.
-  // Worst case across all retries is ~3s (typically well under 1s).
+  // Full jitter: a random wait in [0, cap), cap doubling from 5ms to 80ms. The
+  // contended section is a single row update (milliseconds), so the point is to
+  // spread contenders out, not to wait long — a big cap would just idle while
+  // Postgres serialises the queue. Many short attempts beat a few long ones:
+  // worst case ~1s across all retries.
   private backoff(attempt: number): Promise<void> {
-    const cap = Math.min(20 * 2 ** (attempt - 1), 640);
+    const cap = Math.min(5 * 2 ** (attempt - 1), 80);
     const ms = Math.floor(Math.random() * cap);
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
