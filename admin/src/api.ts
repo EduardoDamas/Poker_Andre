@@ -67,6 +67,22 @@ export interface Deposit {
 
 export type SubscriptionTier = 'NONE' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL';
 
+/** A player's request to buy a plan through the fixed InfinitePay links. */
+export interface SubscriptionRequest {
+  id: string;
+  userId: string;
+  displayName: string;
+  phone: string;
+  plan: string;
+  amountCents: string;
+  status: string;
+  checkoutUrl: string | null;
+  adminNote: string | null;
+  grantedUntil: string | null;
+  requestedAt: string;
+  settledAt: string | null;
+}
+
 export interface Session {
   accessToken: string;
   user: { id: string; displayName: string; status: string };
@@ -129,6 +145,21 @@ export const api = {
   rejectDeposit: (token: string, id: string, adminNote?: string) =>
     request<Deposit>(
       `/admin/deposits/${id}/reject`,
+      { method: 'POST', body: JSON.stringify({ adminNote }) },
+      token,
+    ),
+  // Subscription purchases (player paid via the fixed InfinitePay link).
+  subscriptionRequests: (token: string, status = 'REQUESTED') =>
+    request<SubscriptionRequest[]>(`/admin/subscription-requests?status=${status}`, {}, token),
+  confirmSubscriptionRequest: (token: string, id: string, adminNote?: string) =>
+    request<{ ok: true; plan: string; grantedUntil: string | null }>(
+      `/admin/subscription-requests/${id}/confirm`,
+      { method: 'POST', body: JSON.stringify({ adminNote }) },
+      token,
+    ),
+  rejectSubscriptionRequest: (token: string, id: string, adminNote?: string) =>
+    request<{ ok: true }>(
+      `/admin/subscription-requests/${id}/reject`,
       { method: 'POST', body: JSON.stringify({ adminNote }) },
       token,
     ),
