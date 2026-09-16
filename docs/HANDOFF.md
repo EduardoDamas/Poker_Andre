@@ -4,7 +4,7 @@ Everything needed to continue development, build, and deploy on a **new computer
 Committed to git, so it travels with the repo. **Secret values are NOT here** — they
 live in gitignored files you copy manually (see §2).
 
-Last updated: 2026-09-15. App version: **1.0.4+22**.
+Last updated: 2026-09-16. App version: **1.0.5+23**.
 
 ---
 
@@ -95,8 +95,10 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite was **287 passing / 49 suites**. On a healthy machine, plain `npx jest` with the
-`.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`).
+Full suite is **300 passing / 50 suites**. On a healthy machine, plain `npx jest` with the
+`.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
+80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
+slower machine (the default is 20s).
 
 Migrations apply automatically on Render boot (`prisma migrate deploy` in the Docker CMD).
 
@@ -181,7 +183,7 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 
 - **Prod API:** https://capa-contest-api.onrender.com (paid Render plan, no sleep).
 - **Install page:** https://capa-contest-api.onrender.com/baixar
-- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.4/CAPA-CONTEST.apk`
+- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.5/CAPA-CONTEST.apk`
   (GitHub Release asset). To publish a build: create a new release with the APK, then update the
   link in `backend/public/install.html` (+ `docs/marketing/install.html`) and deploy — the public
   `/baixar` URL never changes.
@@ -197,7 +199,7 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 
 ## 10. Pending tasks (backlog)
 
-- [x] **Publish `1.0.4+22`** — release `v1.0.4`; `/baixar` points at it.
+- [ ] **Publish `1.0.5+23`** — create release `v1.0.5` with the signed APK; `/baixar` points at it.
 - [ ] **Entry balance check is outside the ledger transaction** (`TournamentService.escrowEntry`):
       one player entering two rooms at the same instant could overdraw. Move the check into the
       serializable transaction.
@@ -205,8 +207,15 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       admin resets `ADMIN_PASSWORD`-style via the panel. WhatsApp OTP providers exist in code
       (`OTP_PROVIDER=whatsapp`, needs Meta creds).
 - [ ] **Rotate the admin panel password** to a strong value only the client holds.
-- [ ] **Subscriptions purchase** — prices now show card (+25%); wiring the actual purchase is
-      pending (either dynamic InfinitePay checkout like deposits, or static links from the client).
+- [x] **Subscriptions purchase (Opção 1)** — the client's four fixed InfinitePay links
+      (`SUBSCRIPTION_LINKS` in `backend/src/tournament/payment-links.ts`). The player taps a plan,
+      we record a `SubscriptionRequest`, and the admin releases it in the panel's **Assinaturas**
+      tab after checking the payment in InfinitePay (Mensal 30 · Trimestral 90 · Semestral 180 ·
+      Anual 365 dias; a renewal extends from the current expiry).
+- [ ] **Subscriptions purchase (Opção 2)** — per-player dynamic checkout like deposits, so the
+      webhook releases the plan automatically. `PaymentPurpose.SUBSCRIPTION` already exists;
+      mint the order in `PaymentOrdersService` and grant the plan instead of crediting the wallet.
+      Fixed links cannot do this: they carry no `order_nsu`, so the payer is unknown.
 - [ ] **Repo hygiene** — untracked theme-asset `.zip`s + duplicated extract folders under
       `mobile/assets/` should be gitignored/removed.
 - [ ] **Legal exclusão/limites** — "Autoexclusão e limites" currently shows a support note; build
