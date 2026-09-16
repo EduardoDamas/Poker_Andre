@@ -45,6 +45,7 @@ model User {
   withdrawals   Withdrawal[]
   deposits      Deposit[]
   paymentOrders PaymentOrder[]
+  subscriptionRequests SubscriptionRequest[]
   seats         Seat[]
   points        PointsAccount?
   pointsTxns    PointsTransaction[]
@@ -285,6 +286,36 @@ enum PaymentPurpose {
   DEPOSIT
   TOURNAMENT_ENTRY
   SUBSCRIPTION
+}
+
+// A player's intent to buy a subscription plan through the merchant's FIXED
+// InfinitePay link. Those links are the same for everyone, so the gateway
+// webhook cannot tell us who paid (no order_nsu) — the admin confirms receipt
+// in the panel, exactly like the manual Pix deposit flow. When the dynamic
+// per-player checkout lands (Opção 2), confirmation becomes automatic and this
+// record keeps the same shape.
+model SubscriptionRequest {
+  id           String                    @id @default(uuid())
+  user         User                      @relation(fields: [userId], references: [id])
+  userId       String
+  plan         Subscription // never NONE
+  amountCents  BigInt // card price shown to the player (base × 1.25)
+  status       SubscriptionRequestStatus @default(REQUESTED)
+  checkoutUrl  String? // the fixed InfinitePay link opened for this plan
+  adminNote    String?
+  // Set on confirm: when the granted subscription expires.
+  grantedUntil DateTime?
+  requestedAt  DateTime                  @default(now())
+  settledAt    DateTime?
+
+  @@index([status])
+  @@index([userId])
+}
+
+enum SubscriptionRequestStatus {
+  REQUESTED
+  CONFIRMED
+  REJECTED
 }
 
 enum PaymentOrderStatus {

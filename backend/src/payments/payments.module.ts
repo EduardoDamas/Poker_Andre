@@ -5,6 +5,7 @@ import { PaymentsController } from './payments.controller';
 import { PaymentsWebhookController } from './payments-webhook.controller';
 import { PaymentsService } from './payments.service';
 import { PaymentOrdersService } from './payment-orders.service';
+import { SubscriptionRequestService } from './subscription-request.service';
 import { InfinitePayClient } from './infinitepay.client';
 
 @Module({
@@ -13,7 +14,7 @@ import { InfinitePayClient } from './infinitepay.client';
     WalletModule, // WalletService (credit the wallet on paid webhook)
   ],
   controllers: [PaymentsController, PaymentsWebhookController],
-  providers: [PaymentsService, PaymentOrdersService, InfinitePayClient],
-  exports: [PaymentsService, PaymentOrdersService],
+  providers: [PaymentsService, PaymentOrdersService, SubscriptionRequestService, InfinitePayClient],
+  exports: [PaymentsService, PaymentOrdersService, SubscriptionRequestService],
 })
 export class PaymentsModule {}

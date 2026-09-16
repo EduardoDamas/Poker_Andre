@@ -24,6 +24,8 @@
  *    level × method model, and wire entry to the InfinitePay API/webhook.
  */
 
+import { Subscription } from './subscription';
+
 export type PaymentMethod = 'pix' | 'card';
 
 export interface TournamentEntryLink {
@@ -78,6 +80,34 @@ export const TOURNAMENT_ENTRY_LINKS: TournamentEntryLink[] = [
   { level: 7, subscriber: true, method: 'pix', amountCents: 500000, url: 'https://link.infinitepay.io/andre-luiz-g4j/VC1DLUMtUg-nPcxcEhyjM-5000,00' },
   { level: 7, subscriber: true, method: 'card', amountCents: 625000, url: 'https://link.infinitepay.io/andre-luiz-g4j/VC1DLUMtUg-ACXMraj3kU-6250,00' },
 ];
+
+/**
+ * Subscription checkout links (card), supplied by the merchant 2026-09-16.
+ * Amounts are the card price = base × 1.25 (Mensal R$250, Trimestral R$625,
+ * Semestral R$1.125, Anual R$1.500) and must match subscriptionPriceCents × 1.25
+ * — `subscription-links.spec.ts` guards that.
+ *
+ * These are FIXED links: the same URL for every player, so the gateway webhook
+ * cannot attribute a payment to a user. The admin confirms each purchase in the
+ * panel (see SubscriptionRequestService).
+ */
+export interface SubscriptionLink {
+  plan: Exclude<Subscription, 'NONE'>;
+  amountCents: number;
+  url: string;
+}
+
+export const SUBSCRIPTION_LINKS: SubscriptionLink[] = [
+  { plan: 'MONTHLY', amountCents: 25000, url: 'https://link.infinitepay.io/andre-luiz-g4j/VC1DLUMtSQ-CpCcfDBtGR-250,00' },
+  { plan: 'QUARTERLY', amountCents: 62500, url: 'https://link.infinitepay.io/andre-luiz-g4j/VC1DLUMtSQ-vejkBkYR3r-625,00' },
+  { plan: 'SEMIANNUAL', amountCents: 112500, url: 'https://link.infinitepay.io/andre-luiz-g4j/VC1DLUMtSQ-DSvkj3zgil-1125,00' },
+  { plan: 'ANNUAL', amountCents: 150000, url: 'https://link.infinitepay.io/andre-luiz-g4j/VC1DLUMtSQ-toUAOKYJsm-1500,00' },
+];
+
+/** The checkout link for a subscription plan, if configured. */
+export function subscriptionLinkFor(plan: string): SubscriptionLink | undefined {
+  return SUBSCRIPTION_LINKS.find((l) => l.plan === plan);
+}
 
 /** The entry link for a (level, subscriber, method) combination, if present. */
 export function entryLinkFor(

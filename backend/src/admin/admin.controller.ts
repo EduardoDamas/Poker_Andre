@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
-import { WithdrawalStatus, DepositStatus, Deposit } from '@prisma/client';
+import { WithdrawalStatus, DepositStatus, Deposit, SubscriptionRequestStatus } from '@prisma/client';
 import { JwtAuthGuard, JwtPayload } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { WithdrawalService } from '../wallet/withdrawal.service';
@@ -11,6 +11,8 @@ import { SettleWithdrawalDto } from './dto/settle-withdrawal.dto';
 import { SettleDepositDto } from '../wallet/dto/deposit.dto';
 import { GrantSubscriptionDto } from './dto/grant-subscription.dto';
 import { BlockUserDto } from './dto/block-user.dto';
+import { SettleSubscriptionRequestDto } from './dto/settle-subscription-request.dto';
+import { SubscriptionRequestService } from '../payments/subscription-request.service';
 
 function serializeDeposit(d: Deposit) {
   return {
@@ -34,6 +36,7 @@ export class AdminController {
     private readonly withdrawals: WithdrawalService,
     private readonly deposits: DepositService,
     private readonly audit: AuditService,
+    private readonly subRequests: SubscriptionRequestService,
   ) {}
 
   @Get('players')
@@ -153,7 +156,45 @@ export class AdminController {
     return serializeDeposit(dep);
   }
 
-  // --- Subscriptions (manual grant; purchase flow pending client pricing) ---
+  // --- Subscription purchases (fixed InfinitePay links → admin confirms) ---
+
+  /** The purchase queue; defaults to what still needs a decision. */
+  @Get('subscription-requests')
+  listSubscriptionRequests(@Query('status') status?: SubscriptionRequestStatus) {
+    return this.subRequests.list(status ?? 'REQUESTED');
+  }
+
+  // Admin saw the payment in InfinitePay → grant the plan.
+  @Post('subscription-requests/:id/confirm')
+  async confirmSubscriptionRequest(
+    @CurrentUser() admin: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: SettleSubscriptionRequestDto,
+  ) {
+    const req = await this.subRequests.confirm(id, dto.adminNote);
+    await this.audit.record({
+      actorId: admin.sub, action: 'subscription.confirm', targetType: 'subscriptionRequest', targetId: req.id,
+      metadata: { userId: req.userId, plan: req.plan, amountCents: req.amountCents.toString(), grantedUntil: req.grantedUntil?.toISOString() ?? null },
+    });
+    return { ok: true, plan: req.plan, grantedUntil: req.grantedUntil };
+  }
+
+  // Payment never arrived → reject; nothing is granted.
+  @Post('subscription-requests/:id/reject')
+  async rejectSubscriptionRequest(
+    @CurrentUser() admin: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: SettleSubscriptionRequestDto,
+  ) {
+    const req = await this.subRequests.reject(id, dto.adminNote);
+    await this.audit.record({
+      actorId: admin.sub, action: 'subscription.reject', targetType: 'subscriptionRequest', targetId: req.id,
+      metadata: { userId: req.userId, plan: req.plan, note: dto.adminNote ?? null },
+    });
+    return { ok: true };
+  }
+
+  // --- Subscriptions (manual grant; independent of the purchase queue) ---
 
   // Grant/set a player's subscription tier (Phase 1: admin-assigned).
   @Post('users/:id/subscription')
