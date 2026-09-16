@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../api/auth_api.dart';
@@ -30,6 +31,9 @@ class _TournamentsScreenState extends State<TournamentsScreen> {
   bool _subscriber = false;
   bool _loading = true;
   String? _error;
+  // An open purchase waiting for the admin to confirm the payment.
+  SubscriptionRequestResult? _pendingPlan;
+  String? _busyPlan;
 
   @override
   void initState() {
@@ -48,11 +52,13 @@ class _TournamentsScreenState extends State<TournamentsScreen> {
       final plans = await widget.paymentsApi.fetchSubscriptions(token);
       final me = await widget.authApi.fetchMe(token);
       final sub = '${me['subscription'] ?? 'NONE'}';
+      final requests = await widget.paymentsApi.fetchSubscriptionRequests(token);
       if (!mounted) return;
       setState(() {
         _entries = entries;
         _plans = plans;
         _subscriber = sub.isNotEmpty && sub != 'NONE';
+        _pendingPlan = requests.where((r) => r.status == 'REQUESTED').firstOrNull;
         _loading = false;
       });
     } catch (e) {
@@ -126,6 +132,52 @@ class _TournamentsScreenState extends State<TournamentsScreen> {
         ]),
       ),
     );
+  }
+
+  /// Buy a plan: record the request, then open the merchant's checkout link.
+  /// The plan is released after the payment is confirmed (not automatic).
+  Future<void> _subscribe(SubscriptionPlan plan) async {
+    setState(() => _busyPlan = plan.plan);
+    SubscriptionRequestResult req;
+    try {
+      req = await widget.paymentsApi.requestSubscription(widget.session.accessToken, plan.plan);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _busyPlan = null);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+      }
+      return;
+    }
+    if (!mounted) return;
+    // Clear the spinner before the checkout/dialog: the card is done loading.
+    setState(() {
+      _pendingPlan = req;
+      _busyPlan = null;
+    });
+
+    try {
+      // Open the checkout without blocking: the explanation shows right away,
+      // and a launch failure surfaces its own message.
+      if (req.url.isNotEmpty) unawaited(_openCheckout(req.url));
+      await showDialog<void>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Brand.surface,
+          title: Text('Assinatura ${_planName(plan.plan)}', style: Brand.h3),
+          content: Text(
+            'Depois de concluir o pagamento, seu plano é liberado assim que confirmarmos '
+            'o recebimento. Você verá o desconto nas inscrições assim que isso acontecer.',
+            style: Brand.body,
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Entendi')),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$e')));
+    }
   }
 
   String _planName(String plan) {
@@ -234,22 +286,47 @@ class _TournamentsScreenState extends State<TournamentsScreen> {
     );
   }
 
-  Widget _subsIntro() => Text(
-        'Assinantes pagam entrada com desconto e recebem uma fração maior do '
-        'prêmio (Não assinante 25% · Mensal 30% · Trimestral 50% · Semestral 75% · Anual 100%).',
-        style: Brand.caption,
-      );
+  Widget _subsIntro() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(
+          'Assinantes pagam entrada com desconto e recebem uma fração maior do '
+          'prêmio (Não assinante 25% · Mensal 30% · Trimestral 50% · Semestral 75% · Anual 100%).',
+          style: Brand.caption,
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Toque no plano para assinar com cartão. O plano é liberado após a confirmação do pagamento.',
+          style: Brand.micro,
+        ),
+      ]);
 
-  Widget _planCard(SubscriptionPlan p) => GlassCard(
-        padding: const EdgeInsets.all(14),
-        child: Row(children: [
-          const Icon(Icons.workspace_premium, color: Brand.gold, size: 22),
-          const SizedBox(width: 12),
-          Expanded(child: Text(_planName(p.plan), style: Brand.h3)),
+  Widget _planCard(SubscriptionPlan p) {
+    final pending = _pendingPlan?.plan == p.plan;
+    return GlassCard(
+      onTap: _busyPlan == null ? () => _subscribe(p) : null,
+      padding: const EdgeInsets.all(14),
+      child: Row(children: [
+        const Icon(Icons.workspace_premium, color: Brand.gold, size: 22),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_planName(p.plan), style: Brand.h3),
+            if (pending) ...[
+              const SizedBox(height: 3),
+              Text('Aguardando confirmação do pagamento', style: Brand.micro.copyWith(color: Brand.gold)),
+            ],
+          ]),
+        ),
+        if (_busyPlan == p.plan)
+          const SizedBox(
+            width: 18, height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Brand.crimson),
+          )
+        else
           Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text(brl(p.cardPriceCents), style: Brand.label.copyWith(color: Brand.gold)),
             Text('no cartão', style: Brand.micro),
           ]),
-        ]),
-      );
+      ]),
+    );
+  }
 }
