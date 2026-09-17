@@ -232,6 +232,26 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       to go back to Opção 1 (fixed links + admin confirms). The app needs no new build either way.
 - [ ] **Repo hygiene** — untracked theme-asset `.zip`s + duplicated extract folders under
       `mobile/assets/` should be gitignored/removed.
+- [x] **Consent at registration** — the app asks the player to accept Termos + Privacidade +
+      Regulamento (links open the live `/legal/*` pages) and the server stores `termsAcceptedAt`
+      + `termsVersion` (`auth/legal-version.ts`). Bump `LEGAL_VERSION` when the lawyer issues new
+      documents.
+- [ ] **Make `acceptedTerms` required** — it is optional on the wire so 1.0.6 and older installs
+      (no checkbox) keep registering; those accounts store no consent. Once nobody is on ≤1.0.6,
+      make it mandatory and consider prompting existing players to accept on next login.
+- [ ] **Show consent in the admin panel** — `termsAcceptedAt`/`termsVersion` are recorded but not
+      surfaced, so support cannot answer "did this player accept, and when?".
+- [ ] **AVISO LEGAL** — the client asked for it (2026-09-17); the document is not in the repo.
+      Get the file from him, then publish it like the others (`backend/legal/*.html` + a route in
+      `legal.controller.ts` + a link in the app).
+- [ ] **"REGRAS" (`docs/legal/DESCRICAO_JOGOS_E_REGRAS.md`) is NOT published, on purpose** — it
+      describes 800-player rooms with eliminatory phases and re-entry, which is the Phase-2 model,
+      not what the app runs (one 8-seat table = one room). It also still carries a
+      `[DATA DE VIGÊNCIA]` placeholder and says it needs legal review. The published
+      **Regulamento dos Torneios** already covers the rules and is careful about this ("Na Fase 1,
+      uma Mesa de até 8 participantes poderá representar uma Sala"). Either have the lawyer update
+      the description to match Fase 1, or derive a player-facing "Regras do jogo" page from the
+      Regulamento — publishing it as-is would promise a format the app does not offer.
 - [x] **Legal exclusão/limites** — real in-app tool (`backend/src/responsible/`, app screen
       `mobile/lib/screens/limits_screen.dart`). The player sets deposit ceilings per rolling
       day/week/month and can self-exclude. Lowering applies at once; raising waits
