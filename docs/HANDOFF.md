@@ -95,7 +95,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **325 passing / 51 suites**. On a healthy machine, plain `npx jest` with the
+Full suite is **330 passing / 52 suites**. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
 slower machine (the default is 20s).
@@ -204,9 +204,9 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 
 - [ ] **Publish `1.0.6+24`** — create release `v1.0.6` with the signed APK; `/baixar` points at it.
       (`v1.0.5` shipped 2026-09-16.)
-- [ ] **Entry balance check is outside the ledger transaction** (`TournamentService.escrowEntry`):
-      one player entering two rooms at the same instant could overdraw. Move the check into the
-      serializable transaction.
+- [x] **Overdraft race fixed** — `LedgerService.post` takes `requireNonNegative`, checked inside
+      the serializable transaction, so concurrent debits (two rooms, two withdrawals, or a
+      withdrawal racing an entry) can no longer push a wallet negative. See `wallet/overdraft.spec.ts`.
 - [ ] **Password recovery** — needs a delivery channel decision (WhatsApp recommended). Interim:
       admin resets `ADMIN_PASSWORD`-style via the panel. WhatsApp OTP providers exist in code
       (`OTP_PROVIDER=whatsapp`, needs Meta creds).
@@ -227,8 +227,8 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       day/week/month and can self-exclude. Lowering applies at once; raising waits
       `COOLING_OFF_HOURS` (24h) so protection can't be undone on impulse; self-exclusion can be
       extended, never shortened, and blocks deposits (both paths) and money tables.
-- [ ] **Show a player's limits in the admin panel** — the Jogadores tab does not surface
-      self-exclusion or ceilings, so support cannot see why a deposit was refused.
+- [x] **Player limits visible in the admin panel** — the Jogadores tab has a Limites column
+      (ceilings, or AUTOEXCLUÍDO with the end date).
 - [ ] **Deposit limits vs. the R$20.000 technical cap** — the cap
       (`MIN/MAX_DEPOSIT_CENTS`) is a safety net against typos and stolen cards, separate from
       the player's own limits. The client asked for no cap at all (2026-09-16); revisit once
