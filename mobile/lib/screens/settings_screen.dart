@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../api/auth_api.dart';
 import '../config.dart';
 import '../theme.dart';
 import '../widgets/premium.dart';
+import 'limits_screen.dart';
 
 /// Configurações — local preferences + account actions.
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  /// Needed for the responsible-gaming screen (it reads the player's limits).
+  /// Absent when opened from the table, where there is no session at hand.
+  final AuthSession? session;
+  const SettingsScreen({super.key, this.session});
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
@@ -44,18 +49,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _section('Jogo responsável'),
             _link('Regulamento dos torneios', Icons.gavel_outlined,
                 url: '${AppConfig.apiBase}/legal/regulamento'),
-            _link('Autoexclusão e limites', Icons.block_outlined,
-                onTap: () => _info(
-                    'Autoexclusão e limites',
-                    'Para solicitar autoexclusão ou definir limites de depósito, fale com o '
-                        'suporte pelo canal oficial. Em breve isso estará disponível direto no app.')),
+            _link('Autoexclusão e limites', Icons.block_outlined, onTap: () {
+              final session = widget.session;
+              if (session == null) {
+                _info('Autoexclusão e limites',
+                    'Abra pelo Perfil → Configurações para definir seus limites de depósito '
+                    'ou ativar a autoexclusão.');
+                return;
+              }
+              Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => LimitsScreen(session: session)));
+            }),
             const SizedBox(height: 16),
             _section('Sobre'),
             _link('Termos de uso', Icons.description_outlined,
                 url: '${AppConfig.apiBase}/legal/termos'),
             _link('Privacidade', Icons.lock_outline,
                 url: '${AppConfig.apiBase}/legal/privacidade'),
-            _link('Versão 1.0.4', Icons.info_outline),
+            _link('Versão ${AppConfig.appVersion}', Icons.info_outline),
             const SizedBox(height: 24),
             GradientButton('Sair da conta', variant: BtnVariant.danger, icon: Icons.logout,
                 onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst)),

@@ -58,7 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_outlined, color: Brand.textSec),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsScreen(session: widget.session))),
           ),
         ],
       ),
