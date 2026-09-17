@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { InfinitePayClient } from './infinitepay.client';
 import { PlayerLimitService } from '../responsible/player-limit.service';
+import { SubscriptionRequestService } from './subscription-request.service';
 
 // Deposits are bounded so a typo or an abusive charge can't run away. The ceiling
 // must clear the biggest thing a player can buy — a Nível 7 entry is R$12.500 on
@@ -59,6 +60,7 @@ export class PaymentOrdersService {
     private readonly wallet: WalletService,
     private readonly infinitepay: InfinitePayClient,
     private readonly limits: PlayerLimitService,
+    private readonly subscriptions: SubscriptionRequestService,
   ) {}
 
   /** Create a deposit charge and return its hosted checkout link. */
@@ -96,9 +98,47 @@ export class PaymentOrdersService {
   }
 
   /**
+   * Mint a per-player checkout for a subscription (Opção 2). Unlike the
+   * merchant's fixed links, this one carries an order_nsu, so the webhook knows
+   * who paid and releases the plan with no admin step.
+   */
+  async createSubscriptionCheckout(params: {
+    requestId: string;
+    userId: string;
+    plan: string;
+    amountCents: number;
+  }): Promise<{ orderNsu: string; url: string }> {
+    if (!InfinitePayClient.isConfigured()) {
+      throw new BadRequestException('Pagamento indisponível no momento.');
+    }
+    const orderNsu = `sub_${randomUUID()}`;
+    await this.prisma.paymentOrder.create({
+      data: {
+        orderNsu,
+        userId: params.userId,
+        amountCents: BigInt(params.amountCents),
+        purpose: 'SUBSCRIPTION',
+        status: 'PENDING',
+      },
+    });
+
+    const link = await this.infinitepay.createCheckoutLink({
+      orderNsu,
+      amountCents: params.amountCents,
+      description: `Assinatura CAPA CONTEST (${params.plan})`,
+    });
+    await this.prisma.paymentOrder.update({
+      where: { orderNsu },
+      data: { checkoutUrl: link.url },
+    });
+    return { orderNsu, url: link.url };
+  }
+
+  /**
    * Handle an InfinitePay checkout webhook. Verifies the shared token, then, if the
-   * payment is confirmed, credits the payer's wallet once. Returns a small status
-   * object; never throws for an unknown order (just ignores it).
+   * payment is confirmed, credits the payer's wallet once — or, for a subscription
+   * order, releases the plan instead. Returns a small status object; never throws
+   * for an unknown order (just ignores it).
    */
   async handleInfinitePayWebhook(
     payload: unknown,
@@ -140,13 +180,25 @@ export class PaymentOrdersService {
       return { ok: true, credited: false };
     }
 
-    // Race-safe claim: only the caller that flips PENDING→PAID credits the wallet.
+    // Race-safe claim: only the caller that flips PENDING→PAID acts on it.
     const claim = await this.prisma.paymentOrder.updateMany({
       where: { orderNsu, status: 'PENDING' },
       data: { status: 'PAID', paidAt: new Date() },
     });
     if (claim.count !== 1) {
-      return { ok: true, credited: false }; // lost the race → already credited
+      return { ok: true, credited: false }; // lost the race → already handled
+    }
+
+    // A subscription purchase buys a plan, not wallet balance: release the plan
+    // and move no money through the ledger (the player paid the merchant directly).
+    if (order.purpose === 'SUBSCRIPTION') {
+      const granted = await this.subscriptions.confirmByOrder(orderNsu);
+      this.logger.log(
+        granted
+          ? `Released ${granted.plan} for ${order.userId} (${orderNsu})`
+          : `Paid subscription order ${orderNsu} had no open request; nothing to release`,
+      );
+      return { ok: true, credited: false };
     }
 
     const txnId = await this.wallet.deposit(order.userId, order.amountCents, {

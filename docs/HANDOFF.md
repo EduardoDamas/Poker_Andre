@@ -216,10 +216,14 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       we record a `SubscriptionRequest`, and the admin releases it in the panel's **Assinaturas**
       tab after checking the payment in InfinitePay (Mensal 30 · Trimestral 90 · Semestral 180 ·
       Anual 365 dias; a renewal extends from the current expiry).
-- [ ] **Subscriptions purchase (Opção 2)** — per-player dynamic checkout like deposits, so the
-      webhook releases the plan automatically. `PaymentPurpose.SUBSCRIPTION` already exists;
-      mint the order in `PaymentOrdersService` and grant the plan instead of crediting the wallet.
-      Fixed links cannot do this: they carry no `order_nsu`, so the payer is unknown.
+- [~] **Subscriptions purchase (Opção 2)** — built, OFF by default. Set `SUBSCRIPTION_CHECKOUT=dynamic`
+      on Render to switch on: `/payments/subscription-request` then mints a per-player checkout
+      (`PaymentOrder` with purpose SUBSCRIPTION, `orderNsu` on the `SubscriptionRequest`) and the
+      webhook releases the plan with no admin step — it never credits the wallet. If the gateway
+      call fails it falls back to the merchant's fixed link, so the player can always pay.
+      **Before switching on:** validate with one real purchase like the R$1 deposit test, because
+      the subscription flow has only been exercised against a stubbed gateway. Unset the variable
+      to go back to Opção 1 (fixed links + admin confirms). The app needs no new build either way.
 - [ ] **Repo hygiene** — untracked theme-asset `.zip`s + duplicated extract folders under
       `mobile/assets/` should be gitignored/removed.
 - [x] **Legal exclusão/limites** — real in-app tool (`backend/src/responsible/`, app screen

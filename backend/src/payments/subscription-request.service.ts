@@ -51,6 +51,29 @@ export class SubscriptionRequestService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
+   * Attach a per-player checkout to an open request (Opção 2). The gateway
+   * echoes [orderNsu] back on payment, which is what lets the webhook release
+   * the plan without an admin.
+   */
+  async attachOrder(id: string, orderNsu: string, checkoutUrl: string): Promise<SubscriptionRequest> {
+    return this.prisma.subscriptionRequest.update({
+      where: { id },
+      data: { orderNsu, checkoutUrl },
+    });
+  }
+
+  /**
+   * The gateway confirmed a per-player subscription payment: release the plan.
+   * Returns null when the order is unknown or already settled, so the webhook
+   * stays idempotent.
+   */
+  async confirmByOrder(orderNsu: string): Promise<SubscriptionRequest | null> {
+    const req = await this.prisma.subscriptionRequest.findUnique({ where: { orderNsu } });
+    if (!req || req.status !== 'REQUESTED') return null;
+    return this.confirm(req.id, 'Pagamento confirmado automaticamente (InfinitePay).');
+  }
+
+  /**
    * Record a player's intent to buy [plan] and return the checkout link.
    * Idempotent while one is open: tapping "Assinar" twice reuses the pending
    * request instead of filling the admin queue with duplicates.

@@ -302,7 +302,11 @@ model SubscriptionRequest {
   plan         Subscription // never NONE
   amountCents  BigInt // card price shown to the player (base × 1.25)
   status       SubscriptionRequestStatus @default(REQUESTED)
-  checkoutUrl  String? // the fixed InfinitePay link opened for this plan
+  checkoutUrl  String? // the InfinitePay link opened for this plan
+  // Set when the checkout was minted per-player (SUBSCRIPTION_CHECKOUT=dynamic):
+  // the gateway echoes it back, so the webhook knows who paid and releases the
+  // plan with no admin step. Null for the merchant's fixed links.
+  orderNsu     String?                   @unique
   adminNote    String?
   // Set on confirm: when the granted subscription expires.
   grantedUntil DateTime?

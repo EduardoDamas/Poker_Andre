@@ -66,7 +66,26 @@ export class PaymentsController {
     @CurrentUser() user: JwtPayload,
     @Body() dto: CreateSubscriptionRequestDto,
   ): Promise<SubscriptionRequestResult> {
-    const req = await this.subRequests.request(user.sub, dto.plan);
+    let req = await this.subRequests.request(user.sub, dto.plan);
+
+    // Opção 2, behind SUBSCRIPTION_CHECKOUT=dynamic: mint a per-player checkout
+    // so the webhook can release the plan by itself. Falls back to the
+    // merchant's fixed link (admin confirms) if the gateway is unavailable —
+    // never leave the player without a way to pay.
+    if (process.env.SUBSCRIPTION_CHECKOUT === 'dynamic' && !req.orderNsu) {
+      try {
+        const order = await this.orders.createSubscriptionCheckout({
+          requestId: req.id,
+          userId: user.sub,
+          plan: req.plan,
+          amountCents: Number(req.amountCents),
+        });
+        req = await this.subRequests.attachOrder(req.id, order.orderNsu, order.url);
+      } catch {
+        // keep the fixed link already on the request
+      }
+    }
+
     return {
       id: req.id,
       plan: req.plan,

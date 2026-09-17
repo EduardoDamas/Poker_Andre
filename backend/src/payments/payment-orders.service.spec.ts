@@ -7,6 +7,7 @@ import { InfinitePayClient } from './infinitepay.client';
 import { PaymentOrdersService, parseWebhook } from './payment-orders.service';
 import { resetDb } from '../test-utils/reset-db';
 import { PlayerLimitService } from '../responsible/player-limit.service';
+import { SubscriptionRequestService } from './subscription-request.service';
 
 describe('parseWebhook', () => {
   const OLD = process.env.INFINITEPAY_WEBHOOK_TRUST_RECEIPT;
@@ -66,6 +67,7 @@ describe('PaymentOrdersService (webhook crediting)', () => {
       wallet,
       infinitepayStub,
       new PlayerLimitService(prisma as unknown as PrismaService),
+      new SubscriptionRequestService(prisma as unknown as PrismaService),
     );
   });
 
@@ -148,6 +150,100 @@ describe('PaymentOrdersService (webhook crediting)', () => {
       process.env.MAX_DEPOSIT_CENTS = 'muito';
       await expect(svc.createDeposit(userId, 20_000_00)).resolves.toBeDefined();
       await expect(svc.createDeposit(userId, 20_000_01)).rejects.toThrow(/R\$ 20\.000,00/);
+    });
+  });
+
+  describe('subscription checkout (Opção 2 — automatic release)', () => {
+    let subs: SubscriptionRequestService;
+
+    beforeAll(() => {
+      subs = new SubscriptionRequestService(prisma as unknown as PrismaService);
+    });
+
+    async function pendingSubscription(userId: string, plan = 'ANNUAL') {
+      const req = await subs.request(userId, plan);
+      const order = await svc.createSubscriptionCheckout({
+        requestId: req.id,
+        userId,
+        plan,
+        amountCents: Number(req.amountCents),
+      });
+      await subs.attachOrder(req.id, order.orderNsu, order.url);
+      return { req, order };
+    }
+
+    it('mints a per-player order carrying the plan price', async () => {
+      const userId = await newUser();
+      const { order } = await pendingSubscription(userId);
+      const row = await prisma.paymentOrder.findUnique({ where: { orderNsu: order.orderNsu } });
+      expect(row).toMatchObject({ purpose: 'SUBSCRIPTION', status: 'PENDING', amountCents: 150000n });
+      expect(order.orderNsu.startsWith('sub_')).toBe(true);
+    });
+
+    it('a paid webhook releases the plan and moves NO money', async () => {
+      const userId = await newUser();
+      const { order } = await pendingSubscription(userId);
+
+      const res = await svc.handleInfinitePayWebhook(
+        { order_nsu: order.orderNsu, status: 'paid', amount: 150000 },
+        'hook-secret',
+      );
+
+      expect(res).toEqual({ ok: true, credited: false });
+      expect(await balanceOf(userId)).toBe(0n); // a plan, not wallet balance
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      expect(user?.subscription).toBe('ANNUAL');
+      expect(user?.subscriptionUntil).not.toBeNull();
+    });
+
+    it('the released request leaves the admin queue as CONFIRMED', async () => {
+      const userId = await newUser();
+      const { req, order } = await pendingSubscription(userId, 'MONTHLY');
+      await svc.handleInfinitePayWebhook(
+        { order_nsu: order.orderNsu, status: 'paid', amount: 25000 },
+        'hook-secret',
+      );
+
+      const after = await prisma.subscriptionRequest.findUnique({ where: { id: req.id } });
+      expect(after?.status).toBe('CONFIRMED');
+      expect(await subs.list('REQUESTED')).toHaveLength(0);
+    });
+
+    it('a duplicate webhook does not extend the plan twice', async () => {
+      const userId = await newUser();
+      const { order } = await pendingSubscription(userId, 'MONTHLY');
+      const payload = { order_nsu: order.orderNsu, status: 'paid', amount: 25000 };
+
+      await svc.handleInfinitePayWebhook(payload, 'hook-secret');
+      const first = await prisma.user.findUnique({ where: { id: userId } });
+      await svc.handleInfinitePayWebhook(payload, 'hook-secret');
+      const second = await prisma.user.findUnique({ where: { id: userId } });
+
+      expect(second?.subscriptionUntil).toEqual(first?.subscriptionUntil);
+    });
+
+    it('a wrong amount does not release the plan', async () => {
+      const userId = await newUser();
+      const { order } = await pendingSubscription(userId);
+      await svc.handleInfinitePayWebhook(
+        { order_nsu: order.orderNsu, status: 'paid', amount: 100 },
+        'hook-secret',
+      );
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      expect(user?.subscription).toBe('NONE');
+    });
+
+    it('a failed payment leaves the request open for another try', async () => {
+      const userId = await newUser();
+      const { req, order } = await pendingSubscription(userId);
+      await svc.handleInfinitePayWebhook(
+        { order_nsu: order.orderNsu, status: 'refused' },
+        'hook-secret',
+      );
+      const after = await prisma.subscriptionRequest.findUnique({ where: { id: req.id } });
+      expect(after?.status).toBe('REQUESTED');
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      expect(user?.subscription).toBe('NONE');
     });
   });
 
