@@ -104,6 +104,44 @@ class AuthApi {
     );
   }
 
+  /// "Esqueci minha senha", step 1: ask for a code. The answer is the same
+  /// whether or not the number is registered, so nothing is leaked here.
+  Future<void> requestPasswordReset(String phone) async {
+    final res = await _send(() => _client.post(
+          _u('/auth/password/forgot'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'phone': phone}),
+        ));
+    if (res.statusCode == 429) {
+      throw AuthException('Muitas tentativas. Aguarde um minuto e tente de novo.');
+    }
+    if (res.statusCode != 200) {
+      throw AuthException('Não foi possível enviar o código. Confira o número.');
+    }
+  }
+
+  /// Step 2: the code sets [password] and returns the session already logged in.
+  Future<AuthSession> resetPassword(String phone, String code, String password) async {
+    final res = await _send(() => _client.post(
+          _u('/auth/password/reset'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'phone': phone, 'code': code, 'password': password}),
+        ));
+    if (res.statusCode == 400) {
+      throw AuthException('A senha precisa ter pelo menos 6 caracteres.');
+    }
+    if (res.statusCode != 200) {
+      throw AuthException('Código inválido ou expirado.');
+    }
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    final user = body['user'] as Map<String, dynamic>;
+    return AuthSession(
+      accessToken: body['accessToken'] as String,
+      userId: user['id'] as String,
+      displayName: user['displayName'] as String,
+    );
+  }
+
   /// Register a new account. Throws [AuthException] on validation errors.
   /// [password] is optional; when set, the user can log in with phone+password.
   Future<void> register({

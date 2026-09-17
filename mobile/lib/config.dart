@@ -13,5 +13,5 @@ class AppConfig {
       String.fromEnvironment('API_BASE', defaultValue: 'https://capa-contest-api.onrender.com');
 
   /// Shown in Configurações. Keep in step with `version:` in pubspec.yaml.
-  static const String appVersion = '1.0.6';
+  static const String appVersion = '1.0.7';
 }

@@ -3,6 +3,7 @@ import '../api/auth_api.dart';
 import '../api/tables_api.dart';
 import '../theme.dart';
 import '../widgets/premium.dart';
+import 'forgot_password_screen.dart';
 import 'lobby_screen.dart';
 import 'register_screen.dart';
 import 'solo_setup_screen.dart';
@@ -94,6 +95,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 16),
                   GradientButton('Entrar', key: const Key('loginBtn'), busy: _busy, onPressed: _login),
                   const SizedBox(height: 12),
+                  TextButton(
+                    key: const Key('forgotBtn'),
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => ForgotPasswordScreen(
+                        api: widget.api,
+                        tablesApi: widget.tablesApi,
+                        initialPhone: _phone.text.trim(),
+                      ),
+                    )),
+                    child: Text('Esqueci minha senha', style: Brand.caption),
+                  ),
                   TextButton(
                     onPressed: () => Navigator.of(context).push(MaterialPageRoute(
                       builder: (_) => RegisterScreen(api: widget.api, initialPhone: _phone.text.trim()),

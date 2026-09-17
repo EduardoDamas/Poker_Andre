@@ -207,9 +207,15 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 - [x] **Overdraft race fixed** — `LedgerService.post` takes `requireNonNegative`, checked inside
       the serializable transaction, so concurrent debits (two rooms, two withdrawals, or a
       withdrawal racing an entry) can no longer push a wallet negative. See `wallet/overdraft.spec.ts`.
-- [ ] **Password recovery** — needs a delivery channel decision (WhatsApp recommended). Interim:
-      admin resets `ADMIN_PASSWORD`-style via the panel. WhatsApp OTP providers exist in code
-      (`OTP_PROVIDER=whatsapp`, needs Meta creds).
+- [x] **Password recovery** — "Esqueci minha senha" in the app: `POST /auth/password/forgot`
+      sends a code, `POST /auth/password/reset` sets the new password and returns a session.
+      Reuses the OTP machinery (single-use code, 5 attempts, 5 requests/min per phone) and says
+      the same thing for unknown numbers, so it cannot be used to discover accounts. Blocked
+      accounts get no code.
+- [ ] **Choose the code delivery channel** — recovery works, but production still runs
+      `OTP_PROVIDER=dev`, so codes only reach the panel's **Códigos OTP** tab for an admin to
+      relay. Set `OTP_PROVIDER=whatsapp` (+ Meta creds) or `twilio` for players to get them
+      directly; both providers are already in the code.
 - [ ] **Rotate the admin panel password** to a strong value only the client holds.
 - [x] **Subscriptions purchase (Opção 1)** — the client's four fixed InfinitePay links
       (`SUBSCRIPTION_LINKS` in `backend/src/tournament/payment-links.ts`). The player taps a plan,
