@@ -18,6 +18,12 @@ export interface AdminPlayer {
   blocked: boolean;
   blockedUntil: Date | null;
   blockReason: string | null;
+  // Responsible gaming — the player's OWN limits, so support can see why a
+  // deposit was refused. Null when they have not set that one.
+  selfExcludedUntil: Date | null;
+  limitDailyCents: string | null;
+  limitWeeklyCents: string | null;
+  limitMonthlyCents: string | null;
 }
 
 export interface AdminWithdrawal {
@@ -39,12 +45,24 @@ export class AdminService {
   ) {}
 
   async listPlayers(): Promise<AdminPlayer[]> {
-    const users = await this.prisma.user.findMany({ orderBy: { createdAt: 'desc' } });
+    const users = await this.prisma.user.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: { limits: true },
+    });
+    const now = Date.now();
     return Promise.all(
       users.map(async (u) => {
         const account = await this.prisma.account.findUnique({ where: { userId: u.id } });
         const balance = account ? await this.ledger.balanceOf(account.id) : 0n;
+        const excluded =
+          u.limits?.selfExcludedUntil && u.limits.selfExcludedUntil.getTime() > now
+            ? u.limits.selfExcludedUntil
+            : null;
         return {
+          selfExcludedUntil: excluded,
+          limitDailyCents: u.limits?.dailyCents?.toString() ?? null,
+          limitWeeklyCents: u.limits?.weeklyCents?.toString() ?? null,
+          limitMonthlyCents: u.limits?.monthlyCents?.toString() ?? null,
           id: u.id,
           displayName: u.displayName,
           phone: u.phone,

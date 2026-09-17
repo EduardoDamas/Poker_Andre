@@ -41,6 +41,11 @@ export interface Player {
   blocked: boolean;
   blockedUntil: string | null;
   blockReason: string | null;
+  // Responsible gaming — limits the player set on themselves.
+  selfExcludedUntil: string | null;
+  limitDailyCents: string | null;
+  limitWeeklyCents: string | null;
+  limitMonthlyCents: string | null;
 }
 
 export interface Withdrawal {

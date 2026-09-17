@@ -93,6 +93,7 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
           <th>Telefone</th>
           <th>Status</th>
           <th>Assinatura</th>
+          <th>Limites</th>
           <th>Saldo</th>
           <th>Ações</th>
         </tr>
@@ -118,6 +119,7 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
                 </select>
               )}
             </td>
+            <td><LimitsCell p={p} /></td>
             <td>{formatBRL(p.balanceCents)}</td>
             <td>
               {p.role === 'ADMIN' ? (
@@ -143,6 +145,26 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
     </table>
     </>
   );
+}
+
+// What the player set on themselves — explains a refused deposit. These are the
+// player's own limits; only they can change them (admin blocks are separate).
+function LimitsCell({ p }: { p: Player }) {
+  if (p.selfExcludedUntil) {
+    const until = new Date(p.selfExcludedUntil);
+    // An indefinite break is stored far in the future.
+    const label = until.getFullYear() > new Date().getFullYear() + 50
+      ? 'AUTOEXCLUÍDO (indefinido)'
+      : `AUTOEXCLUÍDO até ${until.toLocaleDateString('pt-BR')}`;
+    return <span className="badge badge-danger">{label}</span>;
+  }
+  const parts = [
+    p.limitDailyCents && `dia ${formatBRL(p.limitDailyCents)}`,
+    p.limitWeeklyCents && `sem ${formatBRL(p.limitWeeklyCents)}`,
+    p.limitMonthlyCents && `mês ${formatBRL(p.limitMonthlyCents)}`,
+  ].filter(Boolean);
+  if (parts.length === 0) return <span className="muted">—</span>;
+  return <span className="limits">{parts.join(' · ')}</span>;
 }
 
 // Registration counters for tracking growth. Admin accounts are not players.

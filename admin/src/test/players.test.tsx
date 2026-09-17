@@ -25,6 +25,10 @@ function player(id: string, overrides: Record<string, unknown> = {}) {
     blocked: false,
     blockedUntil: null,
     blockReason: null,
+    selfExcludedUntil: null,
+    limitDailyCents: null,
+    limitWeeklyCents: null,
+    limitMonthlyCents: null,
     ...overrides,
   };
 }
@@ -56,6 +60,27 @@ describe('Players counters', () => {
     expect(countFor('Bloqueados')).toBe('1');
     expect(countFor('Novos hoje')).toBe('1');
     expect(countFor('Últimos 7 dias')).toBe('2');
+  });
+
+  it('shows the limits a player set on themselves', async () => {
+    stubFetch([
+      player('1', { limitDailyCents: '50000', limitMonthlyCents: '200000' }),
+      player('2'),
+    ]);
+
+    render(<Players token="tok" onForbidden={() => {}} />);
+    await screen.findByText('Jogador 1');
+
+    expect(screen.getByText('dia R$ 500,00 · mês R$ 2.000,00')).toBeInTheDocument();
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0); // player 2 has none
+  });
+
+  it('flags a self-excluded player', async () => {
+    const until = new Date(Date.now() + 7 * DAY).toISOString();
+    stubFetch([player('1', { selfExcludedUntil: until, limitDailyCents: '50000' })]);
+
+    render(<Players token="tok" onForbidden={() => {}} />);
+    expect(await screen.findByText(/AUTOEXCLUÍDO até/)).toBeInTheDocument();
   });
 
   it('refreshes the list automatically every minute', async () => {
