@@ -14,7 +14,7 @@ import { isAdult } from './age';
 import { isBlocked } from './user-status';
 import { hashPassword, verifyPassword } from './password';
 import { RegisterDto } from './dto/register.dto';
-import { AuthToken } from './otp/otp.service';
+import { AuthToken, OtpService } from './otp/otp.service';
 
 export type PublicUser = Pick<
   User,
@@ -27,6 +27,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly wallet: WalletService,
     private readonly jwt: JwtService,
+    private readonly otp: OtpService,
   ) {}
 
   /**
@@ -98,6 +99,36 @@ export class AuthService {
       accessToken,
       user: { id: user.id, phone: user.phone, displayName: user.displayName, status: 'ACTIVE' },
     };
+  }
+
+  /**
+   * Step 1 of "esqueci minha senha": send a code to the player's phone.
+   *
+   * Says nothing about whether the number is registered — the caller always gets
+   * the same answer, so this cannot be used to discover accounts. A blocked
+   * account gets no code either (the OTP verify would refuse it anyway).
+   */
+  async requestPasswordReset(rawPhone: string): Promise<void> {
+    const phone = normalizePhone(rawPhone);
+    const user = await this.prisma.user.findUnique({ where: { phone } });
+    if (!user || isBlocked(user)) return;
+    await this.otp.request(phone);
+  }
+
+  /**
+   * Step 2: the code proves the player holds the phone, so a new password can be
+   * set. Reuses the OTP verification (single-use code, attempt limit, block
+   * check) and returns a session, so they land logged in rather than typing the
+   * password they just chose.
+   */
+  async resetPassword(rawPhone: string, code: string, newPassword: string): Promise<AuthToken> {
+    const phone = normalizePhone(rawPhone);
+    const session = await this.otp.verify(phone, code);
+    await this.prisma.user.update({
+      where: { id: session.user.id },
+      data: { passwordHash: hashPassword(newPassword) },
+    });
+    return session;
   }
 
   /** The current user's public profile + wallet balance (for GET /auth/me). */
