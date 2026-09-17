@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { InfinitePayClient } from './infinitepay.client';
+import { PlayerLimitService } from '../responsible/player-limit.service';
 
 // Deposits are bounded so a typo or an abusive charge can't run away. The ceiling
 // must clear the biggest thing a player can buy — a Nível 7 entry is R$12.500 on
@@ -57,6 +58,7 @@ export class PaymentOrdersService {
     private readonly prisma: PrismaService,
     private readonly wallet: WalletService,
     private readonly infinitepay: InfinitePayClient,
+    private readonly limits: PlayerLimitService,
   ) {}
 
   /** Create a deposit charge and return its hosted checkout link. */
@@ -71,6 +73,8 @@ export class PaymentOrdersService {
     if (!InfinitePayClient.isConfigured()) {
       throw new BadRequestException('Pagamento indisponível no momento.');
     }
+    // Responsible gaming: the player's own ceilings and self-exclusion.
+    await this.limits.assertDepositAllowed(userId, BigInt(amountCents));
 
     const orderNsu = `dep_${randomUUID()}`;
     // Record the intent BEFORE minting the link so a webhook can always resolve it.

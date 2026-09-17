@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { Deposit } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from './wallet.service';
+import { PlayerLimitService } from '../responsible/player-limit.service';
 
 /**
  * Manual Pix deposit flow (Phase 1).
@@ -19,6 +20,7 @@ export class DepositService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly wallet: WalletService,
+    private readonly limits: PlayerLimitService,
   ) {}
 
   /** Player declares an incoming Pix of [amountCents]. */
@@ -26,6 +28,8 @@ export class DepositService {
     if (amountCents <= 0n) {
       throw new BadRequestException('O valor do depósito deve ser positivo.');
     }
+    // Responsible gaming: the player's own ceilings and self-exclusion.
+    await this.limits.assertDepositAllowed(userId, amountCents);
     return this.prisma.deposit.create({
       data: { userId, amountCents, pixReference, status: 'REQUESTED' },
     });

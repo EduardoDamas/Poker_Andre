@@ -5,8 +5,10 @@ import { WithdrawalService } from './withdrawal.service';
 import { DepositService } from './deposit.service';
 import { SettlementService } from './settlement.service';
 import { ReconciliationService } from './reconciliation.service';
+import { ResponsibleModule } from '../responsible/responsible.module';
 
 @Module({
+  imports: [ResponsibleModule], // PlayerLimitService gates deposits
   providers: [
     LedgerService,
     WalletService,

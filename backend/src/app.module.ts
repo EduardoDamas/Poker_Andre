@@ -12,6 +12,8 @@ import { TournamentModule } from './tournament/tournament.module';
 import { PaymentsModule } from './payments/payments.module';
 import { PointsModule } from './points/points.module';
 import { RankingsModule } from './rankings/rankings.module';
+import { ResponsibleModule } from './responsible/responsible.module';
+import { ResponsibleHttpModule } from './responsible/responsible-http.module';
 import { HealthController } from './health.controller';
 import { DownloadController } from './download.controller';
 import { LegalController } from './legal.controller';
@@ -30,6 +32,8 @@ import { LegalController } from './legal.controller';
     PaymentsModule,
     PointsModule,
     RankingsModule,
+    ResponsibleModule,
+    ResponsibleHttpModule,
   ],
   controllers: [HealthController, DownloadController, LegalController],
   providers: [

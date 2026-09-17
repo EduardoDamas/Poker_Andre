@@ -46,6 +46,7 @@ model User {
   deposits      Deposit[]
   paymentOrders PaymentOrder[]
   subscriptionRequests SubscriptionRequest[]
+  limits        PlayerLimit?
   seats         Seat[]
   points        PointsAccount?
   pointsTxns    PointsTransaction[]
@@ -316,6 +317,35 @@ enum SubscriptionRequestStatus {
   REQUESTED
   CONFIRMED
   REJECTED
+}
+
+// ---------------------------------------------------------------------
+// RESPONSIBLE GAMING — limits the PLAYER sets on themselves
+// ---------------------------------------------------------------------
+
+// Self-imposed deposit ceilings and self-exclusion. Null = no limit for that
+// window. Lowering a limit (or excluding yourself) takes effect immediately;
+// RAISING one only takes effect after a cooling-off period, so a player cannot
+// undo their own protection in the heat of the moment — the higher values wait
+// in pending* until pendingEffectiveAt, then the service promotes them on read.
+//
+// These are the player's own limits. Admin blocks are separate (User.status).
+model PlayerLimit {
+  userId              String    @id
+  user                User      @relation(fields: [userId], references: [id])
+  // Max total deposited per rolling window, in cents. Null = unlimited.
+  dailyCents          BigInt?
+  weeklyCents         BigInt?
+  monthlyCents        BigInt?
+  // A raise waiting out the cooling-off period (all three move together).
+  pendingDailyCents   BigInt?
+  pendingWeeklyCents  BigInt?
+  pendingMonthlyCents BigInt?
+  pendingEffectiveAt  DateTime?
+  // Self-exclusion: no deposits and no money games until this passes.
+  // Null = not excluded; far-future date = indefinite.
+  selfExcludedUntil   DateTime?
+  updatedAt           DateTime  @updatedAt
 }
 
 enum PaymentOrderStatus {

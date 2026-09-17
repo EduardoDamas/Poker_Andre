@@ -4,6 +4,7 @@ import { WalletService } from './wallet.service';
 import { DepositService } from './deposit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { resetDb } from '../test-utils/reset-db';
+import { PlayerLimitService } from '../responsible/player-limit.service';
 
 describe('DepositService (manual Pix)', () => {
   let prisma: PrismaClient;
@@ -16,7 +17,11 @@ describe('DepositService (manual Pix)', () => {
     prisma = new PrismaClient();
     ledger = new LedgerService(prisma as unknown as PrismaService);
     wallet = new WalletService(prisma as unknown as PrismaService, ledger);
-    deposits = new DepositService(prisma as unknown as PrismaService, wallet);
+    deposits = new DepositService(
+      prisma as unknown as PrismaService,
+      wallet,
+      new PlayerLimitService(prisma as unknown as PrismaService),
+    );
   });
 
   afterAll(async () => {

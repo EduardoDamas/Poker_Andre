@@ -15,6 +15,7 @@ import { Action } from '../poker/betting-round';
 import { TableService } from './table.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { isBlocked } from '../auth/user-status';
+import { PlayerLimitService } from '../responsible/player-limit.service';
 import { MultiTableTournamentManager, SubTableRunner } from '../tournament/multi-table-manager';
 import { Subscription } from '../tournament/subscription';
 
@@ -55,6 +56,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly tables: TableService,
     private readonly prisma: PrismaService,
     private readonly mtManager: MultiTableTournamentManager,
+    private readonly limits: PlayerLimitService,
   ) {}
 
   // --- Multi-table tournament live state ---
@@ -145,6 +147,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       // Money tournament room: mark the table and escrow the entry fee BEFORE
       // seating. If the wallet is short, escrow throws and the player isn't seated.
       if (body.level) {
+        // Self-exclusion blocks money games; free/practice tables stay open.
+        if (await this.limits.isSelfExcluded(user.sub)) {
+          return { ok: false, error: 'Você está em autoexclusão. Jogos a dinheiro estão bloqueados.' };
+        }
         const t = this.tables.enableTournament(body.tableId, body.level, body.maxSeats);
         const sub = await this._subscriptionOf(user.sub);
         await this.tables.enterTournament(t, user.sub, sub);

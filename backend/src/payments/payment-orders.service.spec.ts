@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { InfinitePayClient } from './infinitepay.client';
 import { PaymentOrdersService, parseWebhook } from './payment-orders.service';
 import { resetDb } from '../test-utils/reset-db';
+import { PlayerLimitService } from '../responsible/player-limit.service';
 
 describe('parseWebhook', () => {
   const OLD = process.env.INFINITEPAY_WEBHOOK_TRUST_RECEIPT;
@@ -60,7 +61,12 @@ describe('PaymentOrdersService (webhook crediting)', () => {
     prisma = new PrismaClient();
     ledger = new LedgerService(prisma as unknown as PrismaService);
     wallet = new WalletService(prisma as unknown as PrismaService, ledger);
-    svc = new PaymentOrdersService(prisma as unknown as PrismaService, wallet, infinitepayStub);
+    svc = new PaymentOrdersService(
+      prisma as unknown as PrismaService,
+      wallet,
+      infinitepayStub,
+      new PlayerLimitService(prisma as unknown as PrismaService),
+    );
   });
 
   afterAll(async () => {
