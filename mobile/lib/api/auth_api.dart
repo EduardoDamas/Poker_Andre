@@ -144,12 +144,14 @@ class AuthApi {
 
   /// Register a new account. Throws [AuthException] on validation errors.
   /// [password] is optional; when set, the user can log in with phone+password.
+  /// [acceptedTerms] records that the player ticked the Termos + Privacidade box.
   Future<void> register({
     required String phone,
     required String displayName,
     required String cpf,
     required String birthDate,
     String? password,
+    bool acceptedTerms = false,
   }) async {
     final res = await _send(() => _client.post(
           _u('/auth/register'),
@@ -160,6 +162,7 @@ class AuthApi {
             'cpf': cpf,
             'birthDate': birthDate,
             if (password != null && password.isNotEmpty) 'password': password,
+            'acceptedTerms': acceptedTerms,
           }),
         ));
     if (res.statusCode == 409) {

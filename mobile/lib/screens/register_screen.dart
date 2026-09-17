@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../api/auth_api.dart';
+import '../config.dart';
 import '../theme.dart';
 import '../util/date_br.dart';
 import '../widgets/premium.dart';
@@ -24,6 +27,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _birth = TextEditingController();
   final _password = TextEditingController();
   bool _busy = false;
+  bool _accepted = false;
   String? _error;
 
   @override
@@ -47,6 +51,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       setState(() => _error = 'A senha deve ter pelo menos 6 caracteres.');
       return;
     }
+    if (!_accepted) {
+      setState(() => _error = 'É preciso aceitar os Termos de Uso e a Política de Privacidade.');
+      return;
+    }
 
     // User types DD/MM/AAAA; the API expects ISO (AAAA-MM-DD).
     final isoBirth = brDateToIso(birth);
@@ -63,6 +71,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         cpf: cpf,
         birthDate: isoBirth,
         password: password,
+        acceptedTerms: _accepted,
       );
       if (!mounted) return;
       // Go back to login with phone pre-filled so they can request OTP.
@@ -124,6 +133,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 16),
                   _Field(controller: _password, label: 'Senha', hint: 'mínimo 6 caracteres',
                       obscure: true),
+                  const SizedBox(height: 20),
+                  _TermsConsent(
+                    accepted: _accepted,
+                    onChanged: (v) => setState(() => _accepted = v),
+                  ),
                   if (_error != null) ...[
                     const SizedBox(height: 16),
                     Text(_error!,
@@ -131,7 +145,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         style: const TextStyle(color: Brand.danger)),
                   ],
                   const SizedBox(height: 28),
-                  GradientButton('Criar conta', busy: _busy, onPressed: _register),
+                  GradientButton('Criar conta',
+                      key: const Key('createAccountBtn'), busy: _busy, onPressed: _register),
                 ],
               ),
             ),
@@ -139,6 +154,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
       ),
     );
+  }
+}
+
+/// Consent to the Termos + Privacidade, with the documents one tap away — the
+/// acceptance is recorded with its date and version on the server.
+class _TermsConsent extends StatelessWidget {
+  final bool accepted;
+  final ValueChanged<bool> onChanged;
+  const _TermsConsent({required this.accepted, required this.onChanged});
+
+  Future<void> _open(BuildContext context, String path) async {
+    final uri = Uri.parse('${AppConfig.apiBase}/legal/$path');
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok && context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Não foi possível abrir o documento.')));
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Não foi possível abrir o documento.')));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final link = Brand.caption.copyWith(color: Brand.gold, decoration: TextDecoration.underline);
+    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Checkbox(
+        key: const Key('termsCheckbox'),
+        value: accepted,
+        onChanged: (v) => onChanged(v ?? false),
+        activeColor: Brand.crimson,
+        side: const BorderSide(color: Brand.textTer),
+      ),
+      Expanded(
+        child: Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Text.rich(
+            TextSpan(style: Brand.caption, children: [
+              const TextSpan(text: 'Declaro ter 18 anos ou mais e aceito os '),
+              TextSpan(
+                text: 'Termos de Uso',
+                style: link,
+                recognizer: TapGestureRecognizer()..onTap = () => _open(context, 'termos'),
+              ),
+              const TextSpan(text: ', a '),
+              TextSpan(
+                text: 'Política de Privacidade',
+                style: link,
+                recognizer: TapGestureRecognizer()..onTap = () => _open(context, 'privacidade'),
+              ),
+              const TextSpan(text: ' e o '),
+              TextSpan(
+                text: 'Regulamento dos Torneios',
+                style: link,
+                recognizer: TapGestureRecognizer()..onTap = () => _open(context, 'regulamento'),
+              ),
+              const TextSpan(text: '.'),
+            ]),
+          ),
+        ),
+      ),
+    ]);
   }
 }
 
