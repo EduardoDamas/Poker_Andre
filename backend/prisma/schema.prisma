@@ -38,6 +38,11 @@ model User {
   subscriptionUntil DateTime?
   blockedUntil DateTime?  // temp block expiry; null + BLOCKED = permanent
   blockReason  String?    // why the user was blocked
+  // Proof of consent: when the player accepted the Termos + Privacidade, and
+  // which version they saw. Null for accounts created before the app asked
+  // (1.0.6 and older) — those clients send nothing rather than a false accept.
+  termsAcceptedAt DateTime?
+  termsVersion    String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

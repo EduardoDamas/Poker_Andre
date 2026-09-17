@@ -13,6 +13,7 @@ import { normalizePhone } from './phone';
 import { isAdult } from './age';
 import { isBlocked } from './user-status';
 import { hashPassword, verifyPassword } from './password';
+import { LEGAL_VERSION } from './legal-version';
 import { RegisterDto } from './dto/register.dto';
 import { AuthToken, OtpService } from './otp/otp.service';
 
@@ -55,6 +56,11 @@ export class AuthService {
           birthDate,
           status: 'PENDING',
           ...(dto.password ? { passwordHash: hashPassword(dto.password) } : {}),
+          // Record consent only when the app actually asked for it — never
+          // assume it for a client that sent nothing.
+          ...(dto.acceptedTerms === true
+            ? { termsAcceptedAt: new Date(), termsVersion: LEGAL_VERSION }
+            : {}),
         },
       });
       // Every player gets a wallet account at registration.

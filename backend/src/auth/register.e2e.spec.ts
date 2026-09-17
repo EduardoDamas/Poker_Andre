@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import request from 'supertest';
 import { AppModule } from '../app.module';
 import { resetDb } from '../test-utils/reset-db';
+import { LEGAL_VERSION } from './legal-version';
 
 /**
  * STEP B3 gate — POST /auth/register (e2e against the test DB).
@@ -97,5 +98,57 @@ describe('POST /auth/register (e2e)', () => {
       .post('/auth/register')
       .send({ ...valid, extraField: 'x' }) // forbidNonWhitelisted
       .expect(400);
+  });
+
+  describe('terms acceptance', () => {
+    const base = {
+      displayName: 'Consentido',
+      cpf: '529.982.247-25',
+      birthDate: '1990-01-01',
+      password: 'senha-123',
+    };
+
+    it('records when and which version the player accepted', async () => {
+      const phone = '+5511955500001';
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ ...base, phone, acceptedTerms: true })
+        .expect(201);
+
+      const user = await prisma.user.findUnique({ where: { phone } });
+      expect(user?.termsVersion).toBe(LEGAL_VERSION);
+      expect(user?.termsAcceptedAt).toBeInstanceOf(Date);
+      expect(Date.now() - user!.termsAcceptedAt!.getTime()).toBeLessThan(60_000);
+    });
+
+    it('records nothing when the app did not ask (older builds still register)', async () => {
+      const phone = '+5511955500002';
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ ...base, phone, cpf: '111.444.777-35' })
+        .expect(201);
+
+      const user = await prisma.user.findUnique({ where: { phone } });
+      expect(user?.termsAcceptedAt).toBeNull();
+      expect(user?.termsVersion).toBeNull();
+    });
+
+    it('never fakes consent from acceptedTerms: false', async () => {
+      const phone = '+5511955500003';
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ ...base, phone, cpf: '123.456.789-09', acceptedTerms: false })
+        .expect(201);
+
+      const user = await prisma.user.findUnique({ where: { phone } });
+      expect(user?.termsAcceptedAt).toBeNull();
+    });
+
+    it('rejects a non-boolean acceptedTerms', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/register')
+        .send({ ...base, phone: '+5511955500004', cpf: '693.318.160-04', acceptedTerms: 'sim' })
+        .expect(400);
+    });
   });
 });

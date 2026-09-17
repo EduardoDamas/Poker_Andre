@@ -1,4 +1,4 @@
-import { IsDateString, IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsBoolean, IsDateString, IsOptional, IsString, Length, Matches } from 'class-validator';
 
 export class RegisterDto {
   // E.164-ish: optional +, 10–15 digits.
@@ -23,4 +23,14 @@ export class RegisterDto {
   @IsString()
   @Length(6, 100)
   password?: string;
+
+  /**
+   * True when the player ticked "Li e aceito os Termos de Uso e a Política de
+   * Privacidade". Optional on the wire so apps already installed (1.0.6 and
+   * older, which have no checkbox) keep working — they simply record no
+   * consent. Make it required once those versions are retired.
+   */
+  @IsOptional()
+  @IsBoolean()
+  acceptedTerms?: boolean;
 }
