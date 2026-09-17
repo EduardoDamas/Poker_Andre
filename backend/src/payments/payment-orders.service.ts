@@ -9,9 +9,28 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WalletService } from '../wallet/wallet.service';
 import { InfinitePayClient } from './infinitepay.client';
 
-// Deposits are bounded to keep test/abuse blast radius small; tune for launch.
-const MIN_DEPOSIT_CENTS = 100; // R$1
-const MAX_DEPOSIT_CENTS = 5_000_00; // R$5.000
+// Deposits are bounded so a typo or an abusive charge can't run away. The ceiling
+// must clear the biggest thing a player can buy — a Nível 7 entry is R$12.500 on
+// card — so R$20.000 by default. Both bounds are overridable per environment
+// (MIN_DEPOSIT_CENTS / MAX_DEPOSIT_CENTS on Render) so the limit can move without
+// a code change; a new value takes effect on the next deploy.
+const DEFAULT_MIN_DEPOSIT_CENTS = 100; // R$1
+const DEFAULT_MAX_DEPOSIT_CENTS = 20_000_00; // R$20.000
+
+function boundFromEnv(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+/** Amount in cents as "R$ 20.000,00" for player-facing messages. */
+function brl(cents: number): string {
+  return `R$ ${(cents / 100).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
 
 const PAID_STATUSES = new Set(['paid', 'approved', 'success', 'succeeded', 'completed', 'captured']);
 const FAILED_STATUSES = new Set(['failed', 'refused', 'canceled', 'cancelled', 'declined', 'error']);
@@ -42,9 +61,11 @@ export class PaymentOrdersService {
 
   /** Create a deposit charge and return its hosted checkout link. */
   async createDeposit(userId: string, amountCents: number): Promise<CreateDepositResult> {
-    if (!Number.isInteger(amountCents) || amountCents < MIN_DEPOSIT_CENTS || amountCents > MAX_DEPOSIT_CENTS) {
+    const min = boundFromEnv('MIN_DEPOSIT_CENTS', DEFAULT_MIN_DEPOSIT_CENTS);
+    const max = boundFromEnv('MAX_DEPOSIT_CENTS', DEFAULT_MAX_DEPOSIT_CENTS);
+    if (!Number.isInteger(amountCents) || amountCents < min || amountCents > max) {
       throw new BadRequestException(
-        `Valor inválido. Depósito entre R$${MIN_DEPOSIT_CENTS / 100} e R$${MAX_DEPOSIT_CENTS / 100}.`,
+        `Valor inválido. Depósito entre ${brl(min)} e ${brl(max)}.`,
       );
     }
     if (!InfinitePayClient.isConfigured()) {

@@ -104,6 +104,47 @@ describe('PaymentOrdersService (webhook crediting)', () => {
     expect(order?.amountCents).toBe(5000n);
   });
 
+  describe('deposit bounds', () => {
+    const OLD_MAX = process.env.MAX_DEPOSIT_CENTS;
+    afterEach(() => {
+      if (OLD_MAX === undefined) delete process.env.MAX_DEPOSIT_CENTS;
+      else process.env.MAX_DEPOSIT_CENTS = OLD_MAX;
+    });
+
+    it('allows a deposit big enough for a Nível 7 entry (R$12.500 on card)', async () => {
+      const userId = await newUser();
+      const res = await svc.createDeposit(userId, 12_500_00);
+      expect(res.amountCents).toBe(12_500_00);
+    });
+
+    it('accepts the R$20.000 ceiling and rejects a cent over it', async () => {
+      const userId = await newUser();
+      await expect(svc.createDeposit(userId, 20_000_00)).resolves.toBeDefined();
+      await expect(svc.createDeposit(userId, 20_000_01)).rejects.toThrow(/R\$ 20\.000,00/);
+    });
+
+    it('rejects below the R$1 floor, and says the range in BRL', async () => {
+      const userId = await newUser();
+      await expect(svc.createDeposit(userId, 99)).rejects.toThrow(
+        /Depósito entre R\$ 1,00 e R\$ 20\.000,00/,
+      );
+    });
+
+    it('MAX_DEPOSIT_CENTS overrides the ceiling without a code change', async () => {
+      const userId = await newUser();
+      process.env.MAX_DEPOSIT_CENTS = String(50_000_00);
+      await expect(svc.createDeposit(userId, 30_000_00)).resolves.toBeDefined();
+      await expect(svc.createDeposit(userId, 60_000_00)).rejects.toThrow(/R\$ 50\.000,00/);
+    });
+
+    it('ignores a malformed override and keeps the default ceiling', async () => {
+      const userId = await newUser();
+      process.env.MAX_DEPOSIT_CENTS = 'muito';
+      await expect(svc.createDeposit(userId, 20_000_00)).resolves.toBeDefined();
+      await expect(svc.createDeposit(userId, 20_000_01)).rejects.toThrow(/R\$ 20\.000,00/);
+    });
+  });
+
   it('credits the wallet once on a paid webhook, and is idempotent', async () => {
     const userId = await newUser();
     await pendingOrder(userId, 3000, 'dep_paid');
