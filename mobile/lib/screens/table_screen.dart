@@ -5,6 +5,7 @@ import '../game/game_connection.dart';
 import '../game/game_snapshot.dart';
 import '../widgets/playing_card.dart';
 import '../widgets/premium.dart';
+import '../widgets/waiting_panel.dart';
 import '../theme.dart';
 import '../format.dart';
 import 'settings_screen.dart';
@@ -160,6 +161,7 @@ class _TableScreenState extends State<TableScreen> {
           }
           return _TableView(
               snapshot: s,
+              roomName: widget.title,
               onAct: _act,
               onAmount: _promptAmount,
               onLeave: _leave,
@@ -198,14 +200,24 @@ class _Centered extends StatelessWidget {
       );
 }
 
+/// A hand starts once this many players are seated. The scheduled 10-minute
+/// rooms will send their own minimum; until then it is the table's own rule.
+const int _minPlayersToStart = 2;
+
+/// True while the room is filling: nobody has been dealt in yet.
+bool _waitingToStart(GameSnapshot s) =>
+    s.holeCards.isEmpty && !s.handComplete && s.board.isEmpty;
+
 class _TableView extends StatelessWidget {
   final GameSnapshot snapshot;
+  final String roomName;
   final void Function(String type, {int? amount}) onAct;
   final Future<void> Function(String type) onAmount;
   final Future<void> Function() onLeave;
   final Future<void> Function()? onShare;
   const _TableView(
       {required this.snapshot,
+      required this.roomName,
       required this.onAct,
       required this.onAmount,
       required this.onLeave,
@@ -314,6 +326,17 @@ class _TableView extends StatelessWidget {
                     ]),
                   ),
                 ),
+                // Last child = on top: while the room is still filling, a
+                // still panel explains the wait instead of leaving the player
+                // looking at an empty table.
+                if (_waitingToStart(s))
+                  Positioned.fill(
+                    child: WaitingPanel(
+                      roomName: roomName,
+                      seated: s.seats.whereType<SeatInfo>().length,
+                      needed: _minPlayersToStart,
+                    ),
+                  ),
               ],
             ),
           ),
