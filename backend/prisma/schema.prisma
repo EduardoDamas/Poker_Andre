@@ -323,6 +323,41 @@ model SubscriptionRequest {
   @@index([userId])
 }
 
+// ---------------------------------------------------------------------
+// SCHEDULED TOURNAMENT ROOMS (client spec, 2026-09-17)
+// ---------------------------------------------------------------------
+
+// A player's seat in one 10-minute window of a level's room. The entry is
+// escrowed when this row is created, so the roster MUST be durable: an
+// in-memory list would strand real money across a restart.
+//
+// roomId encodes the level and the window start, so each window is its own
+// tournament instance (fresh ledger references, no collisions).
+model RoomRegistration {
+  id           String                 @id @default(uuid())
+  roomId       String // sala-l<level>-<windowStartMs>
+  userId       String
+  level        Int
+  subscription Subscription           @default(NONE)
+  // The window this registration belongs to (start of the 10-minute slot).
+  windowStart  DateTime
+  status       RoomRegistrationStatus @default(REGISTERED)
+  createdAt    DateTime               @default(now())
+  settledAt    DateTime?
+
+  @@unique([roomId, userId])
+  @@index([roomId, status])
+  @@index([windowStart, status])
+  @@index([userId, status])
+}
+
+enum RoomRegistrationStatus {
+  REGISTERED // paid, waiting for the window to open
+  STARTED // the tournament ran with this player in it
+  REFUNDED // the window missed its minimum; entry given back
+  CANCELLED // the player pulled out before the start; entry given back
+}
+
 enum SubscriptionRequestStatus {
   REQUESTED
   CONFIRMED

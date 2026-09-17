@@ -237,6 +237,15 @@ export class TournamentService {
   }
 
   /**
+   * Give one player's entry back — they pulled out before the room started.
+   * Only their own references are released, so everyone else keeps their seat.
+   */
+  async refundEntry(tournamentId: string, userId: string): Promise<boolean> {
+    const { refunded } = await this.refundEntries(tournamentId, [userId]);
+    return refunded === 1;
+  }
+
+  /**
    * Rename the entry/payout/refund referenceIds of a finished (settled,
    * refunded or abandoned) tournament instance by suffixing a unique tag,
    * freeing the static room id for the next instance while preserving the
