@@ -109,9 +109,18 @@ export class TournamentService {
     winnerSubscription: Subscription;
     participants: Participant[];
     capacity?: number;
+    /**
+     * Share of the money collected that may be paid out, as an integer percent.
+     * 100 (the default) is the CAPACONTEST table as written: the winner's share
+     * of a pool capped at everything collected. The scheduled 10-minute rooms
+     * pass 50 so the house always keeps at least half — the client's call
+     * (2026-09-17), to be raised back once the subscriber base grows.
+     */
+    prizePoolSharePct?: number;
   }): Promise<TournamentPayout> {
     const { tournamentId, level, winnerId, winnerSubscription, participants } = params;
     const capacity = params.capacity ?? PHASE1_ROOM_CAPACITY;
+    const sharePct = BigInt(params.prizePoolSharePct ?? 100);
 
     if (participants.length === 0) throw new BadRequestException('No participants.');
     if (!participants.some((p) => p.userId === winnerId)) {
@@ -128,7 +137,10 @@ export class TournamentService {
     const multiplier = multiplierFor(occupancy);
     const baseViCents = entryFeeCents(level, 'NONE');
     const prizeRaw = baseViCents * BigInt(multiplier);
-    const prizePoolCents = prizeRaw < collectedCents ? prizeRaw : collectedCents; // never overpay
+    // Never pay out more than the room may pay: the table's multiplier, capped
+    // at the payable share of what was actually collected.
+    const payableCents = (collectedCents * sharePct) / 100n;
+    const prizePoolCents = prizeRaw < payableCents ? prizeRaw : payableCents;
     const winnerCents = prizeShareCents(prizePoolCents, winnerSubscription);
     const houseCents = collectedCents - winnerCents; // everything not paid out is house
 
@@ -172,14 +184,69 @@ export class TournamentService {
   }
 
   /**
-   * Rename the entry/payout referenceIds of a finished (settled or abandoned)
-   * tournament instance by suffixing a unique tag, freeing the static room id
-   * for the next instance while preserving the ledger history.
+   * Give every escrowed entry back — the room never reached its minimum, so no
+   * tournament happened and nobody's money may stay with the house.
+   *
+   * Refunds the amount actually charged (read from the entry posting, not
+   * recomputed, so a subscription change in between cannot alter it) and is
+   * idempotent per (tournament, player). Afterwards the references are released
+   * so the same room can run its next window and the player can enter again.
+   */
+  async refundEntries(
+    tournamentId: string,
+    userIds: string[],
+  ): Promise<{ refunded: number; totalCents: bigint }> {
+    const prizeId = await this.systemAccount(PRIZE_POOL_ID, 'PRIZE_POOL');
+    let refunded = 0;
+    let totalCents = 0n;
+
+    for (const userId of userIds) {
+      const entryRef = `tourn-entry-${tournamentId}-${userId}`;
+      const refundRef = `tourn-refund-${tournamentId}-${userId}`;
+
+      const entry = await this.prisma.ledgerTransaction.findUnique({
+        where: { referenceId: entryRef },
+        include: { entries: true },
+      });
+      if (!entry) continue; // never charged (or already released)
+      const already = await this.prisma.ledgerTransaction.findUnique({
+        where: { referenceId: refundRef },
+      });
+      if (already) continue; // refunded on an earlier pass
+
+      const player = await this.wallet.ensurePlayerAccount(userId);
+      const charged = entry.entries.find((e) => e.accountId === player.id)?.amountCents ?? 0n;
+      const amount = -charged; // the player's leg was negative
+      if (amount <= 0n) continue;
+
+      await this.ledger.post({
+        kind: 'TOURNAMENT_REFUND',
+        referenceId: refundRef,
+        memo: `Devolução da inscrição — torneio ${tournamentId} não atingiu o mínimo`,
+        postings: [
+          { accountId: prizeId, amountCents: -amount },
+          { accountId: player.id, amountCents: amount },
+        ],
+      });
+      refunded += 1;
+      totalCents += amount;
+    }
+
+    await this.releaseReferences(tournamentId, userIds, `refunded-${Date.now()}`);
+    return { refunded, totalCents };
+  }
+
+  /**
+   * Rename the entry/payout/refund referenceIds of a finished (settled,
+   * refunded or abandoned) tournament instance by suffixing a unique tag,
+   * freeing the static room id for the next instance while preserving the
+   * ledger history.
    */
   async releaseReferences(tournamentId: string, userIds: string[], tag: string): Promise<void> {
     const refs = [
       `tourn-payout-${tournamentId}`,
       ...userIds.map((u) => `tourn-entry-${tournamentId}-${u}`),
+      ...userIds.map((u) => `tourn-refund-${tournamentId}-${u}`),
     ];
     for (const ref of refs) {
       await this.prisma.ledgerTransaction.updateMany({

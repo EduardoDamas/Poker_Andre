@@ -1,0 +1,3 @@
+-- AlterEnum
+ALTER TYPE "TxnKind" ADD VALUE 'TOURNAMENT_REFUND';
+

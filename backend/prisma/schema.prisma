@@ -184,6 +184,7 @@ enum TxnKind {
   DEPOSIT
   TOURNAMENT_BUYIN
   TOURNAMENT_PAYOUT
+  TOURNAMENT_REFUND // entry returned: the room never reached its minimum
   RAKE
   WITHDRAWAL
   ADJUSTMENT      // admin correction (audited)
