@@ -4,7 +4,7 @@ Everything needed to continue development, build, and deploy on a **new computer
 Committed to git, so it travels with the repo. **Secret values are NOT here** — they
 live in gitignored files you copy manually (see §2).
 
-Last updated: 2026-09-17. App version: **1.0.6+24**.
+Last updated: 2026-09-17. App version: **1.0.7+25**.
 
 ---
 
@@ -95,7 +95,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **330 passing / 52 suites**. On a healthy machine, plain `npx jest` with the
+Full suite is **348 passing / 53 suites**. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
 slower machine (the default is 20s).
@@ -186,7 +186,7 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 
 - **Prod API:** https://capa-contest-api.onrender.com (paid Render plan, no sleep).
 - **Install page:** https://capa-contest-api.onrender.com/baixar
-- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.6/CAPA-CONTEST.apk`
+- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.7/CAPA-CONTEST.apk`
   (GitHub Release asset). To publish a build: create a new release with the APK, then update the
   link in `backend/public/install.html` (+ `docs/marketing/install.html`) and deploy — the public
   `/baixar` URL never changes.
@@ -202,8 +202,9 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 
 ## 10. Pending tasks (backlog)
 
-- [ ] **Publish `1.0.6+24`** — create release `v1.0.6` with the signed APK; `/baixar` points at it.
-      (`v1.0.5` shipped 2026-09-16.)
+- [ ] **Publish `1.0.7+25`** — create release `v1.0.7` with the signed APK; `/baixar` points at it.
+      (`v1.0.5` and `v1.0.6` shipped 2026-09-16/17.) 1.0.7 carries the two player-facing features
+      that the server already supports: "Esqueci minha senha" and the Termos checkbox.
 - [x] **Overdraft race fixed** — `LedgerService.post` takes `requireNonNegative`, checked inside
       the serializable transaction, so concurrent debits (two rooms, two withdrawals, or a
       withdrawal racing an entry) can no longer push a wallet negative. See `wallet/overdraft.spec.ts`.
