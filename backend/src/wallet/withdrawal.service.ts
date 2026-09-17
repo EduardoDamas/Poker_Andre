@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { Withdrawal } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { LedgerService } from './ledger.service';
@@ -53,25 +54,28 @@ export class WithdrawalService {
 
     const clearingId = await this.clearingAccountId();
 
-    // Create the record, then reserve the funds against it (referenceId ties the
-    // ledger posting to this withdrawal and makes it idempotent).
-    const withdrawal = await this.prisma.withdrawal.create({
-      data: { userId, amountCents, pixKey, status: 'REQUESTED' },
-    });
-
+    // Reserve the funds FIRST, then record the withdrawal. The id is minted here
+    // so the posting can reference it. Order matters: if the reservation fails
+    // (e.g. a concurrent debit emptied the wallet), no REQUESTED row is left
+    // behind for an admin to pay out against money that was never reserved.
+    const id = randomUUID();
     const txnId = await this.ledger.post({
       kind: 'WITHDRAWAL',
-      referenceId: `wd-req-${withdrawal.id}`,
+      referenceId: `wd-req-${id}`,
       memo: `Withdrawal requested by ${userId}`,
       postings: [
         { accountId: player.id, amountCents: -amountCents },
         { accountId: clearingId, amountCents: amountCents },
       ],
+      // The balance check above races with any other debit; this one runs inside
+      // the posting transaction, so the wallet can never go negative.
+      requireNonNegative: [
+        { accountId: player.id, message: 'Insufficient balance for this withdrawal.' },
+      ],
     });
 
-    return this.prisma.withdrawal.update({
-      where: { id: withdrawal.id },
-      data: { requestTxnId: txnId },
+    return this.prisma.withdrawal.create({
+      data: { id, userId, amountCents, pixKey, status: 'REQUESTED', requestTxnId: txnId },
     });
   }
 

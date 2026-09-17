@@ -30,8 +30,14 @@ export class LedgerService {
     postings: Posting[];
     referenceId?: string;
     memo?: string;
+    /**
+     * Accounts that must not end up negative. Checked INSIDE the transaction, so
+     * two debits racing each other cannot both pass a check made beforehand —
+     * the loser is serialised behind the winner and sees the real balance.
+     */
+    requireNonNegative?: { accountId: string; message: string }[];
   }): Promise<string> {
-    const { kind, postings, referenceId, memo } = params;
+    const { kind, postings, referenceId, memo, requireNonNegative } = params;
 
     if (postings.length < 2) {
       throw new BadRequestException('A double-entry transaction needs at least two legs.');
@@ -41,7 +47,7 @@ export class LedgerService {
       throw new BadRequestException(`Unbalanced transaction: legs sum to ${sum}, must be 0.`);
     }
 
-    return this.postWithRetry({ kind, postings, referenceId, memo });
+    return this.postWithRetry({ kind, postings, referenceId, memo, requireNonNegative });
   }
 
   // Serializable transactions on shared accounts (EXTERNAL, PRIZE_POOL, ...) can
@@ -55,8 +61,9 @@ export class LedgerService {
     postings: Posting[];
     referenceId?: string;
     memo?: string;
+    requireNonNegative?: { accountId: string; message: string }[];
   }): Promise<string> {
-    const { kind, postings, referenceId, memo } = params;
+    const { kind, postings, referenceId, memo, requireNonNegative } = params;
     const MAX_ATTEMPTS = 16;
 
     for (let attempt = 1; ; attempt++) {
@@ -79,11 +86,22 @@ export class LedgerService {
 
             // Maintain the cached balance column. Source of truth remains the
             // ledger; this is a denormalised read accelerator, reconciled by a job.
+            const after = new Map<string, bigint>();
             for (const p of postings) {
-              await tx.account.update({
+              const account = await tx.account.update({
                 where: { id: p.accountId },
                 data: { balanceCents: { increment: p.amountCents } },
               });
+              after.set(p.accountId, account.balanceCents);
+            }
+
+            // Overdraft guard, inside the transaction: throwing rolls the whole
+            // posting back, so no money moves and the balance never goes negative.
+            for (const guard of requireNonNegative ?? []) {
+              const balance = after.get(guard.accountId);
+              if (balance != null && balance < 0n) {
+                throw new BadRequestException(guard.message);
+              }
             }
 
             return txn.id;

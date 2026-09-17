@@ -88,6 +88,12 @@ export class TournamentService {
         { accountId: player.id, amountCents: -entryCents },
         { accountId: prizeId, amountCents: entryCents },
       ],
+      // The check above races: entering two rooms at the same instant, both
+      // could pass it. This one runs inside the posting transaction, so the
+      // second entry is rejected instead of overdrawing the wallet.
+      requireNonNegative: [
+        { accountId: player.id, message: 'Saldo insuficiente para a inscrição.' },
+      ],
     });
     return { txnId, entryCents };
   }
