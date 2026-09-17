@@ -4,7 +4,7 @@ Everything needed to continue development, build, and deploy on a **new computer
 Committed to git, so it travels with the repo. **Secret values are NOT here** — they
 live in gitignored files you copy manually (see §2).
 
-Last updated: 2026-09-16. App version: **1.0.5+23**.
+Last updated: 2026-09-17. App version: **1.0.6+24**.
 
 ---
 
@@ -95,7 +95,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **300 passing / 50 suites**. On a healthy machine, plain `npx jest` with the
+Full suite is **325 passing / 51 suites**. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
 slower machine (the default is 20s).
@@ -186,7 +186,7 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 
 - **Prod API:** https://capa-contest-api.onrender.com (paid Render plan, no sleep).
 - **Install page:** https://capa-contest-api.onrender.com/baixar
-- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.5/CAPA-CONTEST.apk`
+- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.6/CAPA-CONTEST.apk`
   (GitHub Release asset). To publish a build: create a new release with the APK, then update the
   link in `backend/public/install.html` (+ `docs/marketing/install.html`) and deploy — the public
   `/baixar` URL never changes.
@@ -202,7 +202,8 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 
 ## 10. Pending tasks (backlog)
 
-- [ ] **Publish `1.0.5+23`** — create release `v1.0.5` with the signed APK; `/baixar` points at it.
+- [ ] **Publish `1.0.6+24`** — create release `v1.0.6` with the signed APK; `/baixar` points at it.
+      (`v1.0.5` shipped 2026-09-16.)
 - [ ] **Entry balance check is outside the ledger transaction** (`TournamentService.escrowEntry`):
       one player entering two rooms at the same instant could overdraw. Move the check into the
       serializable transaction.
@@ -221,8 +222,17 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       Fixed links cannot do this: they carry no `order_nsu`, so the payer is unknown.
 - [ ] **Repo hygiene** — untracked theme-asset `.zip`s + duplicated extract folders under
       `mobile/assets/` should be gitignored/removed.
-- [ ] **Legal exclusão/limites** — "Autoexclusão e limites" currently shows a support note; build
-      the real in-app tool for responsible-gaming compliance.
+- [x] **Legal exclusão/limites** — real in-app tool (`backend/src/responsible/`, app screen
+      `mobile/lib/screens/limits_screen.dart`). The player sets deposit ceilings per rolling
+      day/week/month and can self-exclude. Lowering applies at once; raising waits
+      `COOLING_OFF_HOURS` (24h) so protection can't be undone on impulse; self-exclusion can be
+      extended, never shortened, and blocks deposits (both paths) and money tables.
+- [ ] **Show a player's limits in the admin panel** — the Jogadores tab does not surface
+      self-exclusion or ceilings, so support cannot see why a deposit was refused.
+- [ ] **Deposit limits vs. the R$20.000 technical cap** — the cap
+      (`MIN/MAX_DEPOSIT_CENTS`) is a safety net against typos and stolen cards, separate from
+      the player's own limits. The client asked for no cap at all (2026-09-16); revisit once
+      the self-imposed limits have been in use for a while.
 
 ---
 
