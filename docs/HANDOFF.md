@@ -138,8 +138,11 @@ Local: `cd admin && npm install && npm run dev` → http://localhost:5173 (point
 
 ## 7. Deploy (backend → Render)
 
-Auto-deploy is **ON** (verified 2026-09-15 via the Render API) — pushing to `main` deploys
-production. To deploy manually (e.g. after an env-var change):
+**Deploys are manual in practice.** The Render API reports `autoDeploy: yes`, but a push to
+`main` did NOT trigger a deploy (2026-09-16) — the GitHub webhook is not reaching Render, so
+reconnect the repo in the service's Settings → Build & Deploy if you want pushes to deploy.
+Until then, after pushing, deploy by hand: dashboard → `capa-contest-api` → **Manual Deploy** →
+**Deploy latest commit**, or via the API:
 ```
 rk=$(tr -d '\r\n' < .render-key.txt)
 sid="srv-d9rlhdf40ujc73bpamj0"
