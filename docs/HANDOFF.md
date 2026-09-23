@@ -98,7 +98,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **413 passing / 57 suites**. On the 2026-09 machine port 5434 works fine
+Full suite is **421 passing / 58 suites**. On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
@@ -247,8 +247,19 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       apart from `HOUSE_RAKE`), ledger kind `PROMO_PRIZE`, exactly one prize per event even under
       racing awards (unique ledger reference; a losing racer reads the ledger, not the event row),
       blocked winners held, recorded as a level-0 win for the winners feed. The subscriber flag is
-      the caller's snapshot at tournament start. **Next:** free entry + the event's room/bracket,
-      then the scheduled start.
+      the caller's snapshot at tournament start.
+      **Done (2026-09-22): plan B end to end** — a promotion room `promo-<eventId>`: listed first
+      in the lobby as a free Nível 0 room from 30 min before its start (hidden once paid or 3h
+      after), free entry (empty wallets can play), starts no earlier than `startsAt` and only with
+      the event's `minPlayers`, nobody joins once it runs, subscriptions re-read at the start
+      ("assinante até o início"), prize paid by `PromoService`. Works with the installed app:
+      the room is recognised by its id, never by the client's `level` (level 0 is falsy and used
+      to fall through to a practice table). Admin: `POST /admin/promo-events` {name, startsAt,
+      prizeCents, prizeSubscriberCents, minPlayers}, `GET /admin/promo-events`,
+      `POST /admin/promo-events/:id/cancel` — audited; no panel screen yet.
+      **Final table of 10 done too:** 10 tables of 8 → one final table of the 10 winners.
+      **Next for plan A:** the 80-player bracket as a promotion (multi-table registration +
+      the app moving winners to the final table), then 1.0.8.
 - [ ] **Validate subscriptions Opção 2 BEFORE the promo** — the promo's goal is subscriptions, and
       today each one waits for a manual release in the panel. One small real purchase, then set
       `SUBSCRIPTION_CHECKOUT=dynamic`, so late subscribers are not counted as non-subscribers.
