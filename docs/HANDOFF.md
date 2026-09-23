@@ -98,7 +98,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **382 passing / 55 suites**. On the 2026-09 machine port 5434 works fine
+Full suite is **401 passing / 56 suites**. On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
@@ -241,7 +241,14 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       players by 01/10 → 1.0.8 published 02/10 → **real-phone rehearsal 05–06/10** (a multi-table
       tournament has never run on real devices) → promo 07/10.
       **Plan B:** if the rehearsal fails, run it as today's single 8-seat table, which needs no app
-      update — the date and prize stay. Build the house-funded prize first; it serves both plans.
+      update — the date and prize stay.
+      **Done (2026-09-22): the company-funded prize** — `src/promo/` (`PromoService`, `PromoEvent`
+      table). Paid from a dedicated `PROMOTIONS` account (its balance = total promo spend, kept
+      apart from `HOUSE_RAKE`), ledger kind `PROMO_PRIZE`, exactly one prize per event even under
+      racing awards (unique ledger reference; a losing racer reads the ledger, not the event row),
+      blocked winners held, recorded as a level-0 win for the winners feed. The subscriber flag is
+      the caller's snapshot at tournament start. **Next:** free entry + the event's room/bracket,
+      then the scheduled start.
 - [ ] **Validate subscriptions Opção 2 BEFORE the promo** — the promo's goal is subscriptions, and
       today each one waits for a manual release in the panel. One small real purchase, then set
       `SUBSCRIPTION_CHECKOUT=dynamic`, so late subscribers are not counted as non-subscribers.
