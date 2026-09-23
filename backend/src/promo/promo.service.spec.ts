@@ -230,6 +230,23 @@ describe('PromoService (free-entry promotion, one prize)', () => {
       await expect(promo.createEvent({ ...base, name: '  ', prizeCents: R250, prizeSubscriberCents: R500 }))
         .rejects.toThrow(/nome/);
     });
+
+    it('offers 100 places and a 30-minute tolerance unless told otherwise', async () => {
+      const e = await promo.createEvent({ name: 'X', startsAt: new Date(), prizeCents: R250, prizeSubscriberCents: R500, minPlayers: 80 });
+      expect(e.maxPlayers).toBe(100);
+      expect(e.waitMinutes).toBe(30);
+      const strict = await promo.createEvent({
+        name: 'Y', startsAt: new Date(), prizeCents: R250, prizeSubscriberCents: R500, minPlayers: 80, waitMinutes: null,
+      });
+      expect(strict.waitMinutes).toBeNull(); // waits for the 80, however long
+    });
+
+    it('rejects places the final table cannot hold, or fewer than the minimum', async () => {
+      const base = { name: 'X', startsAt: new Date(), prizeCents: R250, prizeSubscriberCents: R500 };
+      await expect(promo.createEvent({ ...base, maxPlayers: 101 })).rejects.toThrow(/vagas/);
+      await expect(promo.createEvent({ ...base, minPlayers: 80, maxPlayers: 60 })).rejects.toThrow(/vagas/);
+      await expect(promo.createEvent({ ...base, waitMinutes: -5 })).rejects.toThrow(/tolerância/);
+    });
   });
 
   describe('who counts as a subscriber', () => {

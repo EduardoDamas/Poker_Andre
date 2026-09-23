@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { TableService } from '../realtime/table.service';
 import { PromoService, promoRoomId } from '../promo/promo.service';
+import { PromoBrackets } from '../promo/promo-bracket';
 
 /**
  * Lobby catalog of joinable Poker rooms (Phase 1).
@@ -44,6 +45,7 @@ export class TablesService {
   constructor(
     private readonly realtime: TableService,
     private readonly promo: PromoService,
+    private readonly brackets: PromoBrackets,
   ) {}
 
   /**
@@ -51,18 +53,21 @@ export class TablesService {
    * renders whatever rooms it is sent, so no update is needed for it to appear.
    */
   async list(): Promise<TableInfo[]> {
-    const promos = (await this.promo.openEvents()).map((event) => {
-      const id = promoRoomId(event.id);
-      const live = this.realtime.getTable(id);
-      return {
-        id,
-        name: `${event.name} — GRÁTIS`,
-        level: 0,
-        entryCents: 0,
-        maxSeats: MAX_SEATS,
-        players: live ? this.realtime.seatedCount(live) : 0,
-      };
-    });
+    const promos = (await this.promo.openEvents())
+      .filter((event) => !this.brackets.get(promoRoomId(event.id))?.finished)
+      .map((event) => {
+        const id = promoRoomId(event.id);
+        const bracket = this.brackets.get(id);
+        return {
+          id,
+          name: `${event.name} — GRÁTIS`,
+          level: 0,
+          entryCents: 0,
+          // Places, not seats: the bracket spreads them over up to 10 tables.
+          maxSeats: event.maxPlayers,
+          players: bracket ? (bracket.started ? bracket.startedWith : bracket.registered) : 0,
+        };
+      });
     const rooms = POKER_ROOMS.map((room) => {
       const live = this.realtime.getTable(room.id);
       return {

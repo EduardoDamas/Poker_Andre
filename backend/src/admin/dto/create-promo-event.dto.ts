@@ -1,4 +1,4 @@
-import { IsDateString, IsInt, IsOptional, IsString, Length, Max, Min } from 'class-validator';
+import { IsDateString, IsInt, IsOptional, IsString, Length, Max, Min, ValidateIf } from 'class-validator';
 
 export class CreatePromoEventDto {
   @IsString()
@@ -21,9 +21,29 @@ export class CreatePromoEventDto {
   @Max(10_000_000)
   prizeSubscriberCents!: number;
 
+  /** Players needed to start at startsAt (client: 80 = 10 full tables). */
   @IsOptional()
   @IsInt()
   @Min(2)
-  @Max(80)
+  @Max(100)
   minPlayers?: number;
+
+  /** Places on offer (default 100: 10 tables of up to 10 → a final table of 10). */
+  @IsOptional()
+  @IsInt()
+  @Min(2)
+  @Max(100)
+  maxPlayers?: number;
+
+  /**
+   * Minutes past startsAt after which it starts with whoever is present (2+),
+   * even below minPlayers. Default 30; null waits for minPlayers until the room
+   * closes, 3 hours after the start.
+   */
+  @IsOptional()
+  @ValidateIf((_, v) => v !== null)
+  @IsInt()
+  @Min(0)
+  @Max(150)
+  waitMinutes?: number | null;
 }

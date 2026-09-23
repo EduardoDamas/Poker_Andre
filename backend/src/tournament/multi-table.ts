@@ -29,19 +29,31 @@ export const MAX_PLAYERS = MAX_TABLES * SEATS_PER_TABLE; // 800
 export interface MttTable {
   id: string;
   round: number;
-  players: string[]; // 2..8 per table; up to 10 at the final table
+  players: string[]; // 2..8 per table; up to 10 at a final table or in a 81–100 field
 }
 
 /**
- * Split players evenly into tables of up to 8 (table sizes differ by at most 1),
- * except that 10 or fewer play a single final table.
+ * Up to this many players still fit the "10 tables → final table of 10" shape:
+ * 81–100 play 10 tables of 9–10 instead of 11–13 tables of 8, whose 11–13
+ * winners could not share one final table (they would split again and meet
+ * heads-up). Client, 2026-09-22: "é possível que hajam mais participantes".
+ */
+export const TEN_TABLE_FIELD = MIN_TABLES_TO_START * FINAL_TABLE_SEATS; // 100
+
+/**
+ * Split players evenly into tables (sizes differ by at most 1): 10 or fewer
+ * play a single final table; up to 100 play at most 10 tables, so their winners
+ * fill one final table; a bigger field plays tables of 8.
  */
 export function seatIntoTables(players: string[], round: number, tournamentId: string): MttTable[] {
   const count = players.length;
+  const byEight = Math.ceil(count / SEATS_PER_TABLE);
   const numTables =
     count <= FINAL_TABLE_SEATS
       ? 1
-      : Math.min(Math.ceil(count / SEATS_PER_TABLE), MAX_TABLES);
+      : count <= TEN_TABLE_FIELD
+        ? Math.min(byEight, MIN_TABLES_TO_START)
+        : Math.min(byEight, MAX_TABLES);
   const tables: MttTable[] = Array.from({ length: numTables }, (_, i) => ({
     id: `${tournamentId}-r${round}-t${i + 1}`,
     round,

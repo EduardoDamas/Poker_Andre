@@ -27,13 +27,31 @@ describe('multi-table tournament — structure', () => {
       expect(tables.every((t) => t.players.length === 8)).toBe(true);
     });
 
-    it('balances uneven counts (100 → 13 tables, sizes differ by ≤1, no table > 8)', () => {
-      const tables = seatIntoTables(roster(100), 1, 't');
-      expect(tables).toHaveLength(Math.ceil(100 / SEATS_PER_TABLE)); // 13
+    it('balances uneven counts (137 → 18 tables, sizes differ by ≤1, no table > 8)', () => {
+      const tables = seatIntoTables(roster(137), 1, 't');
+      expect(tables).toHaveLength(Math.ceil(137 / SEATS_PER_TABLE)); // 18
       const sizes = tables.map((t) => t.players.length);
       expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1);
       expect(Math.max(...sizes)).toBeLessThanOrEqual(SEATS_PER_TABLE);
-      expect(sizes.reduce((a, b) => a + b, 0)).toBe(100);
+      expect(sizes.reduce((a, b) => a + b, 0)).toBe(137);
+    });
+
+    // Client, 2026-09-22: 80 is an estimate, more may come. Up to 100 still
+    // leaves exactly 10 winners for one final table.
+    it.each([81, 88, 90, 97, 100])('keeps %i players on 10 tables of 9–10', (n) => {
+      const tables = seatIntoTables(roster(n), 1, 't');
+      expect(tables).toHaveLength(10);
+      const sizes = tables.map((t) => t.players.length);
+      expect(Math.max(...sizes)).toBeLessThanOrEqual(10);
+      expect(Math.max(...sizes) - Math.min(...sizes)).toBeLessThanOrEqual(1);
+      expect(sizes.reduce((a, b) => a + b, 0)).toBe(n);
+    });
+
+    it('a 100-player field reaches a final table of 10', () => {
+      const t = new MultiTableTournament('t', roster(100), { minPlayers: 2 });
+      t.advance(Object.fromEntries(t.tables.map((tb) => [tb.id, tb.players[0]])));
+      expect(t.tables).toHaveLength(1);
+      expect(t.tables[0].players).toHaveLength(10);
     });
 
     it('fills the max at 800 players (100 tables of 8)', () => {

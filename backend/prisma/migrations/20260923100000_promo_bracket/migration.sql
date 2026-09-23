@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "PromoEvent" ADD COLUMN     "maxPlayers" INTEGER NOT NULL DEFAULT 100,
+ADD COLUMN     "waitMinutes" INTEGER DEFAULT 30;
+

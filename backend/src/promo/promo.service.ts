@@ -14,11 +14,20 @@ export const PROMO_OPENS_MINUTES_BEFORE = 30;
 /** An event nobody played disappears this long after its start. Nothing is paid. */
 export const PROMO_CLOSES_HOURS_AFTER = 3;
 
+/**
+ * Most places an event may offer: 10 tables of up to 10 players, whose winners
+ * fill one final table of 10. A bigger field would need a semi-final round.
+ */
+export const PROMO_MAX_PLAYERS = 100;
+
 /** Lobby/table id of an event's room. */
 export const promoRoomId = (eventId: string) => `promo-${eventId}`;
-/** The event id behind a promo room id, or null for any other room. */
+/**
+ * The event id behind a promo room id, or null for any other room — including
+ * the bracket's own tables (promo-<id>-r1-t3), which nobody joins directly.
+ */
 export const promoEventIdOf = (roomId: string): string | null =>
-  roomId.startsWith('promo-') ? roomId.slice('promo-'.length) : null;
+  /^promo-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(roomId)?.[1] ?? null;
 
 export interface PromoPayout {
   eventId: string;
@@ -62,11 +71,23 @@ export class PromoService {
     prizeCents: bigint;
     prizeSubscriberCents: bigint;
     minPlayers?: number;
+    maxPlayers?: number;
+    waitMinutes?: number | null;
   }): Promise<PromoEvent> {
     const { name, startsAt, prizeCents, prizeSubscriberCents } = params;
     const minPlayers = params.minPlayers ?? 2;
+    const maxPlayers = params.maxPlayers ?? PROMO_MAX_PLAYERS;
+    const waitMinutes = params.waitMinutes === undefined ? 30 : params.waitMinutes;
     if (!Number.isInteger(minPlayers) || minPlayers < 2) {
       throw new BadRequestException('O mínimo de participantes deve ser 2 ou mais.');
+    }
+    if (!Number.isInteger(maxPlayers) || maxPlayers < minPlayers || maxPlayers > PROMO_MAX_PLAYERS) {
+      throw new BadRequestException(
+        `As vagas devem ficar entre o mínimo de participantes e ${PROMO_MAX_PLAYERS}.`,
+      );
+    }
+    if (waitMinutes !== null && (!Number.isInteger(waitMinutes) || waitMinutes < 0)) {
+      throw new BadRequestException('A tolerância deve ser em minutos (0 ou mais).');
     }
     if (!name.trim()) throw new BadRequestException('Dê um nome à promoção.');
     if (prizeCents <= 0n || prizeSubscriberCents <= 0n) {
@@ -77,7 +98,9 @@ export class PromoService {
       throw new BadRequestException('O prêmio do assinante não pode ser menor que o do não assinante.');
     }
     return this.prisma.promoEvent.create({
-      data: { name: name.trim(), startsAt, prizeCents, prizeSubscriberCents, minPlayers },
+      data: {
+        name: name.trim(), startsAt, prizeCents, prizeSubscriberCents, minPlayers, maxPlayers, waitMinutes,
+      },
     });
   }
 

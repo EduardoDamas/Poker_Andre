@@ -1,4 +1,4 @@
-import { Injectable, Logger, Optional } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Card } from '../poker/deck';
 import { Action, ActionType } from '../poker/betting-round';
 import { PokerHand } from '../poker/hand';
@@ -7,7 +7,6 @@ import { TournamentService, TournamentPayout } from '../tournament/tournament.se
 import { Subscription } from '../tournament/subscription';
 import { decideRobotAction } from './bot-brain';
 import { FINAL_TABLE_SEATS, SEATS_PER_TABLE } from '../tournament/multi-table';
-import { PromoService } from '../promo/promo.service';
 
 /** Seats at an ordinary table (lobby rooms and bracket tables). */
 const STANDARD_SEATS = SEATS_PER_TABLE;
@@ -71,12 +70,9 @@ interface TournamentCtx {
   // A sub-table of a multi-table tournament: it plays to one winner in chips but
   // NEVER settles money here. Entries are escrowed once at tournament registration
   // and the prize is settled once for the champion (see MultiTableCoordinator).
+  // With no money at stake here, the last player left wins the table even when
+  // the others withdrew — a bracket must never stall on someone who walked away.
   subTable: boolean;
-  // A free-entry promotion (client, 2026-09-21): no entry fee, starts no earlier
-  // than the event's start and only with enough players, nobody joins once it
-  // runs, and the single prize is paid by the company (PromoService), not from
-  // a pool.
-  promo?: { eventId: string; notBefore: number; minPlayers: number };
 }
 
 interface Table {
@@ -122,6 +118,8 @@ export interface TournamentStatus {
   // Everyone else WITHDREW (not busted): no payout — the table went back to
   // "waiting for players" so the survivor plays when someone new joins.
   reverted?: boolean;
+  // Players who busted to zero chips on this hand.
+  busted?: string[];
 }
 
 export interface HandResultPayload {
@@ -136,49 +134,10 @@ export interface HandResultPayload {
 export class TableService {
   private readonly tables = new Map<string, Table>();
 
-  private readonly logger = new Logger('TableService');
-
   constructor(
     private readonly settlement: SettlementService,
     private readonly tournament: TournamentService,
-    @Optional() private readonly promo?: PromoService,
   ) {}
-
-  /** Mark [id] as an event's promotion room (free entry, timed start). */
-  enablePromoTournament(
-    id: string,
-    event: { id: string; startsAt: Date; minPlayers: number },
-  ): Table {
-    const table = this.enableTournament(id, 0, STANDARD_SEATS);
-    if (table.tournament && !table.tournament.promo) {
-      table.tournament.promo = {
-        eventId: event.id,
-        notBefore: event.startsAt.getTime(),
-        minPlayers: Math.max(2, event.minPlayers),
-      };
-    }
-    return table;
-  }
-
-  /** True for a promotion room. */
-  isPromo(table: Table): boolean {
-    return !!table.tournament?.promo;
-  }
-
-  /**
-   * Re-read who is a subscriber right before a promotion starts. The rule told
-   * to players is "assinante até o início do torneio", so someone who subscribes
-   * while waiting at the table gets the subscriber prize.
-   */
-  setEntrySubscription(table: Table, userId: string, subscription: Subscription): void {
-    const t = table.tournament;
-    if (t?.entries.has(userId) && !t.started) t.entries.set(userId, subscription);
-  }
-
-  /** Who holds a place in this tournament (for refreshing their subscription). */
-  entrantIds(table: Table): string[] {
-    return table.tournament ? [...table.tournament.entries.keys()] : [];
-  }
 
   getTable(id: string): Table | undefined {
     return this.tables.get(id);
@@ -267,12 +226,6 @@ export class TableService {
       t.stacks[userId] = TOURNEY_STARTING_STACK;
       return;
     }
-    if (t.promo) {
-      // Free entry — but nobody joins a promotion already under way.
-      if (t.started) throw new Error('O torneio da promoção já começou.');
-      this.recordTournamentEntry(table, userId, subscription);
-      return;
-    }
     await this.tournament.escrowEntry({
       tournamentId: table.id,
       userId,
@@ -288,13 +241,10 @@ export class TableService {
     return [...t.entries.keys()].filter((id) => !t.eliminated.has(id) && (t.stacks[id] ?? 0) > 0);
   }
 
-  tournamentReadyToStart(table: Table, now: number = Date.now()): boolean {
+  tournamentReadyToStart(table: Table): boolean {
     const t = table.tournament;
     if (!t || t.started || table.handInProgress) return false;
-    const live = this.liveEntrants(table).length;
-    // A promotion starts at its scheduled time, and only with its minimum.
-    if (t.promo) return now >= t.promo.notBefore && live >= t.promo.minPlayers;
-    return live >= 2;
+    return this.liveEntrants(table).length >= 2;
   }
 
   /**
@@ -391,7 +341,7 @@ export class TableService {
   async leave(
     id: string,
     userId: string,
-  ): Promise<{ table: Table; result?: HandResultPayload; reverted?: boolean } | null> {
+  ): Promise<{ table: Table; result?: HandResultPayload; reverted?: boolean; withdrew?: boolean } | null> {
     const table = this.tables.get(id);
     if (!table) return null;
     const idx = table.seats.findIndex((s) => s?.userId === userId);
@@ -438,7 +388,24 @@ export class TableService {
       table.hand = null;
       table.handInProgress = false;
       payload.tournament = await this.applyTournamentHandResult(table, out.finalStacks);
-      return { table, result: payload };
+      return { table, result: payload, withdrew: true };
+    }
+
+    // A bracket table between hands: the last one left wins it (no money here).
+    if (t.subTable && !table.handInProgress) {
+      const live = this.liveEntrants(table);
+      if (live.length === 1) {
+        t.settled = true;
+        const result: HandResultPayload = {
+          board: [],
+          pots: [],
+          payouts: {},
+          finalStacks: { ...t.stacks },
+          tournament: { over: true, remaining: 1, winnerId: live[0], busted: [] },
+        };
+        return { table, result, withdrew: true };
+      }
+      return { table, withdrew: true };
     }
 
     // Between hands (or the hand continues without them): withdrawals never
@@ -449,15 +416,15 @@ export class TableService {
       const live = this.liveEntrants(table);
       if (live.length === 1) {
         this.revertToWaiting(table);
-        return { table, reverted: true };
+        return { table, reverted: true, withdrew: true };
       }
       if (live.length === 0 && !t.settled) {
         await this.tournament.releaseReferences(id, [...t.entries.keys()], `abandoned-${id}-${Date.now()}`);
         this.tables.delete(id);
-        return { table };
+        return { table, withdrew: true };
       }
     }
-    return { table };
+    return { table, withdrew: true };
   }
 
   /** The acting player's id when their seat is empty (they left mid-hand). */
@@ -639,14 +606,18 @@ export class TableService {
     finalStacks: Record<string, number>,
   ): Promise<TournamentStatus> {
     const t = table.tournament!;
+    const busted: string[] = [];
     for (const id of t.entries.keys()) {
       if (finalStacks[id] !== undefined) t.stacks[id] = finalStacks[id];
-      if ((t.stacks[id] ?? 0) <= 0) t.eliminated.add(id);
+      if ((t.stacks[id] ?? 0) <= 0 && !t.eliminated.has(id)) {
+        t.eliminated.add(id);
+        busted.push(id);
+      }
     }
 
     const live = this.liveEntrants(table);
     if (live.length > 1) {
-      return { over: false, remaining: live.length };
+      return { over: false, remaining: live.length, busted };
     }
 
     // Only one live entrant. A prize is paid only when the tournament was WON
@@ -657,9 +628,9 @@ export class TableService {
     const wonByPlay = [...t.entries.keys()].every(
       (id) => live.includes(id) || (t.stacks[id] ?? 0) <= 0,
     );
-    if (!wonByPlay) {
+    if (!wonByPlay && !t.subTable) {
       this.revertToWaiting(table);
-      return { over: false, remaining: live.length, reverted: true };
+      return { over: false, remaining: live.length, reverted: true, busted };
     }
 
     // Tournament over — the last player standing wins this table.
@@ -668,27 +639,7 @@ export class TableService {
     // Sub-table of a bigger tournament: report the winner but move NO money here.
     if (t.subTable) {
       t.settled = true;
-      return { over: true, remaining: 1, winnerId };
-    }
-
-    // Promotion: nothing was collected, so the company pays the one prize.
-    if (t.promo) {
-      let prizeCents: number | undefined;
-      if (!t.settled) {
-        t.settled = true;
-        try {
-          const payout = await this.promo?.awardPrize({
-            eventId: t.promo.eventId,
-            winnerId,
-            subscribedAtStart: (t.entries.get(winnerId) ?? 'NONE') !== 'NONE',
-          });
-          prizeCents = payout ? Number(payout.prizeCents) : undefined;
-        } catch (e) {
-          // e.g. a blocked winner: the prize is held for review, the game still ends.
-          this.logger.error(`promo prize for ${table.id} not paid: ${(e as Error).message}`);
-        }
-      }
-      return { over: true, remaining: 1, winnerId, prizeCents };
+      return { over: true, remaining: 1, winnerId, busted };
     }
 
     let payout: TournamentPayout | undefined;
@@ -712,6 +663,7 @@ export class TableService {
       winnerId,
       prizeCents: payout ? Number(payout.winnerCents) : undefined,
       multiplier: payout?.multiplier,
+      busted,
     };
   }
 

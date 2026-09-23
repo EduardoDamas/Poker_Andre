@@ -13,11 +13,12 @@ import { GrantSubscriptionDto } from './dto/grant-subscription.dto';
 import { BlockUserDto } from './dto/block-user.dto';
 import { SettleSubscriptionRequestDto } from './dto/settle-subscription-request.dto';
 import { SubscriptionRequestService } from '../payments/subscription-request.service';
-import { PromoService } from '../promo/promo.service';
+import { PromoService, promoRoomId } from '../promo/promo.service';
+import { PromoBracket, PromoBrackets } from '../promo/promo-bracket';
 import { CreatePromoEventDto } from './dto/create-promo-event.dto';
 
-/** BigInt-free view of a promotion. */
-function serializePromo(e: PromoEvent) {
+/** BigInt-free view of a promotion, with its live bracket when there is one. */
+function serializePromo(e: PromoEvent, bracket?: PromoBracket) {
   return {
     id: e.id,
     name: e.name,
@@ -25,11 +26,24 @@ function serializePromo(e: PromoEvent) {
     prizeCents: e.prizeCents.toString(),
     prizeSubscriberCents: e.prizeSubscriberCents.toString(),
     minPlayers: e.minPlayers,
+    maxPlayers: e.maxPlayers,
+    waitMinutes: e.waitMinutes,
     status: e.status,
     winnerId: e.winnerId,
     winnerSubscribed: e.winnerSubscribed,
     prizePaidCents: e.prizePaidCents?.toString() ?? null,
     paidAt: e.paidAt,
+    live: bracket
+      ? {
+          registered: bracket.registered,
+          started: bracket.started,
+          startedWith: bracket.startedWith,
+          round: bracket.round,
+          alive: bracket.aliveCount,
+          tablesLeft: bracket.tablesLeft(),
+          championId: bracket.champion,
+        }
+      : null,
   };
 }
 
@@ -57,6 +71,7 @@ export class AdminController {
     private readonly audit: AuditService,
     private readonly subRequests: SubscriptionRequestService,
     private readonly promo: PromoService,
+    private readonly brackets: PromoBrackets,
   ) {}
 
   @Get('players')
@@ -187,11 +202,14 @@ export class AdminController {
       prizeCents: BigInt(dto.prizeCents),
       prizeSubscriberCents: BigInt(dto.prizeSubscriberCents),
       minPlayers: dto.minPlayers,
+      maxPlayers: dto.maxPlayers,
+      waitMinutes: dto.waitMinutes,
     });
     await this.audit.record({
       actorId: admin.sub, action: 'promo.create', targetType: 'promoEvent', targetId: event.id,
       metadata: { name: event.name, startsAt: event.startsAt.toISOString(), prizeCents: dto.prizeCents,
-        prizeSubscriberCents: dto.prizeSubscriberCents, minPlayers: event.minPlayers },
+        prizeSubscriberCents: dto.prizeSubscriberCents, minPlayers: event.minPlayers,
+        maxPlayers: event.maxPlayers, waitMinutes: event.waitMinutes },
     });
     return serializePromo(event);
   }
@@ -199,7 +217,7 @@ export class AdminController {
   /** Every promotion, newest first, with who won and what was paid. */
   @Get('promo-events')
   async listPromoEvents() {
-    return (await this.promo.list()).map(serializePromo);
+    return (await this.promo.list()).map((e) => serializePromo(e, this.brackets.get(promoRoomId(e.id))));
   }
 
   /** Call off a promotion that has not paid out. */

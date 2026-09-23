@@ -371,6 +371,11 @@ model PromoEvent {
   // Fewest players for the tournament to start at startsAt; below it the room
   // keeps waiting (and closes unplayed if nobody comes — nothing is paid).
   minPlayers           Int              @default(2)
+  // Places available (10 tables of up to 10 → a final table of 10).
+  maxPlayers           Int              @default(100)
+  // Minutes past startsAt after which it starts with whoever is present (2+)
+  // even below minPlayers. Null: it waits for minPlayers until the room closes.
+  waitMinutes          Int?             @default(30)
   status               PromoEventStatus @default(SCHEDULED)
   winnerId             String?
   winnerSubscribed     Boolean?
