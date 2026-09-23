@@ -1,5 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
-import { WithdrawalStatus, DepositStatus, Deposit, SubscriptionRequestStatus } from '@prisma/client';
+import { WithdrawalStatus, DepositStatus, Deposit, SubscriptionRequestStatus, PromoEvent } from '@prisma/client';
 import { JwtAuthGuard, JwtPayload } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
 import { WithdrawalService } from '../wallet/withdrawal.service';
@@ -13,6 +13,25 @@ import { GrantSubscriptionDto } from './dto/grant-subscription.dto';
 import { BlockUserDto } from './dto/block-user.dto';
 import { SettleSubscriptionRequestDto } from './dto/settle-subscription-request.dto';
 import { SubscriptionRequestService } from '../payments/subscription-request.service';
+import { PromoService } from '../promo/promo.service';
+import { CreatePromoEventDto } from './dto/create-promo-event.dto';
+
+/** BigInt-free view of a promotion. */
+function serializePromo(e: PromoEvent) {
+  return {
+    id: e.id,
+    name: e.name,
+    startsAt: e.startsAt,
+    prizeCents: e.prizeCents.toString(),
+    prizeSubscriberCents: e.prizeSubscriberCents.toString(),
+    minPlayers: e.minPlayers,
+    status: e.status,
+    winnerId: e.winnerId,
+    winnerSubscribed: e.winnerSubscribed,
+    prizePaidCents: e.prizePaidCents?.toString() ?? null,
+    paidAt: e.paidAt,
+  };
+}
 
 function serializeDeposit(d: Deposit) {
   return {
@@ -37,6 +56,7 @@ export class AdminController {
     private readonly deposits: DepositService,
     private readonly audit: AuditService,
     private readonly subRequests: SubscriptionRequestService,
+    private readonly promo: PromoService,
   ) {}
 
   @Get('players')
@@ -154,6 +174,42 @@ export class AdminController {
       metadata: { note: dto.adminNote },
     });
     return serializeDeposit(dep);
+  }
+
+  // --- Promotions (free entry, one company-funded prize) ---
+
+  /** Schedule a promotion. Its room appears in the lobby 30 minutes before. */
+  @Post('promo-events')
+  async createPromoEvent(@CurrentUser() admin: JwtPayload, @Body() dto: CreatePromoEventDto) {
+    const event = await this.promo.createEvent({
+      name: dto.name,
+      startsAt: new Date(dto.startsAt),
+      prizeCents: BigInt(dto.prizeCents),
+      prizeSubscriberCents: BigInt(dto.prizeSubscriberCents),
+      minPlayers: dto.minPlayers,
+    });
+    await this.audit.record({
+      actorId: admin.sub, action: 'promo.create', targetType: 'promoEvent', targetId: event.id,
+      metadata: { name: event.name, startsAt: event.startsAt.toISOString(), prizeCents: dto.prizeCents,
+        prizeSubscriberCents: dto.prizeSubscriberCents, minPlayers: event.minPlayers },
+    });
+    return serializePromo(event);
+  }
+
+  /** Every promotion, newest first, with who won and what was paid. */
+  @Get('promo-events')
+  async listPromoEvents() {
+    return (await this.promo.list()).map(serializePromo);
+  }
+
+  /** Call off a promotion that has not paid out. */
+  @Post('promo-events/:id/cancel')
+  async cancelPromoEvent(@CurrentUser() admin: JwtPayload, @Param('id') id: string) {
+    const event = await this.promo.cancel(id);
+    await this.audit.record({
+      actorId: admin.sub, action: 'promo.cancel', targetType: 'promoEvent', targetId: id,
+    });
+    return serializePromo(event);
   }
 
   // --- Subscription purchases (fixed InfinitePay links → admin confirms) ---

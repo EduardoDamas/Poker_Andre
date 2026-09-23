@@ -18,6 +18,7 @@ import { isBlocked } from '../auth/user-status';
 import { PlayerLimitService } from '../responsible/player-limit.service';
 import { MultiTableTournamentManager, SubTableRunner } from '../tournament/multi-table-manager';
 import { SEATS_PER_TABLE } from '../tournament/multi-table';
+import { PromoService, promoEventIdOf } from '../promo/promo.service';
 import { Subscription } from '../tournament/subscription';
 
 const room = (tableId: string) => `table:${tableId}`;
@@ -58,7 +59,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly prisma: PrismaService,
     private readonly mtManager: MultiTableTournamentManager,
     private readonly limits: PlayerLimitService,
+    private readonly promo: PromoService,
   ) {}
+
+  // Promotion rooms waiting for their scheduled start (one timer per room).
+  private readonly promoTimers = new Map<string, NodeJS.Timeout>();
 
   // --- Multi-table tournament live state ---
   // tournamentId → (userId → socketId), so we can move players between sub-tables.
@@ -147,7 +152,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       // Money tournament room: mark the table and escrow the entry fee BEFORE
       // seating. If the wallet is short, escrow throws and the player isn't seated.
-      if (body.level) {
+      const promoEventId = promoEventIdOf(body.tableId);
+      if (promoEventId) {
+        // Free entry, but a cash prize: self-exclusion applies here too.
+        if (await this.limits.isSelfExcluded(user.sub)) {
+          return { ok: false, error: 'Você está em autoexclusão. Jogos a dinheiro estão bloqueados.' };
+        }
+        const event = await this.promo.openEvent(promoEventId);
+        if (!event) return { ok: false, error: 'Esta promoção não está disponível agora.' };
+        const t = this.tables.enablePromoTournament(body.tableId, event);
+        await this.tables.enterTournament(t, user.sub, await this._subscriptionOf(user.sub));
+        this.schedulePromoStart(body.tableId, event.startsAt);
+      } else if (body.level) {
         // Self-exclusion blocks money games; free/practice tables stay open.
         if (await this.limits.isSelfExcluded(user.sub)) {
           return { ok: false, error: 'Você está em autoexclusão. Jogos a dinheiro estão bloqueados.' };
@@ -161,7 +177,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         body.tableId, user.sub, client.id, body.maxSeats);
       client.join(room(body.tableId));
 
-      const started = this.tables.isTournament(table)
+      const started = this.tables.isPromo(table)
+        ? await this.startPromoIfReady(body.tableId)
+        : this.tables.isTournament(table)
         ? this.tables.tournamentReadyToStart(table) && this.tables.startHand(table)
         : !table.handInProgress && this.tables.seatedCount(table) >= 2
           ? this.tables.startHand(table)
@@ -271,6 +289,47 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   // Deal the next hand of an in-progress tournament and broadcast each player
   // their private hole cards plus the public state.
+  /**
+   * Start a promotion once it may: at/after its scheduled time and with its
+   * minimum seated. Subscriptions are re-read first — the rule is "assinante
+   * até o início", so someone who subscribed while waiting counts.
+   */
+  private async startPromoIfReady(tableId: string): Promise<boolean> {
+    const table = this.tables.getTable(tableId);
+    if (!table || !this.tables.tournamentReadyToStart(table)) return false;
+    for (const userId of this.tables.entrantIds(table)) {
+      this.tables.setEntrySubscription(table, userId, await this._subscriptionOf(userId));
+    }
+    // Re-check: another join may have started it while we were awaiting.
+    if (!this.tables.tournamentReadyToStart(table)) return false;
+    return this.tables.startHand(table);
+  }
+
+  /** Try to start a promotion room at its scheduled time. */
+  private schedulePromoStart(tableId: string, startsAt: Date): void {
+    if (this.promoTimers.has(tableId)) return;
+    const delay = Math.max(0, startsAt.getTime() - Date.now()) + 50;
+    const timer = setTimeout(() => {
+      this.promoTimers.delete(tableId);
+      void this.startPromoIfReady(tableId).then((started) => {
+        if (started) this.announceHand(tableId);
+      });
+    }, delay);
+    this.promoTimers.set(tableId, timer);
+  }
+
+  /** Broadcast a freshly dealt hand: public state, private hole cards, turn. */
+  private announceHand(tableId: string): void {
+    const table = this.tables.getTable(tableId);
+    if (!table) return;
+    this.server.to(room(tableId)).emit('table:state', this.tables.publicState(table));
+    for (const p of this.tables.seatedPlayers(table)) {
+      const hole = this.tables.holeFor(table, p.userId);
+      if (hole) this.server.to(p.socketId).emit('hand:hole', { cards: hole });
+    }
+    this.broadcastGameState(tableId);
+  }
+
   private continueTournament(tableId: string): void {
     const table = this.tables.getTable(tableId);
     if (!table || table.handInProgress || !this.tables.isTournament(table)) return;

@@ -368,6 +368,9 @@ model PromoEvent {
   startsAt             DateTime
   prizeCents           BigInt // non-subscriber prize
   prizeSubscriberCents BigInt // subscriber prize
+  // Fewest players for the tournament to start at startsAt; below it the room
+  // keeps waiting (and closes unplayed if nobody comes — nothing is paid).
+  minPlayers           Int              @default(2)
   status               PromoEventStatus @default(SCHEDULED)
   winnerId             String?
   winnerSubscribed     Boolean?

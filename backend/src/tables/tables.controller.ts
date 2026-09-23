@@ -9,7 +9,7 @@ export class TablesController {
   constructor(private readonly tables: TablesService) {}
 
   @Get()
-  list(): TableInfo[] {
+  list(): Promise<TableInfo[]> {
     return this.tables.list();
   }
 }

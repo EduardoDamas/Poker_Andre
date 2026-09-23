@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, Optional } from '@nestjs/common';
 import { Card } from '../poker/deck';
 import { Action, ActionType } from '../poker/betting-round';
 import { PokerHand } from '../poker/hand';
@@ -7,6 +7,7 @@ import { TournamentService, TournamentPayout } from '../tournament/tournament.se
 import { Subscription } from '../tournament/subscription';
 import { decideRobotAction } from './bot-brain';
 import { FINAL_TABLE_SEATS, SEATS_PER_TABLE } from '../tournament/multi-table';
+import { PromoService } from '../promo/promo.service';
 
 /** Seats at an ordinary table (lobby rooms and bracket tables). */
 const STANDARD_SEATS = SEATS_PER_TABLE;
@@ -71,6 +72,11 @@ interface TournamentCtx {
   // NEVER settles money here. Entries are escrowed once at tournament registration
   // and the prize is settled once for the champion (see MultiTableCoordinator).
   subTable: boolean;
+  // A free-entry promotion (client, 2026-09-21): no entry fee, starts no earlier
+  // than the event's start and only with enough players, nobody joins once it
+  // runs, and the single prize is paid by the company (PromoService), not from
+  // a pool.
+  promo?: { eventId: string; notBefore: number; minPlayers: number };
 }
 
 interface Table {
@@ -130,10 +136,49 @@ export interface HandResultPayload {
 export class TableService {
   private readonly tables = new Map<string, Table>();
 
+  private readonly logger = new Logger('TableService');
+
   constructor(
     private readonly settlement: SettlementService,
     private readonly tournament: TournamentService,
+    @Optional() private readonly promo?: PromoService,
   ) {}
+
+  /** Mark [id] as an event's promotion room (free entry, timed start). */
+  enablePromoTournament(
+    id: string,
+    event: { id: string; startsAt: Date; minPlayers: number },
+  ): Table {
+    const table = this.enableTournament(id, 0, STANDARD_SEATS);
+    if (table.tournament && !table.tournament.promo) {
+      table.tournament.promo = {
+        eventId: event.id,
+        notBefore: event.startsAt.getTime(),
+        minPlayers: Math.max(2, event.minPlayers),
+      };
+    }
+    return table;
+  }
+
+  /** True for a promotion room. */
+  isPromo(table: Table): boolean {
+    return !!table.tournament?.promo;
+  }
+
+  /**
+   * Re-read who is a subscriber right before a promotion starts. The rule told
+   * to players is "assinante até o início do torneio", so someone who subscribes
+   * while waiting at the table gets the subscriber prize.
+   */
+  setEntrySubscription(table: Table, userId: string, subscription: Subscription): void {
+    const t = table.tournament;
+    if (t?.entries.has(userId) && !t.started) t.entries.set(userId, subscription);
+  }
+
+  /** Who holds a place in this tournament (for refreshing their subscription). */
+  entrantIds(table: Table): string[] {
+    return table.tournament ? [...table.tournament.entries.keys()] : [];
+  }
 
   getTable(id: string): Table | undefined {
     return this.tables.get(id);
@@ -222,6 +267,12 @@ export class TableService {
       t.stacks[userId] = TOURNEY_STARTING_STACK;
       return;
     }
+    if (t.promo) {
+      // Free entry — but nobody joins a promotion already under way.
+      if (t.started) throw new Error('O torneio da promoção já começou.');
+      this.recordTournamentEntry(table, userId, subscription);
+      return;
+    }
     await this.tournament.escrowEntry({
       tournamentId: table.id,
       userId,
@@ -237,9 +288,13 @@ export class TableService {
     return [...t.entries.keys()].filter((id) => !t.eliminated.has(id) && (t.stacks[id] ?? 0) > 0);
   }
 
-  tournamentReadyToStart(table: Table): boolean {
+  tournamentReadyToStart(table: Table, now: number = Date.now()): boolean {
     const t = table.tournament;
-    return !!t && !t.started && !table.handInProgress && this.liveEntrants(table).length >= 2;
+    if (!t || t.started || table.handInProgress) return false;
+    const live = this.liveEntrants(table).length;
+    // A promotion starts at its scheduled time, and only with its minimum.
+    if (t.promo) return now >= t.promo.notBefore && live >= t.promo.minPlayers;
+    return live >= 2;
   }
 
   /**
@@ -614,6 +669,26 @@ export class TableService {
     if (t.subTable) {
       t.settled = true;
       return { over: true, remaining: 1, winnerId };
+    }
+
+    // Promotion: nothing was collected, so the company pays the one prize.
+    if (t.promo) {
+      let prizeCents: number | undefined;
+      if (!t.settled) {
+        t.settled = true;
+        try {
+          const payout = await this.promo?.awardPrize({
+            eventId: t.promo.eventId,
+            winnerId,
+            subscribedAtStart: (t.entries.get(winnerId) ?? 'NONE') !== 'NONE',
+          });
+          prizeCents = payout ? Number(payout.prizeCents) : undefined;
+        } catch (e) {
+          // e.g. a blocked winner: the prize is held for review, the game still ends.
+          this.logger.error(`promo prize for ${table.id} not paid: ${(e as Error).message}`);
+        }
+      }
+      return { over: true, remaining: 1, winnerId, prizeCents };
     }
 
     let payout: TournamentPayout | undefined;

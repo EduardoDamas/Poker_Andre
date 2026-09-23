@@ -7,10 +7,13 @@ import { GameGateway } from './game.gateway';
 import { TableService } from './table.service';
 import { MultiTableTournamentManager } from '../tournament/multi-table-manager';
 import { ResponsibleModule } from '../responsible/responsible.module';
+import { PromoModule } from '../promo/promo.module';
 
 @Module({
   // ResponsibleModule: self-exclusion blocks money tables.
-  imports: [AuthModule, WalletModule, TournamentModule, NotificationsModule, ResponsibleModule],
+  // PromoModule: pays the promotion prize (TableService injects it @Optional,
+  // so leaving it out here would silently skip the payout).
+  imports: [AuthModule, WalletModule, TournamentModule, NotificationsModule, ResponsibleModule, PromoModule],
   providers: [GameGateway, TableService, MultiTableTournamentManager],
   exports: [TableService], // lobby reads live seat counts
 })

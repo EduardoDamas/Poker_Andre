@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TableService } from '../realtime/table.service';
+import { PromoService, promoRoomId } from '../promo/promo.service';
 
 /**
  * Lobby catalog of joinable Poker rooms (Phase 1).
@@ -40,10 +41,29 @@ export interface TableInfo {
 
 @Injectable()
 export class TablesService {
-  constructor(private readonly realtime: TableService) {}
+  constructor(
+    private readonly realtime: TableService,
+    private readonly promo: PromoService,
+  ) {}
 
-  list(): TableInfo[] {
-    return POKER_ROOMS.map((room) => {
+  /**
+   * The lobby. An open promotion comes first, as a free Nível 0 room — the app
+   * renders whatever rooms it is sent, so no update is needed for it to appear.
+   */
+  async list(): Promise<TableInfo[]> {
+    const promos = (await this.promo.openEvents()).map((event) => {
+      const id = promoRoomId(event.id);
+      const live = this.realtime.getTable(id);
+      return {
+        id,
+        name: `${event.name} — GRÁTIS`,
+        level: 0,
+        entryCents: 0,
+        maxSeats: MAX_SEATS,
+        players: live ? this.realtime.seatedCount(live) : 0,
+      };
+    });
+    const rooms = POKER_ROOMS.map((room) => {
       const live = this.realtime.getTable(room.id);
       return {
         id: room.id,
@@ -54,5 +74,6 @@ export class TablesService {
         players: live ? this.realtime.seatedCount(live) : 0,
       };
     });
+    return [...promos, ...rooms];
   }
 }

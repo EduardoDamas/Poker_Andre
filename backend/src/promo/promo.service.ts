@@ -9,6 +9,17 @@ import { isBlocked } from '../auth/user-status';
 /** Singleton system account that funds promotional prizes. */
 export const PROMOTIONS_ACCOUNT_ID = '00000000-0000-0000-0000-000000000006';
 
+/** The room opens this long before the start, so players can take their seats. */
+export const PROMO_OPENS_MINUTES_BEFORE = 30;
+/** An event nobody played disappears this long after its start. Nothing is paid. */
+export const PROMO_CLOSES_HOURS_AFTER = 3;
+
+/** Lobby/table id of an event's room. */
+export const promoRoomId = (eventId: string) => `promo-${eventId}`;
+/** The event id behind a promo room id, or null for any other room. */
+export const promoEventIdOf = (roomId: string): string | null =>
+  roomId.startsWith('promo-') ? roomId.slice('promo-'.length) : null;
+
 export interface PromoPayout {
   eventId: string;
   winnerId: string;
@@ -50,8 +61,13 @@ export class PromoService {
     startsAt: Date;
     prizeCents: bigint;
     prizeSubscriberCents: bigint;
+    minPlayers?: number;
   }): Promise<PromoEvent> {
     const { name, startsAt, prizeCents, prizeSubscriberCents } = params;
+    const minPlayers = params.minPlayers ?? 2;
+    if (!Number.isInteger(minPlayers) || minPlayers < 2) {
+      throw new BadRequestException('O mínimo de participantes deve ser 2 ou mais.');
+    }
     if (!name.trim()) throw new BadRequestException('Dê um nome à promoção.');
     if (prizeCents <= 0n || prizeSubscriberCents <= 0n) {
       throw new BadRequestException('Os prêmios devem ser maiores que zero.');
@@ -61,8 +77,39 @@ export class PromoService {
       throw new BadRequestException('O prêmio do assinante não pode ser menor que o do não assinante.');
     }
     return this.prisma.promoEvent.create({
-      data: { name: name.trim(), startsAt, prizeCents, prizeSubscriberCents },
+      data: { name: name.trim(), startsAt, prizeCents, prizeSubscriberCents, minPlayers },
     });
+  }
+
+  /**
+   * The event if its room is open right now: still unpaid, from
+   * PROMO_OPENS_MINUTES_BEFORE the start until PROMO_CLOSES_HOURS_AFTER it.
+   */
+  async openEvent(eventId: string, now: Date = new Date()): Promise<PromoEvent | null> {
+    const event = await this.prisma.promoEvent.findUnique({ where: { id: eventId } });
+    return event && this.isOpen(event, now) ? event : null;
+  }
+
+  /** Every event whose room is open right now — what the lobby lists. */
+  async openEvents(now: Date = new Date()): Promise<PromoEvent[]> {
+    const candidates = await this.prisma.promoEvent.findMany({
+      where: {
+        status: 'SCHEDULED',
+        startsAt: {
+          lte: new Date(now.getTime() + PROMO_OPENS_MINUTES_BEFORE * 60_000),
+          gte: new Date(now.getTime() - PROMO_CLOSES_HOURS_AFTER * 3_600_000),
+        },
+      },
+      orderBy: { startsAt: 'asc' },
+    });
+    return candidates.filter((e) => this.isOpen(e, now));
+  }
+
+  private isOpen(event: PromoEvent, now: Date): boolean {
+    if (event.status !== 'SCHEDULED') return false;
+    const opens = event.startsAt.getTime() - PROMO_OPENS_MINUTES_BEFORE * 60_000;
+    const closes = event.startsAt.getTime() + PROMO_CLOSES_HOURS_AFTER * 3_600_000;
+    return now.getTime() >= opens && now.getTime() <= closes;
   }
 
   /** The player's effective subscription right now (expired plans don't count). */
@@ -144,6 +191,11 @@ export class PromoService {
 
     this.logger.log(`Promo "${event.name}": ${prizeCents} cents to ${winnerId}`);
     return { eventId, winnerId, subscribed: subscribedAtStart, prizeCents, txnId, paidNow: true };
+  }
+
+  /** All events, newest first (admin view). */
+  list(): Promise<PromoEvent[]> {
+    return this.prisma.promoEvent.findMany({ orderBy: { startsAt: 'desc' }, take: 100 });
   }
 
   /** Cancel an event that has not paid out (e.g. it never ran). */
