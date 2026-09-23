@@ -27,6 +27,7 @@ class TableInfo {
 
   /// Entry fee formatted as Brazilian currency, e.g. "R$ 20,00".
   String get entryLabel {
+    if (entryCents == 0) return 'Grátis'; // promotion room
     final reais = (entryCents / 100).toStringAsFixed(2).replaceAll('.', ',');
     return 'R\$ $reais';
   }

@@ -73,23 +73,39 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Future<void> _open(TableInfo table) async {
-    // Money tournament room: confirm the entry fee (V.I.) before charging.
+    // A free promotion room (entry R$0) says so — nothing is charged, and the
+    // prize is paid by CAPA. Paid rooms confirm the entry fee before charging.
+    final free = table.entryCents == 0;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Brand.surface,
         title: Text(table.name, style: Brand.h3),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Inscrição: ${table.entryLabel}', style: Brand.label.copyWith(color: Brand.gold)),
+          Text(free ? 'Inscrição grátis' : 'Inscrição: ${table.entryLabel}',
+              style: Brand.label.copyWith(color: Brand.gold)),
           const SizedBox(height: 8),
-          Text('O valor é debitado da sua carteira ao entrar. O vencedor do '
-              'torneio recebe o prêmio conforme a ocupação da sala.', style: Brand.caption),
-          const SizedBox(height: 8),
-          Text('Seu saldo: ${brl(_balance)}', style: Brand.caption),
+          Text(
+            free
+                ? 'Promoção: você não paga nada para jogar. O vencedor recebe o prêmio '
+                    'da promoção — assinantes ganham o dobro. O torneio começa no horário '
+                    'marcado.'
+                : 'O valor é debitado da sua carteira ao entrar. O vencedor do '
+                    'torneio recebe o prêmio conforme a ocupação da sala.',
+            style: Brand.caption,
+          ),
+          if (!free) ...[
+            const SizedBox(height: 8),
+            Text('Seu saldo: ${brl(_balance)}', style: Brand.caption),
+          ],
         ]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Entrar e pagar')),
+          TextButton(
+            key: const Key('confirmJoinBtn'),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(free ? 'Entrar grátis' : 'Entrar e pagar'),
+          ),
         ],
       ),
     );

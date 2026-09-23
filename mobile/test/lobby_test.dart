@@ -57,4 +57,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('lobbyError')), findsOneWidget);
   });
+
+  testWidgets('a free promotion room says so, and never asks to pay', (tester) async {
+    final mock = MockClient((req) async {
+      if (req.url.path == '/auth/me') {
+        return http.Response(jsonEncode({'balanceCents': '0'}), 200,
+            headers: {'content-type': 'application/json; charset=utf-8'});
+      }
+      return http.Response(
+        jsonEncode([
+          {'id': 'promo-e1', 'name': 'Nível 0 — GRÁTIS', 'level': 0, 'entryCents': 0, 'maxSeats': 8, 'players': 3},
+          {'id': 'poker-l1', 'name': 'Poker — Nível 1', 'level': 1, 'entryCents': 2000, 'maxSeats': 8, 'players': 0},
+        ]),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    await tester.pumpWidget(lobbyWith(mock));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nível 0 — GRÁTIS'), findsOneWidget);
+    await tester.tap(find.text('Nível 0 — GRÁTIS'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Inscrição grátis'), findsOneWidget);
+    expect(find.text('Entrar grátis'), findsOneWidget);
+    expect(find.text('Entrar e pagar'), findsNothing);
+    expect(find.textContaining('debitado'), findsNothing);
+    expect(find.textContaining('assinantes ganham o dobro'), findsOneWidget);
+  });
 }
