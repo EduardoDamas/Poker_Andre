@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:socket_io_client/socket_io_client.dart' as io;
+import 'game_events.dart';
 import 'game_snapshot.dart';
 
 /// Abstraction over the realtime table connection so the UI is testable
@@ -24,6 +25,7 @@ class SocketGameConnection implements GameConnection {
   // When set, joins as a MONEY tournament room of this level (entry fee charged).
   final int? level;
   final io.Socket _socket;
+  final GameEvents _events;
   final _controller = StreamController<GameSnapshot>.broadcast();
   GameSnapshot _snapshot = const GameSnapshot();
 
@@ -34,7 +36,8 @@ class SocketGameConnection implements GameConnection {
     required this.tableId,
     this.maxSeats = 8,
     this.level,
-  }) : _socket = io.io(
+  })  : _events = GameEvents(userId, defaultSeats: maxSeats),
+        _socket = io.io(
           baseUrl,
           io.OptionBuilder()
               .setTransports(['websocket'])
@@ -67,94 +70,17 @@ class SocketGameConnection implements GameConnection {
         }
       });
     });
-    // The table went back to "waiting for players" (opponents withdrew — no
-    // walkover payout): clear any hand/result state, keep seats.
-    _socket.on('table:waiting', (_) {
-      _emit(GameSnapshot(
-        status: _snapshot.status,
-        maxSeats: _snapshot.maxSeats,
-        seats: _snapshot.seats,
-      ));
-    });
-    _socket.on('hand:hole', (data) {
-      final cards = (data['cards'] as List).cast<String>();
-      // New hole cards = a new hand: clear the previous hand's result/banner
-      // and board so the result text never overlaps live action buttons.
-      _emit(GameSnapshot(
-        status: _snapshot.status,
-        street: 'preflop',
-        board: const [],
-        holeCards: cards,
-        maxSeats: _snapshot.maxSeats,
-        seats: _snapshot.seats,
-      ));
-    });
-    // Seat occupancy for the round-table layout. `seats` is one entry per seat,
-    // null = empty. Absent players leave their seat empty; the rest are drawn.
-    _socket.on('table:state', (data) {
-      final max = (data['maxSeats'] as num?)?.toInt() ?? maxSeats;
-      final raw = (data['seats'] as List?) ?? const [];
-      final seats = raw.map<SeatInfo?>((e) {
-        if (e == null) return null;
-        final m = e as Map;
-        final uid = '${m['userId']}';
-        return SeatInfo(
-          position: (m['position'] as num?)?.toInt() ?? 0,
-          userId: uid,
-          hasCards: m['hasCards'] == true,
-          isMe: uid == userId,
-        );
-      }).toList();
-      _emit(_snapshot.copyWith(maxSeats: max, seats: seats));
-    });
-    _socket.on('game:state', (data) {
-      final acting = data['actingPlayerId'] as String?;
-      _emit(_snapshot.copyWith(
-        street: data['street'] as String? ?? _snapshot.street,
-        board: (data['board'] as List? ?? const []).cast<String>(),
-        actingPlayerId: acting,
-        legalActions: (data['legalActions'] as List? ?? const []).cast<String>(),
-        isMyTurn: acting == userId,
-      ));
-    });
-    _socket.on('hand:result', (data) {
-      final payouts = (data['payouts'] as Map?) ?? const {};
-      final mine = (payouts[userId] as num?)?.toInt() ?? 0;
-      final tourn = data['tournament'] as Map?;
-
-      String text;
-      int? prizeCents;
-      if (tourn != null) {
-        // Money tournament hand.
-        if (tourn['over'] == true) {
-          final won = tourn['winnerId'] == userId;
-          if (won) {
-            prizeCents = (tourn['prizeCents'] as num?)?.toInt();
-            text = 'Você venceu o torneio! 🏆\n'
-                'Você receberá o prêmio via Pix em até 24h.';
-          } else {
-            text = 'Torneio encerrado. Mais sorte na próxima!';
-          }
-        } else {
-          final remaining = (tourn['remaining'] as num?)?.toInt() ?? 0;
-          text = mine > 0
-              ? 'Você venceu a mão! ($remaining jogadores restantes)'
-              : 'Mão encerrada. ($remaining jogadores restantes)';
-        }
-      } else {
-        text = mine > 0 ? 'Você ganhou $mine fichas!' : 'Mão encerrada.';
-      }
-
-      _emit(_snapshot.copyWith(
-        street: 'complete',
-        board: (data['board'] as List? ?? const []).cast<String>(),
-        handComplete: true,
-        isMyTurn: false,
-        legalActions: const [],
-        resultText: text,
-        prizeCents: prizeCents,
-      ));
-    });
+    _socket.on('table:waiting', (_) => _emit(_events.waiting(_snapshot)));
+    _socket.on('hand:hole', (data) => _emit(_events.hole(_snapshot, data as Map)));
+    _socket.on('table:state', (data) => _emit(_events.tableState(_snapshot, data as Map)));
+    _socket.on('game:state', (data) => _emit(_events.gameState(_snapshot, data as Map)));
+    _socket.on('hand:result', (data) => _emit(_events.handResult(_snapshot, data as Map)));
+    // Promotion bracket: waiting room, table moves, knockouts, the champion.
+    _socket.on('promo:lobby', (data) => _emit(_events.lobby(_snapshot, data as Map)));
+    _socket.on('tournament:table', (data) => _emit(_events.movedToTable(_snapshot, data as Map)));
+    _socket.on('tournament:advanced', (data) => _emit(_events.advanced(_snapshot, data as Map)));
+    _socket.on('tournament:eliminated', (data) => _emit(_events.eliminated(_snapshot, data as Map)));
+    _socket.on('tournament:champion', (data) => _emit(_events.champion(_snapshot, data as Map)));
     _socket.on('unauthorized', (_) {
       _emit(_snapshot.copyWith(status: ConnStatus.error, error: 'Não autorizado.'));
     });

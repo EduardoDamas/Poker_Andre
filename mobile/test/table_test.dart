@@ -148,4 +148,121 @@ void main() {
     expect(find.image(const AssetImage('assets/characters/avatars/chr-avatar-default.png')),
         findsNWidgets(10));
   });
+  group('promotion bracket', () {
+    testWidgets('the waiting room shows places against the minimum and the start time', (tester) async {
+      final startsAt = DateTime.now().add(const Duration(minutes: 20));
+      final hhmm = '${startsAt.hour.toString().padLeft(2, '0')}:${startsAt.minute.toString().padLeft(2, '0')}';
+      final c = FakeConnection(GameSnapshot(
+        status: ConnStatus.connected,
+        lobby: PromoLobby(
+          registered: 37,
+          minPlayers: 80,
+          maxPlayers: 100,
+          startsAt: startsAt,
+          startAnywayAt: startsAt.add(const Duration(minutes: 30)),
+        ),
+      ));
+      await tester.pumpWidget(tableWith(c));
+      await tester.pump();
+
+      expect(find.text('O torneio começa às $hhmm'), findsOneWidget);
+      expect(find.text('Inscritos: 37 · mínimo 80 · 100 vagas'), findsOneWidget);
+      expect(find.textContaining('Faltam'), findsOneWidget);
+      expect(find.textContaining('só joga quem estiver na sala'), findsOneWidget);
+      expect(find.textContaining('Se não completar'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox()); // stop the clocks
+    });
+
+    testWidgets('past the start, below the minimum, it says what it waits for', (tester) async {
+      final c = FakeConnection(GameSnapshot(
+        status: ConnStatus.connected,
+        lobby: PromoLobby(
+          registered: 60,
+          minPlayers: 80,
+          maxPlayers: 100,
+          startsAt: DateTime.now().subtract(const Duration(minutes: 5)),
+        ),
+      ));
+      await tester.pumpWidget(tableWith(c));
+      await tester.pump();
+
+      expect(find.text('Aguardando o mínimo de 80 inscritos'), findsOneWidget);
+      expect(find.textContaining('Se não completar'), findsNothing); // no tolerance set
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('names the stage once seated in the bracket', (tester) async {
+      final c = FakeConnection(const GameSnapshot(
+        status: ConnStatus.connected,
+        stage: 'Mesa final',
+        holeCards: ['Ah', 'Kh'],
+      ));
+      await tester.pumpWidget(tableWith(c));
+      await tester.pump();
+
+      expect(find.text('MESA FINAL'), findsOneWidget);
+      expect(find.byKey(const Key('waitingHeadline')), findsNothing);
+    });
+
+    testWidgets('a winner waiting for the other tables is told, without a way out', (tester) async {
+      final c = FakeConnection(const GameSnapshot(
+        status: ConnStatus.connected,
+        stage: 'Rodada 1',
+        notice: 'Você venceu sua mesa! 🎉\nAguardando 3 mesas terminarem…',
+      ));
+      await tester.pumpWidget(tableWith(c));
+      await tester.pump();
+
+      expect(find.byKey(const Key('tournamentNotice')), findsOneWidget);
+      expect(find.textContaining('Aguardando 3 mesas'), findsOneWidget);
+      expect(find.byKey(const Key('noticeLeave')), findsNothing); // leaving would forfeit
+    });
+
+    testWidgets('a knocked-out player sees their place and can leave', (tester) async {
+      final c = FakeConnection(const GameSnapshot(
+        status: ConnStatus.connected,
+        stage: 'Rodada 1',
+        out: true,
+        notice: 'Você foi eliminado.\nVocê ficou em 37º lugar entre 80.\nObrigado por participar!',
+      ));
+      await tester.pumpWidget(tableWith(c));
+      await tester.pump();
+
+      expect(find.textContaining('37º lugar entre 80'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('noticeLeave')));
+      await tester.pumpAndSettle();
+      expect(c.left, isTrue);
+    });
+
+    testWidgets('between hands a player still in the bracket is not offered to leave', (tester) async {
+      final c = FakeConnection(const GameSnapshot(
+        status: ConnStatus.connected,
+        stage: 'Rodada 1',
+        handComplete: true,
+        resultText: 'Você venceu sua mesa! 🎉',
+      ));
+      await tester.pumpWidget(tableWith(c));
+      await tester.pump();
+
+      expect(find.byKey(const Key('leaveTable')), findsNothing);
+      expect(find.byKey(const Key('bracketNext')), findsOneWidget);
+    });
+
+    testWidgets('on a clocked table my turn counts down', (tester) async {
+      final c = FakeConnection(GameSnapshot(
+        status: ConnStatus.connected,
+        stage: 'Rodada 1',
+        holeCards: const ['Ah', 'Kh'],
+        isMyTurn: true,
+        actingPlayerId: 'me',
+        legalActions: const ['fold', 'call'],
+        turnDeadline: DateTime.now().add(const Duration(seconds: 30)),
+      ));
+      await tester.pumpWidget(tableWith(c));
+      await tester.pump();
+
+      expect(find.textContaining(RegExp(r'^Sua vez · (29|30)s$')), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
 }

@@ -87,4 +87,25 @@ void main() {
     expect(find.textContaining('debitado'), findsNothing);
     expect(find.textContaining('assinantes ganham o dobro'), findsOneWidget);
   });
+  testWidgets('a promotion with 100 places fits its room card', (tester) async {
+    final mock = MockClient((req) async {
+      if (req.url.path == '/auth/me') {
+        return http.Response(jsonEncode({'balanceCents': '0'}), 200,
+            headers: {'content-type': 'application/json; charset=utf-8'});
+      }
+      return http.Response(
+        jsonEncode([
+          {'id': 'promo-e1', 'name': 'Nível 0 — GRÁTIS', 'level': 0, 'entryCents': 0, 'maxSeats': 100, 'players': 37},
+        ]),
+        200,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    await tester.pumpWidget(lobbyWith(mock));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull); // 100 dots would overflow the card
+    expect(find.text('37/100'), findsOneWidget);
+  });
 }

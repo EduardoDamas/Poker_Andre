@@ -15,6 +15,26 @@ class SeatInfo {
   });
 }
 
+/// A promotion's waiting room, from `promo:lobby`: how many hold a place, how
+/// many it needs, and when it may start.
+class PromoLobby {
+  final int registered;
+  final int minPlayers;
+  final int maxPlayers;
+  final DateTime startsAt;
+
+  /// After this, it starts with whoever is present even below [minPlayers].
+  final DateTime? startAnywayAt;
+
+  const PromoLobby({
+    required this.registered,
+    required this.minPlayers,
+    required this.maxPlayers,
+    required this.startsAt,
+    this.startAnywayAt,
+  });
+}
+
 /// Immutable view of the table as the player sees it. Built from socket events
 /// (game:state / hand:hole / hand:result) by the GameConnection.
 class GameSnapshot {
@@ -32,6 +52,14 @@ class GameSnapshot {
   final int maxSeats; // total seats at the table (round-table layout)
   final List<SeatInfo?> seats; // one entry per seat; null = empty seat
 
+  // --- Promotion bracket (kept across hands and tables) ---
+  final PromoLobby? lobby; // waiting room, until the tournament starts
+  final String? stage; // "Rodada 1" / "Mesa final" once seated in the bracket
+  final String? notice; // won your table and waiting / knocked out / finished
+  final bool out; // knocked out of the tournament
+  final bool finished; // the whole tournament has its champion
+  final DateTime? turnDeadline; // when the table acts for you if you don't
+
   const GameSnapshot({
     this.status = ConnStatus.connecting,
     this.error,
@@ -46,7 +74,16 @@ class GameSnapshot {
     this.prizeCents,
     this.maxSeats = 0,
     this.seats = const [],
+    this.lobby,
+    this.stage,
+    this.notice,
+    this.out = false,
+    this.finished = false,
+    this.turnDeadline,
   });
+
+  /// Still in a running promotion bracket: leaving now would forfeit the place.
+  bool get inBracket => stage != null && !out && !finished;
 
   GameSnapshot copyWith({
     ConnStatus? status,
@@ -62,6 +99,12 @@ class GameSnapshot {
     int? prizeCents,
     int? maxSeats,
     List<SeatInfo?>? seats,
+    PromoLobby? lobby,
+    String? stage,
+    String? notice,
+    bool? out,
+    bool? finished,
+    DateTime? turnDeadline,
   }) {
     return GameSnapshot(
       status: status ?? this.status,
@@ -77,6 +120,12 @@ class GameSnapshot {
       prizeCents: prizeCents ?? this.prizeCents,
       maxSeats: maxSeats ?? this.maxSeats,
       seats: seats ?? this.seats,
+      lobby: lobby ?? this.lobby,
+      stage: stage ?? this.stage,
+      notice: notice ?? this.notice,
+      out: out ?? this.out,
+      finished: finished ?? this.finished,
+      turnDeadline: turnDeadline ?? this.turnDeadline,
     );
   }
 }

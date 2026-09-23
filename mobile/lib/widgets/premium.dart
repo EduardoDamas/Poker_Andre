@@ -122,12 +122,20 @@ class FillDots extends StatelessWidget {
   final int total;
   const FillDots({super.key, required this.filled, required this.total});
 
+  /// More dots than this would overflow a room card (a promotion offers 100
+  /// places): the row then shows the same proportion over [maxDots].
+  static const maxDots = 10;
+
   @override
   Widget build(BuildContext context) {
+    final dots = total > maxDots ? maxDots : total;
+    final lit = total > maxDots
+        ? (filled <= 0 ? 0 : (filled * maxDots / total).ceil().clamp(1, maxDots))
+        : filled;
     return Row(
       mainAxisSize: MainAxisSize.min,
-      children: List.generate(total, (i) {
-        final on = i < filled;
+      children: List.generate(dots, (i) {
+        final on = i < lit;
         return Container(
           width: 7,
           height: 7,

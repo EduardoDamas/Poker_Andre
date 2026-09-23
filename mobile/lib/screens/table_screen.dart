@@ -204,9 +204,168 @@ class _Centered extends StatelessWidget {
 /// rooms will send their own minimum; until then it is the table's own rule.
 const int _minPlayersToStart = 2;
 
-/// True while the room is filling: nobody has been dealt in yet.
+/// True while the room is filling: nobody has been dealt in yet (and, in a
+/// promotion, the player is not yet seated at a bracket table).
 bool _waitingToStart(GameSnapshot s) =>
-    s.holeCards.isEmpty && !s.handComplete && s.board.isEmpty;
+    s.holeCards.isEmpty && !s.handComplete && s.board.isEmpty && s.stage == null && s.notice == null;
+
+String _hhmm(DateTime t) =>
+    '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
+
+/// A promotion's waiting room: places held against the minimum, the start time,
+/// and the rules that matter while waiting. Re-evaluated every second, so the
+/// wording turns from "começa às 20:00" to "aguardando o mínimo" on its own.
+class _PromoWaiting extends StatefulWidget {
+  final PromoLobby lobby;
+  final String roomName;
+  const _PromoWaiting({required this.lobby, required this.roomName});
+
+  @override
+  State<_PromoWaiting> createState() => _PromoWaitingState();
+}
+
+class _PromoWaitingState extends State<_PromoWaiting> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = widget.lobby;
+    final beforeStart = DateTime.now().isBefore(l.startsAt);
+    final missing = l.minPlayers - l.registered;
+    final anyway = l.startAnywayAt;
+    final foot = StringBuffer('Mantenha o app aberto: só joga quem estiver na sala no início.');
+    if (missing > 0 && anyway != null) {
+      foot.write('\nSe não completar, começa às ${_hhmm(anyway)} com quem estiver na sala.');
+    }
+    return WaitingPanel(
+      roomName: widget.roomName,
+      seated: l.registered,
+      needed: l.minPlayers,
+      startsAt: beforeStart ? l.startsAt : (missing > 0 ? anyway : null),
+      headline: beforeStart
+          ? 'O torneio começa às ${_hhmm(l.startsAt)}'
+          : missing > 0
+              ? 'Aguardando o mínimo de ${l.minPlayers} inscritos'
+              : 'O torneio começa em instantes',
+      countText: 'Inscritos: ${l.registered} · mínimo ${l.minPlayers} · ${l.maxPlayers} vagas',
+      doneText: 'Mínimo atingido ✓',
+      footnote: foot.toString(),
+    );
+  }
+}
+
+/// A promotion message over the table: won the table and waiting for the next
+/// one, knocked out (with the place), or the tournament is over.
+class _NoticePanel extends StatelessWidget {
+  final String text;
+  final Future<void> Function()? onLeave;
+  const _NoticePanel({required this.text, this.onLeave});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.35),
+      alignment: Alignment.center,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+        constraints: const BoxConstraints(maxWidth: 420),
+        decoration: BoxDecoration(
+          color: Brand.surface.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Brand.gold.withValues(alpha: 0.5)),
+          boxShadow: Brand.cardShadow,
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Text(text,
+              key: const Key('tournamentNotice'),
+              textAlign: TextAlign.center,
+              style: Brand.h3.copyWith(color: Brand.champagne, height: 1.4)),
+          if (onLeave != null) ...[
+            const SizedBox(height: 18),
+            GradientButton('Sair',
+                key: const Key('noticeLeave'),
+                icon: Icons.logout,
+                expand: false,
+                variant: BtnVariant.crimson,
+                onPressed: onLeave),
+          ],
+        ]),
+      ),
+    );
+  }
+}
+
+/// "Sua vez", with the seconds left when the table plays against the clock.
+class _TurnLabel extends StatefulWidget {
+  final bool isMyTurn;
+  final DateTime? deadline;
+  const _TurnLabel({required this.isMyTurn, this.deadline});
+
+  @override
+  State<_TurnLabel> createState() => _TurnLabelState();
+}
+
+class _TurnLabelState extends State<_TurnLabel> {
+  Timer? _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(_TurnLabel old) {
+    super.didUpdateWidget(old);
+    _sync();
+  }
+
+  void _sync() {
+    final ticking = widget.isMyTurn && widget.deadline != null;
+    if (ticking && _tick == null) {
+      _tick = Timer.periodic(const Duration(milliseconds: 500), (_) {
+        if (mounted) setState(() {});
+      });
+    } else if (!ticking) {
+      _tick?.cancel();
+      _tick = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = widget.deadline;
+    var text = widget.isMyTurn ? 'Sua vez' : 'Aguardando…';
+    var color = widget.isMyTurn ? Brand.gold : Brand.textSec;
+    if (widget.isMyTurn && d != null) {
+      final left = (d.difference(DateTime.now()).inMilliseconds / 1000).ceil().clamp(0, 999);
+      text = 'Sua vez · ${left}s';
+      if (left <= 5) color = Brand.danger;
+    }
+    return Text(text, key: const Key('turnBanner'), style: Brand.h3.copyWith(color: color));
+  }
+}
 
 class _TableView extends StatelessWidget {
   final GameSnapshot snapshot;
@@ -278,6 +437,16 @@ class _TableView extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            // Where the player is in a promotion bracket.
+                            if (s.stage != null) ...[
+                              Text(s.stage!.toUpperCase(),
+                                  key: const Key('stageLabel'),
+                                  style: Brand.micro.copyWith(
+                                      color: Brand.gold,
+                                      letterSpacing: 1.5,
+                                      fontWeight: FontWeight.w800)),
+                              const SizedBox(height: 6),
+                            ],
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 14, vertical: 5),
@@ -331,11 +500,17 @@ class _TableView extends StatelessWidget {
                 // looking at an empty table.
                 if (_waitingToStart(s))
                   Positioned.fill(
-                    child: WaitingPanel(
-                      roomName: roomName,
-                      seated: s.seats.whereType<SeatInfo>().length,
-                      needed: _minPlayersToStart,
-                    ),
+                    child: s.lobby != null
+                        ? _PromoWaiting(lobby: s.lobby!, roomName: roomName)
+                        : WaitingPanel(
+                            roomName: roomName,
+                            seated: s.seats.whereType<SeatInfo>().length,
+                            needed: _minPlayersToStart,
+                          ),
+                  )
+                else if (s.notice != null)
+                  Positioned.fill(
+                    child: _NoticePanel(text: s.notice!, onLeave: s.out ? onLeave : null),
                   ),
               ],
             ),
@@ -371,10 +546,7 @@ class _TableView extends StatelessWidget {
                             const Icon(Icons.timer_outlined, size: 16, color: Brand.gold),
                             const SizedBox(width: 6),
                           ],
-                          Text(s.isMyTurn ? 'Sua vez' : 'Aguardando…',
-                              key: const Key('turnBanner'),
-                              style: Brand.h3
-                                  .copyWith(color: s.isMyTurn ? Brand.gold : Brand.textSec)),
+                          _TurnLabel(isMyTurn: s.isMyTurn, deadline: s.turnDeadline),
                         ]),
                 ),
               ),
@@ -444,12 +616,22 @@ class _TableView extends StatelessWidget {
                                   onPressed: onShare),
                               const SizedBox(width: 8),
                             ],
-                            GradientButton('Sair da mesa',
-                                key: const Key('leaveTable'),
-                                icon: Icons.logout,
-                                expand: false,
-                                variant: BtnVariant.crimson,
-                                onPressed: onLeave),
+                            // Still in a promotion bracket: the next hand (or
+                            // table) comes on its own, and leaving forfeits.
+                            if (s.inBracket)
+                              Flexible(
+                                child: Text('A próxima mão começa em instantes…',
+                                    key: const Key('bracketNext'),
+                                    textAlign: TextAlign.center,
+                                    style: Brand.caption.copyWith(color: Brand.champagne)),
+                              )
+                            else
+                              GradientButton('Sair da mesa',
+                                  key: const Key('leaveTable'),
+                                  icon: Icons.logout,
+                                  expand: false,
+                                  variant: BtnVariant.crimson,
+                                  onPressed: onLeave),
                           ]),
                         ])
                       : s.isMyTurn

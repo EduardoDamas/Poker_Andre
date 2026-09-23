@@ -12,11 +12,19 @@ import '../theme.dart';
 /// of the next scheduled window when the server knows it; until the 10-minute
 /// scheduler is live it is null and the estimate line is simply absent — better
 /// no number than an invented one.
+///
+/// A promotion's waiting room passes its own [headline] ("O torneio começa às
+/// 20:00"), [countText] ("Inscritos: 37 · mínimo 80"), [doneText] for when the
+/// minimum is reached, and a [footnote].
 class WaitingPanel extends StatefulWidget {
   final String roomName;
   final int seated;
   final int needed;
   final DateTime? startsAt;
+  final String? headline;
+  final String? countText;
+  final String doneText;
+  final String? footnote;
 
   const WaitingPanel({
     super.key,
@@ -24,6 +32,10 @@ class WaitingPanel extends StatefulWidget {
     required this.seated,
     required this.needed,
     this.startsAt,
+    this.headline,
+    this.countText,
+    this.doneText = 'Sala completa',
+    this.footnote,
   });
 
   @override
@@ -54,7 +66,7 @@ class _WaitingPanelState extends State<WaitingPanel> {
     if (d.isNegative) return '00:00';
     // Round up: with 3m07.9s left the player should read 03:08, not 03:07.
     final secs = (d.inMilliseconds / 1000).ceil();
-    final m = (secs ~/ 60).remainder(60).toString().padLeft(2, '0');
+    final m = (secs ~/ 60).toString().padLeft(2, '0'); // 75:00, not 15:00, past an hour
     final s = secs.remainder(60).toString().padLeft(2, '0');
     return '$m:$s';
   }
@@ -102,9 +114,10 @@ class _WaitingPanelState extends State<WaitingPanel> {
           const SizedBox(height: 6),
           Divider(color: Brand.gold.withValues(alpha: 0.35), height: 18),
           Text(
-            missing > 0
-                ? 'O torneio começa assim que a sala completar'
-                : 'O torneio começa em instantes',
+            widget.headline ??
+                (missing > 0
+                    ? 'O torneio começa assim que a sala completar'
+                    : 'O torneio começa em instantes'),
             key: const Key('waitingHeadline'),
             textAlign: TextAlign.center,
             style: Brand.body,
@@ -124,9 +137,17 @@ class _WaitingPanelState extends State<WaitingPanel> {
               textAlign: TextAlign.center,
             )
           else
-            Text('Sala completa', style: Brand.h3, textAlign: TextAlign.center),
+            Text(widget.doneText, style: Brand.h3, textAlign: TextAlign.center),
           const SizedBox(height: 6),
-          Text('Na sala: ${widget.seated} de ${widget.needed}', style: Brand.micro),
+          Text(widget.countText ?? 'Na sala: ${widget.seated} de ${widget.needed}',
+              key: const Key('waitingCount'), style: Brand.micro),
+          if (widget.footnote != null) ...[
+            const SizedBox(height: 10),
+            Text(widget.footnote!,
+                key: const Key('waitingFootnote'),
+                textAlign: TextAlign.center,
+                style: Brand.caption.copyWith(color: Brand.champagne)),
+          ],
           const SizedBox(height: 18),
           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
             if (startsIn != null) ...[
