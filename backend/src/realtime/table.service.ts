@@ -6,6 +6,10 @@ import { SettlementService } from '../wallet/settlement.service';
 import { TournamentService, TournamentPayout } from '../tournament/tournament.service';
 import { Subscription } from '../tournament/subscription';
 import { decideRobotAction } from './bot-brain';
+import { FINAL_TABLE_SEATS, SEATS_PER_TABLE } from '../tournament/multi-table';
+
+/** Seats at an ordinary table (lobby rooms and bracket tables). */
+const STANDARD_SEATS = SEATS_PER_TABLE;
 
 /**
  * In-memory table state + live hand orchestration for the realtime layer.
@@ -135,10 +139,15 @@ export class TableService {
     return this.tables.get(id);
   }
 
-  private getOrCreate(id: string, maxSeats = 8): Table {
+  /**
+   * [maxAllowed] caps the seats. Lobby rooms are created by a client's join, so
+   * they stay at 8 whatever the client asks; only server-created tournament
+   * tables may seat a final table of up to 10.
+   */
+  private getOrCreate(id: string, maxSeats = 8, maxAllowed = STANDARD_SEATS): Table {
     let table = this.tables.get(id);
     if (!table) {
-      const seats = Math.min(Math.max(maxSeats, 2), 8);
+      const seats = Math.min(Math.max(maxSeats, 2), maxAllowed);
       table = {
         id,
         maxSeats: seats,
@@ -163,7 +172,7 @@ export class TableService {
    * before the first hand. Returns the (now tournament-mode) table.
    */
   enableTournament(id: string, level: number, maxSeats = 8, opts: { subTable?: boolean } = {}): Table {
-    const table = this.getOrCreate(id, maxSeats);
+    const table = this.getOrCreate(id, maxSeats, opts.subTable ? FINAL_TABLE_SEATS : STANDARD_SEATS);
     if (!table.tournament && !table.handInProgress) {
       table.tournament = {
         level,

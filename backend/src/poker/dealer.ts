@@ -29,7 +29,10 @@ export interface DealtHand {
 }
 
 const MIN_PLAYERS = 2;
-const MAX_PLAYERS = 8; // Phase 1 poker table size (per the spec)
+// Tables seat 8; a tournament's final table seats up to 10 (client format,
+// 2026-09-22: one winner from each of 10 tables). 10 players need
+// 10*2 + 3 burns + 5 board = 28 cards — well within 52.
+const MAX_PLAYERS = 10;
 
 /**
  * Deal a hand for `numPlayers`. Pass a pre-made `ShuffledDeck` for deterministic

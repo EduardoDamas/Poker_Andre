@@ -15,6 +15,12 @@
  */
 
 export const SEATS_PER_TABLE = 8;
+/**
+ * When this many players or fewer remain, they play ONE final table instead of
+ * being split again. Client format (2026-09-22): 10 tables of 8 → the 10 winners
+ * meet at a single final table → champion. 10-handed is standard poker.
+ */
+export const FINAL_TABLE_SEATS = 10;
 export const MIN_TABLES_TO_START = 10;
 export const MAX_TABLES = 100;
 export const MIN_PLAYERS = MIN_TABLES_TO_START * SEATS_PER_TABLE; // 80
@@ -23,13 +29,19 @@ export const MAX_PLAYERS = MAX_TABLES * SEATS_PER_TABLE; // 800
 export interface MttTable {
   id: string;
   round: number;
-  players: string[]; // 2..8 userIds seated here this round
+  players: string[]; // 2..8 per table; up to 10 at the final table
 }
 
-/** Split players evenly into tables of up to 8 (table sizes differ by at most 1). */
+/**
+ * Split players evenly into tables of up to 8 (table sizes differ by at most 1),
+ * except that 10 or fewer play a single final table.
+ */
 export function seatIntoTables(players: string[], round: number, tournamentId: string): MttTable[] {
   const count = players.length;
-  const numTables = Math.min(Math.max(1, Math.ceil(count / SEATS_PER_TABLE)), MAX_TABLES);
+  const numTables =
+    count <= FINAL_TABLE_SEATS
+      ? 1
+      : Math.min(Math.ceil(count / SEATS_PER_TABLE), MAX_TABLES);
   const tables: MttTable[] = Array.from({ length: numTables }, (_, i) => ({
     id: `${tournamentId}-r${round}-t${i + 1}`,
     round,

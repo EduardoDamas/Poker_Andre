@@ -17,6 +17,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { isBlocked } from '../auth/user-status';
 import { PlayerLimitService } from '../responsible/player-limit.service';
 import { MultiTableTournamentManager, SubTableRunner } from '../tournament/multi-table-manager';
+import { SEATS_PER_TABLE } from '../tournament/multi-table';
 import { Subscription } from '../tournament/subscription';
 
 const room = (tableId: string) => `table:${tableId}`;
@@ -354,7 +355,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.mtSubResolve.set(subTableId, resolve);
       this.mtSubTournament.set(subTableId, tournamentId);
       this.mtSubPlayers.set(subTableId, players);
-      const table = this.tables.enableTournament(subTableId, level, 8, { subTable: true });
+      // A final table seats everyone who reached it (up to 10); others seat 8.
+      const seats = Math.max(SEATS_PER_TABLE, players.length);
+      const table = this.tables.enableTournament(subTableId, level, seats, { subTable: true });
       const socks = this.mtSockets.get(tournamentId);
       for (const pid of players) {
         this.tables.recordTournamentEntry(table, pid, 'NONE'); // chips; entry already escrowed

@@ -120,4 +120,32 @@ void main() {
     await tester.pump();
     expect(find.byKey(const Key('tableError')), findsOneWidget);
   });
+
+  testWidgets('a 10-seat final table renders every seat on a phone screen', (tester) async {
+    // Portrait phone (~360×780 dp): the densest layout the final table will get.
+    tester.view.physicalSize = const Size(1080, 2340);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final seats = List<SeatInfo?>.generate(
+      10,
+      (i) => SeatInfo(position: i, userId: 'p$i', hasCards: true, isMe: i == 0),
+    );
+    final c = FakeConnection(GameSnapshot(
+      status: ConnStatus.connected,
+      street: 'preflop',
+      holeCards: const ['Ah', 'Kh'],
+      maxSeats: 10,
+      seats: seats,
+      actingPlayerId: 'p3',
+    ));
+    await tester.pumpWidget(tableWith(c));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull); // no overflow, no range error at seat 9
+    // One avatar per occupied seat — all ten are drawn.
+    expect(find.image(const AssetImage('assets/characters/avatars/chr-avatar-default.png')),
+        findsNWidgets(10));
+  });
 }

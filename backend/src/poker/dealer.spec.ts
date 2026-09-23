@@ -49,8 +49,16 @@ describe('dealer (Texas Hold\'em)', () => {
 
   it('rejects invalid player counts', () => {
     expect(() => dealHand(1)).toThrow();
-    expect(() => dealHand(9)).toThrow();
+    expect(() => dealHand(11)).toThrow(); // 10 is the final-table maximum
     expect(() => dealHand(2.5)).toThrow();
+  });
+
+  it('deals a full 10-handed final table from one deck, with no card twice', () => {
+    const dealt = dealHand(10);
+    expect(dealt.holeCards).toHaveLength(10);
+    const all = [...dealt.holeCards.flat(), ...dealt.board];
+    expect(all).toHaveLength(25);
+    expect(new Set(all).size).toBe(25);
   });
 
   it('is deterministic when given a fixed deck', () => {
