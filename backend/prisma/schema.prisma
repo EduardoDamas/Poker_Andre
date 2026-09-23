@@ -164,6 +164,7 @@ enum AccountType {
   PRIZE_POOL     // tournament prize escrow
   WITHDRAWAL_CLEARING // funds reserved for a pending Pix payout
   EXTERNAL       // counter-account for deposits/withdrawals to the outside world
+  PROMOTIONS     // company-funded prizes; its (negative) balance is total promo spend
 }
 
 // A balanced group of entries. The sum of entry.amountCents MUST be 0.
@@ -185,6 +186,7 @@ enum TxnKind {
   TOURNAMENT_BUYIN
   TOURNAMENT_PAYOUT
   TOURNAMENT_REFUND // entry returned: the room never reached its minimum
+  PROMO_PRIZE     // a company-funded prize (free-entry promotion)
   RAKE
   WITHDRAWAL
   ADJUSTMENT      // admin correction (audited)
@@ -349,6 +351,38 @@ model RoomRegistration {
   @@index([roomId, status])
   @@index([windowStart, status])
   @@index([userId, status])
+}
+
+// ---------------------------------------------------------------------
+// PROMOTIONS (client, 2026-09-21: free-entry tournament, one prize)
+// ---------------------------------------------------------------------
+
+// A promotional event with a single company-funded prize. Entry is free, so
+// there is no pool: the prize is paid from the PROMOTIONS account. The amount
+// depends on whether the winner was a subscriber when the tournament started.
+// winnerId/paidAt make the payout auditable, and the unique ledger reference
+// promo-prize-<id> makes it impossible to pay twice.
+model PromoEvent {
+  id                   String           @id @default(uuid())
+  name                 String
+  startsAt             DateTime
+  prizeCents           BigInt // non-subscriber prize
+  prizeSubscriberCents BigInt // subscriber prize
+  status               PromoEventStatus @default(SCHEDULED)
+  winnerId             String?
+  winnerSubscribed     Boolean?
+  prizePaidCents       BigInt?
+  prizeTxnId           String?
+  paidAt               DateTime?
+  createdAt            DateTime         @default(now())
+
+  @@index([status, startsAt])
+}
+
+enum PromoEventStatus {
+  SCHEDULED
+  PAID
+  CANCELLED
 }
 
 enum RoomRegistrationStatus {
