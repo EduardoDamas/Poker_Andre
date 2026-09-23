@@ -85,3 +85,24 @@ button.danger { background:#7A0D07; border-color:#B3140C; color:#fff; }
 .stat:first-child { border-color:var(--red); }
 .stat-value { font-size:28px; font-weight:800; }
 .stat-label { color:var(--gray); font-size:12px; font-weight:600; margin-top:2px; }
+
+/* Promotions form */
+h2 { font-size: 18px; margin: 24px 0 8px; }
+.ok { color: #2FBF71; }
+.promo-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin: 12px 0;
+}
+.promo-form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--gray); }
+.promo-form label.check { flex-direction: row; align-items: center; color: var(--off-white); }
+.promo-form input:not([type='checkbox']) {
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--gray);
+  background: var(--charcoal);
+  color: var(--off-white);
+}
+.promo-form input:disabled { opacity: 0.5; }

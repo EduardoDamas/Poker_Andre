@@ -98,7 +98,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **455 passing / 59 suites** (app: 75 tests). On the 2026-09 machine port 5434 works fine
+Full suite is **461 passing / 60 suites** (app: 75 tests; panel: 30). On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
@@ -256,7 +256,7 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       the room is recognised by its id, never by the client's `level` (level 0 is falsy and used
       to fall through to a practice table). Admin: `POST /admin/promo-events` {name, startsAt,
       prizeCents, prizeSubscriberCents, minPlayers}, `GET /admin/promo-events`,
-      `POST /admin/promo-events/:id/cancel` — audited; no panel screen yet.
+      `POST /admin/promo-events/:id/cancel` — audited; panel tab **Promoções** (2026-09-23).
       **Final table of 10 done too:** 10 tables of 8 → one final table of the 10 winners.
       **Client, 2026-09-22 (latest):** "os inscritos esperam até completarem pelo menos 10 mesas"
       (minimum 80) and "os 80 são apenas uma estimativa, é possível que hajam mais". Asked back:
@@ -298,10 +298,14 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       minimum, start time and "Mantenha o app aberto"; round / MESA FINAL label; "Você venceu sua
       mesa — aguardando N mesas"; "Você foi eliminado — Nº lugar entre N" with Sair; turn countdown;
       lobby dots capped at 10 (100 dots overflowed the card — 1.0.7 clips them, harmless).
-      **Still to do:** publish 1.0.8 (release + `/baixar` link), create the event once the client
-      gives the time (`POST /admin/promo-events` {name, startsAt, prizeCents: 25000,
-      prizeSubscriberCents: 50000, minPlayers: 80, maxPlayers: 100, waitMinutes: 30|null}), a load
-      test against Render with ~100 simulated players, and the real-phone rehearsal 05–06/10.
+      **Panel → Promoções** (2026-09-23): schedule one (defaults: Nível 0, R$250 / R$500, mínimo
+      80, 100 vagas, tolerância 30 min or "sem tolerância"; start in the computer's time zone),
+      follow it live every 5s (sala aberta: N inscritos → rodada, quantos na disputa, mesas
+      jogando → paga: nome, telefone, prêmio), cancel (warns hard if it is running — a cancelled
+      event pays nothing). The list flags a champion whose prize did not pay (blocked account).
+      **Still to do:** publish 1.0.8 (release + `/baixar` link), schedule the event in the panel once
+      the client gives the time, a load test against Render with ~100 simulated players, and the
+      real-phone rehearsal 05–06/10.
 - [ ] **Validate subscriptions Opção 2 BEFORE the promo** — the promo's goal is subscriptions, and
       today each one waits for a manual release in the panel. One small real purchase, then set
       `SUBSCRIPTION_CHECKOUT=dynamic`, so late subscribers are not counted as non-subscribers.

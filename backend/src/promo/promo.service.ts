@@ -221,6 +221,17 @@ export class PromoService {
     return this.prisma.promoEvent.findMany({ orderBy: { startsAt: 'desc' }, take: 100 });
   }
 
+  /** Name and phone of each winner, so the panel can say who to congratulate. */
+  async winners(events: PromoEvent[]): Promise<Map<string, { displayName: string; phone: string }>> {
+    const ids = [...new Set(events.map((e) => e.winnerId).filter((id): id is string => !!id))];
+    if (!ids.length) return new Map();
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, displayName: true, phone: true },
+    });
+    return new Map(users.map((u) => [u.id, { displayName: u.displayName, phone: u.phone }]));
+  }
+
   /** Cancel an event that has not paid out (e.g. it never ran). */
   async cancel(eventId: string): Promise<PromoEvent> {
     const event = await this.prisma.promoEvent.findUnique({ where: { id: eventId } });

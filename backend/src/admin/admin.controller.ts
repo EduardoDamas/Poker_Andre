@@ -18,7 +18,11 @@ import { PromoBracket, PromoBrackets } from '../promo/promo-bracket';
 import { CreatePromoEventDto } from './dto/create-promo-event.dto';
 
 /** BigInt-free view of a promotion, with its live bracket when there is one. */
-function serializePromo(e: PromoEvent, bracket?: PromoBracket) {
+function serializePromo(
+  e: PromoEvent,
+  bracket?: PromoBracket,
+  winner?: { displayName: string; phone: string },
+) {
   return {
     id: e.id,
     name: e.name,
@@ -30,6 +34,8 @@ function serializePromo(e: PromoEvent, bracket?: PromoBracket) {
     waitMinutes: e.waitMinutes,
     status: e.status,
     winnerId: e.winnerId,
+    winnerName: winner?.displayName ?? null,
+    winnerPhone: winner?.phone ?? null,
     winnerSubscribed: e.winnerSubscribed,
     prizePaidCents: e.prizePaidCents?.toString() ?? null,
     paidAt: e.paidAt,
@@ -217,7 +223,11 @@ export class AdminController {
   /** Every promotion, newest first, with who won and what was paid. */
   @Get('promo-events')
   async listPromoEvents() {
-    return (await this.promo.list()).map((e) => serializePromo(e, this.brackets.get(promoRoomId(e.id))));
+    const events = await this.promo.list();
+    const winners = await this.promo.winners(events);
+    return events.map((e) =>
+      serializePromo(e, this.brackets.get(promoRoomId(e.id)), e.winnerId ? winners.get(e.winnerId) : undefined),
+    );
   }
 
   /** Call off a promotion that has not paid out. */

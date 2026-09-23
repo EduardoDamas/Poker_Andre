@@ -22,10 +22,18 @@ async function request<T>(path: string, opts: RequestInit = {}, token?: string):
       ...(opts.headers ?? {}),
     },
   });
-  if (!res.ok) {
-    throw new ApiError(res.status, `Request failed (${res.status})`);
-  }
   const text = await res.text();
+  if (!res.ok) {
+    // Keep the server's reason (e.g. "O prêmio do assinante não pode ser menor…").
+    let reason = `Request failed (${res.status})`;
+    try {
+      const m = (JSON.parse(text) as { message?: string | string[] }).message;
+      if (m) reason = Array.isArray(m) ? m.join('; ') : m;
+    } catch {
+      /* not JSON */
+    }
+    throw new ApiError(res.status, reason);
+  }
   return (text ? JSON.parse(text) : null) as T;
 }
 
@@ -86,6 +94,46 @@ export interface SubscriptionRequest {
   grantedUntil: string | null;
   requestedAt: string;
   settledAt: string | null;
+}
+
+/** A free promotion with one company-funded prize, played as a multi-table bracket. */
+export interface PromoEvent {
+  id: string;
+  name: string;
+  startsAt: string;
+  prizeCents: string;
+  prizeSubscriberCents: string;
+  minPlayers: number;
+  maxPlayers: number;
+  /** Minutes past the start after which it starts with whoever is there; null = never. */
+  waitMinutes: number | null;
+  status: 'SCHEDULED' | 'PAID' | 'CANCELLED';
+  winnerId: string | null;
+  winnerName: string | null;
+  winnerPhone: string | null;
+  winnerSubscribed: boolean | null;
+  prizePaidCents: string | null;
+  paidAt: string | null;
+  /** The running bracket, while the server holds one. */
+  live: {
+    registered: number;
+    started: boolean;
+    startedWith: number;
+    round: number;
+    alive: number;
+    tablesLeft: number;
+    championId: string | null;
+  } | null;
+}
+
+export interface NewPromoEvent {
+  name: string;
+  startsAt: string; // ISO
+  prizeCents: number;
+  prizeSubscriberCents: number;
+  minPlayers: number;
+  maxPlayers: number;
+  waitMinutes: number | null;
 }
 
 export interface Session {
@@ -168,6 +216,12 @@ export const api = {
       { method: 'POST', body: JSON.stringify({ adminNote }) },
       token,
     ),
+  // Promotions.
+  promoEvents: (token: string) => request<PromoEvent[]>('/admin/promo-events', {}, token),
+  createPromoEvent: (token: string, event: NewPromoEvent) =>
+    request<PromoEvent>('/admin/promo-events', { method: 'POST', body: JSON.stringify(event) }, token),
+  cancelPromoEvent: (token: string, id: string) =>
+    request<PromoEvent>(`/admin/promo-events/${id}/cancel`, { method: 'POST' }, token),
   // Subscription grant.
   grantSubscription: (token: string, id: string, subscription: SubscriptionTier, untilMs?: number) =>
     request<{ ok: true }>(
