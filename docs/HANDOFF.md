@@ -209,7 +209,7 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 - **Legal:** Termos, Privacidade (LGPD, names a DPO), Regulamento and Exclusão de conta are live at
   `/legal/*`. Registration records consent (`termsAcceptedAt`, `termsVersion`).
 - **Infrastructure:** Render web service on the **Starter** plan, **1 instance**, Oregon; Postgres
-  `capa-postgres` on **basic_256mb** (v16). No load test has been run.
+  `capa-postgres` on **basic_256mb** (v16). Load-tested locally only (see the promotion item in §10).
 - **Capacity (be exact when asked):** accounts/downloads are unlimited. Money tournaments are 7
   rooms x 8 seats = **56 players at once** today (each room runs one tournament at a time, then
   frees for the next group). The 10-minute format raises that to 7 x 80 = 560. Game state is
@@ -303,9 +303,18 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       follow it live every 5s (sala aberta: N inscritos → rodada, quantos na disputa, mesas
       jogando → paga: nome, telefone, prêmio), cancel (warns hard if it is running — a cancelled
       event pays nothing). The list flags a champion whose prize did not pay (blocked account).
+      **Load test (2026-09-23, local, `npm run build && npm run load:promo -- 100 400`):** the built
+      server as its own process, production pacing, 100 simulated players acting like 1.0.7 → 10
+      tables of 10 → final of 10 → champion paid, 0 failed joins, 0 rejected actions. Server memory
+      106 MB idle → **129 MB peak** (Render Starter has 512 MB); CPU ~11% of one local core.
+      **Duration (the real finding):** round 1 took 10–22 hands per table (avg 17.6), the final 20;
+      a table of 10 makes ~15–18 decisions per hand. Estimated real length (slowest table decides
+      the round): **~1 h at 5 s per decision, ~1 h 30 at 8 s**, ~2 h 20 at 12 s. The client once
+      spoke of ~15 min. To shorten it (the client's call): blinds doubling every 2 hands instead of
+      3, a 20 s turn clock instead of 30 s, or a smaller starting stack — none built yet.
+      Not yet tested against Render itself (it would need test accounts in production).
       **Still to do:** publish 1.0.8 (release + `/baixar` link), schedule the event in the panel once
-      the client gives the time, a load test against Render with ~100 simulated players, and the
-      real-phone rehearsal 05–06/10.
+      the client gives the time, and the real-phone rehearsal 05–06/10.
 - [ ] **Validate subscriptions Opção 2 BEFORE the promo** — the promo's goal is subscriptions, and
       today each one waits for a manual release in the panel. One small real purchase, then set
       `SUBSCRIPTION_CHECKOUT=dynamic`, so late subscribers are not counted as non-subscribers.
