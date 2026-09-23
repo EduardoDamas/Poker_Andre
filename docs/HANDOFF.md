@@ -4,7 +4,7 @@ Everything needed to continue development, build, and deploy on a **new computer
 Committed to git, so it travels with the repo. **Secret values are NOT here** — they
 live in gitignored files you copy manually (see §2).
 
-Last updated: 2026-09-22. App version live: **1.0.7+25** (next: 1.0.8, see §10).
+Last updated: 2026-09-23. App version live: **1.0.7+25**; **1.0.8+26** built, not yet released (see §10).
 
 ---
 
@@ -98,7 +98,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **421 passing / 58 suites**. On the 2026-09 machine port 5434 works fine
+Full suite is **455 passing / 59 suites** (app: 75 tests). On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
@@ -258,8 +258,50 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       prizeCents, prizeSubscriberCents, minPlayers}, `GET /admin/promo-events`,
       `POST /admin/promo-events/:id/cancel` — audited; no panel screen yet.
       **Final table of 10 done too:** 10 tables of 8 → one final table of the 10 winners.
-      **Next for plan A:** the 80-player bracket as a promotion (multi-table registration +
-      the app moving winners to the final table), then 1.0.8.
+      **Client, 2026-09-22 (latest):** "os inscritos esperam até completarem pelo menos 10 mesas"
+      (minimum 80) and "os 80 são apenas uma estimativa, é possível que hajam mais". Asked back:
+      cap at 100 places? and a tolerance (suggested 30 min, then start with who is there)?
+      **Done (2026-09-23): plan A — the promotion is a multi-table bracket** (it replaces the
+      single-table plan B code; a field of 10 or fewer is simply one final table, so setting
+      `maxPlayers: 10` is the fallback). `src/promo/promo-bracket.ts` (pure, unit-tested) +
+      gateway wiring:
+        - Places: `maxPlayers` (default and max **100**). 81–100 play 10 tables of 9–10 so the
+          winners still fill one final table of 10 (`seatIntoTables` change, applies to every
+          bracket); >100 would need a semi-final round — not built.
+        - Start: at `startsAt` with `minPlayers` present; or after `waitMinutes` (default 30,
+          `null` = wait for the minimum until the room closes) with whoever is there (2+).
+          Only players with the app open hold a place: a dropped connection frees it before the
+          start (reconnecting takes it back while places remain). Seats are shuffled.
+        - Subscriptions re-read at the start; the champion's plan at that moment picks R$250/R$500.
+        - Play: tables run concurrently; winners wait, then move together to the next table
+          (`BRACKET_ROUND_DELAY_MS`, 5s). **Turn clock** on bracket tables (`TURN_TIMEOUT_MS`,
+          30s → check if free, else fold) so an AFK player cannot stall 80 people. A player who
+          disconnects is auto-folded and withdrawn after `TOURNAMENT_DISCONNECT_GRACE_MS` (60s);
+          on a bracket table the last one left wins it (no money there), so it never stalls.
+        - **Works with the installed 1.0.7:** it joins the promo room and sends actions under
+          the promo room's id; the server routes each player to their current table. Sub-table
+          results are sent as `over:false` so 1.0.7 never says "você venceu o torneio" for a
+          table win. Reconnecting (1.0.7 re-joins automatically) puts the player back at their table.
+        - Events (for 1.0.8): `promo:lobby` {registered, minPlayers, maxPlayers, startsAt,
+          startAnywayAt}, `promo:started`, `tournament:table` {tableId, round, final},
+          `tournament:advanced` {tablesLeft}, `tournament:eliminated` {place, players},
+          `tournament:champion` {winnerId, prizeCents}; `game:state` carries `turnMs`.
+        - One place for "a hand finished" (`afterHand`), used by actions, robots, auto-folds,
+          timeouts and withdrawals — the paid multi-table sub-tables used to advance only on a
+          player's own action (a withdrawal or auto-fold could stall them).
+        - Admin: create takes `maxPlayers` and `waitMinutes`; the list shows `live` {registered,
+          started, round, alive, tablesLeft, championId}. Lobby shows places (`maxSeats` = 100).
+        - Tested over real sockets (`promo-room.e2e.spec.ts`): 2, 24 and **100 players** (10 tables
+          of 10 → final of 10), AFK player, dropped connection, tolerance, place cap, late join,
+          self-exclusion, direct join of a bracket table refused.
+      **App 1.0.8** (built: `mobile/dist/capa-contest-1.0.8.apk`): waiting room with places vs
+      minimum, start time and "Mantenha o app aberto"; round / MESA FINAL label; "Você venceu sua
+      mesa — aguardando N mesas"; "Você foi eliminado — Nº lugar entre N" with Sair; turn countdown;
+      lobby dots capped at 10 (100 dots overflowed the card — 1.0.7 clips them, harmless).
+      **Still to do:** publish 1.0.8 (release + `/baixar` link), create the event once the client
+      gives the time (`POST /admin/promo-events` {name, startsAt, prizeCents: 25000,
+      prizeSubscriberCents: 50000, minPlayers: 80, maxPlayers: 100, waitMinutes: 30|null}), a load
+      test against Render with ~100 simulated players, and the real-phone rehearsal 05–06/10.
 - [ ] **Validate subscriptions Opção 2 BEFORE the promo** — the promo's goal is subscriptions, and
       today each one waits for a manual release in the panel. One small real purchase, then set
       `SUBSCRIPTION_CHECKOUT=dynamic`, so late subscribers are not counted as non-subscribers.
@@ -278,7 +320,7 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       today's 8-seat rooms serve low traffic, rather than lowering the minimum for launch.
       **Open with the client:** run both formats side by side, or replace today's.
 - [ ] **Waiting panel** (`mobile/lib/widgets/waiting_panel.dart`) — built and tested, NOT in 1.0.7.
-      Ships with 1.0.8. Its "tempo estimado" box stays hidden until the scheduler supplies a start.
+      Ships with 1.0.8 (the promotion's waiting room uses it with the real start time).
 - [x] **Publish `1.0.7+25`** — released and `/baixar` points at it (2026-09-17).
 - [x] **Overdraft race fixed** — `LedgerService.post` takes `requireNonNegative`, checked inside
       the serializable transaction, so concurrent debits (two rooms, two withdrawals, or a
