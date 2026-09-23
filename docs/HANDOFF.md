@@ -4,7 +4,7 @@ Everything needed to continue development, build, and deploy on a **new computer
 Committed to git, so it travels with the repo. **Secret values are NOT here** — they
 live in gitignored files you copy manually (see §2).
 
-Last updated: 2026-09-17. App version: **1.0.7+25**.
+Last updated: 2026-09-22. App version live: **1.0.7+25** (next: 1.0.8, see §10).
 
 ---
 
@@ -52,8 +52,9 @@ place at the same paths. Without them you cannot deploy, push, or sign the app.
 > Render key → Render dashboard; keystore → **cannot be regenerated** (see the release-keystore note).
 
 Live credentials you'll also need (keep out of git):
-- **Admin panel** `https://capa-contest-api.onrender.com/panel` → user `admin`, password is the
-  `ADMIN_PASSWORD` env var on Render (rotate to a strong value).
+- **Admin panel** `https://capa-contest-api.onrender.com/panel` → username and password are the
+  `ADMIN_USERNAME` / `ADMIN_PASSWORD` env vars on Render. Rotated 2026-09-17 to values only the
+  client holds — ask him, or set new ones in Render (then redeploy). Case-sensitive.
 - **Render**: owner `mastercred962@gmail.com`, service `srv-d9rlhdf40ujc73bpamj0`.
 - **InfinitePay**: handle `andre-luiz-g4j`; `INFINITEPAY_WEBHOOK_SECRET` is set on Render.
 
@@ -61,9 +62,9 @@ Live credentials you'll also need (keep out of git):
 
 ## 3. Get the code + push setup
 
-The working tree tracks two remotes:
-- `origin` → `aaroncastro5678913-cpu/winpoker` (read-only from this account).
-- `deploy` → `EduardoDamas/Poker_Andre` (**public**; Render deploys from its `main`).
+A fresh clone has a single remote, `origin` → `EduardoDamas/Poker_Andre` (**public**; Render
+deploys from its `main`). The older machine also tracked `aaroncastro5678913-cpu/winpoker`
+(read-only); it is not needed.
 
 Clone the deploy repo on the new machine:
 ```
@@ -72,9 +73,11 @@ git clone https://github.com/EduardoDamas/Poker_Andre.git Poker
 Push (credential helpers get overridden, so use a token-in-URL):
 ```
 tok=$(tr -d '\r\n' < .gh-token.txt)
-git push "https://x-access-token:${tok}@github.com/EduardoDamas/Poker_Andre.git" master:main
+git push "https://x-access-token:${tok}@github.com/EduardoDamas/Poker_Andre.git" HEAD:main
 ```
-Local branch is `master`; it maps to the remote `main`.
+Push whatever branch you are on to `main` (`HEAD:main`). The `gh` CLI on the 2026-09 machine was
+logged in as a different account; for releases use `GH_TOKEN=$(tr -d '\r\n' < .gh-token.txt)` so
+they are created as `EduardoDamas`.
 
 ---
 
@@ -95,7 +98,8 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **348 passing / 53 suites**. On a healthy machine, plain `npx jest` with the
+Full suite is **382 passing / 55 suites**. On the 2026-09 machine port 5434 works fine
+(PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
 slower machine (the default is 20s).
@@ -132,7 +136,10 @@ Launcher icon: `flutter_launcher_icons` config in pubspec → `dart run flutter_
 Local: `cd admin && npm install && npm run dev` → http://localhost:5173 (point at prod with
 `VITE_API_BASE=https://capa-contest-api.onrender.com`). Hosted: the built panel is bundled into
 `backend/panel/` and served at **`/panel`** (rebuild with `npm run build` in admin/, copy `dist`
-→ `backend/panel/`, redeploy). Login is `admin` + `ADMIN_PASSWORD` (Render env).
+→ `backend/panel/`, redeploy). Login is `ADMIN_USERNAME` + `ADMIN_PASSWORD` (Render env).
+**Build the hosted panel with `VITE_API_BASE=https://capa-contest-api.onrender.com`** — `admin/.env`
+points at localhost and Vite applies it to production builds too, which would break the live panel.
+Check the bundle has no `localhost` before committing `backend/panel/`.
 
 ---
 
@@ -184,27 +191,77 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 
 ## 9. Current state & what's live
 
-- **Prod API:** https://capa-contest-api.onrender.com (paid Render plan, no sleep).
-- **Install page:** https://capa-contest-api.onrender.com/baixar
+- **Prod API:** https://capa-contest-api.onrender.com — commit `59d46d7` (2026-09-17).
+- **Install page:** https://capa-contest-api.onrender.com/baixar — shows operator identity
+  (ANDRE LUIZ LABADESSA LTDA · CNPJ 67.550.569/0001-00), support WhatsApp (13) 99600-1429 and
+  LABA29@YAHOO.COM, matching the legal documents. Says "deposite com cartão, saque por Pix".
 - **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.7/CAPA-CONTEST.apk`
   (GitHub Release asset). To publish a build: create a new release with the APK, then update the
   link in `backend/public/install.html` (+ `docs/marketing/install.html`) and deploy — the public
-  `/baixar` URL never changes.
+  `/baixar` URL never changes. Releases so far: v1.0.3, v1.0.5, v1.0.6, v1.0.7.
 - **Card payments (InfinitePay):** LIVE + validated with a real R$1 charge. Card-only for now
   (Pix disabled at InfinitePay per client). Deposit button mints a checkout link; webhook credits
-  the wallet (`parseWebhook` treats `paid_amount`+`transaction_nsu` as paid).
+  the wallet (`parseWebhook` treats `paid_amount`+`transaction_nsu` as paid). Deposits are capped
+  at R$20.000 each (`MAX_DEPOSIT_CENTS`).
+- **Admin panel credentials** were rotated on 2026-09-17 to values only the client holds. They
+  live **only** in Render's `ADMIN_USERNAME` / `ADMIN_PASSWORD` — never in the repo or in notes.
+  Both are case-sensitive.
+- **Legal:** Termos, Privacidade (LGPD, names a DPO), Regulamento and Exclusão de conta are live at
+  `/legal/*`. Registration records consent (`termsAcceptedAt`, `termsVersion`).
+- **Infrastructure:** Render web service on the **Starter** plan, **1 instance**, Oregon; Postgres
+  `capa-postgres` on **basic_256mb** (v16). No load test has been run.
+- **Capacity (be exact when asked):** accounts/downloads are unlimited. Money tournaments are 7
+  rooms x 8 seats = **56 players at once** today (each room runs one tournament at a time, then
+  frees for the next group). The 10-minute format raises that to 7 x 80 = 560. Game state is
+  **in memory in one process**, so scale the instance up, not out — more instances would split
+  the state (see §10).
 - **Features shipped:** poker engine, tournaments (7 levels), auto card deposit, virtual points +
-  daily lucky wheel + streak milestones, rankings (daily/weekly/monthly), winners feed,
-  share-your-win-on-Facebook (+5000 free points), immersive full-screen, responsive landscape
-  table, crimson table art, custom card back.
+  daily lucky wheel + streak milestones, rankings, winners feed, share-your-win (+5000 points),
+  subscriptions via the client's fixed links (admin releases them), responsible-gaming limits +
+  self-exclusion, consent at signup, password recovery, overdraft-safe ledger, admin panel with
+  player counters / limits column / Assinaturas tab.
+- **Marketing:** Meta ads approved; Google campaign running since 2026-09-20 (account validated,
+  landing-page content under review). CTR ~10%, ~96% of clicks on smartphones.
 
 ---
 
 ## 10. Pending tasks (backlog)
 
-- [ ] **Publish `1.0.7+25`** — create release `v1.0.7` with the signed APK; `/baixar` points at it.
-      (`v1.0.5` and `v1.0.6` shipped 2026-09-16/17.) 1.0.7 carries the two player-facing features
-      that the server already supports: "Esqueci minha senha" and the Termos checkbox.
+- [ ] **PROMOÇÃO "Nível 0" — quarta 07/10/2026 (5º dia útil de outubro)** — free entry, ONE
+      prize: R$500 if the winner is a subscriber, R$250 if not; the goal is new subscriptions.
+      Client spec (2026-09-21): 10 tables x 8 → 1 per table → final table of 8 → champion, ~15 min.
+      **The spec does not add up:** 10 tables leave 10 winners, not 8. Offered: (A, recommended)
+      8 tables = 64 players → final table of 8; or (B) 80 players → two semi-finals of 5 → final.
+      **Waiting on the client:** A or B, start time, minimum registrations (suggested 16), and the
+      subscriber rule (suggested: "assinante até o início do torneio").
+      **Needs:** the multi-table app wiring (same as the 10-minute rooms) + app **1.0.8** + players
+      updating; a house-funded prize (a new money flow — there are no entries to fund it); turbo
+      blinds to get near 15 min (realistically 15–25).
+      **Plan agreed with the client:** answers by 24/09 → built and tested with 64 simulated
+      players by 01/10 → 1.0.8 published 02/10 → **real-phone rehearsal 05–06/10** (a multi-table
+      tournament has never run on real devices) → promo 07/10.
+      **Plan B:** if the rehearsal fails, run it as today's single 8-seat table, which needs no app
+      update — the date and prize stay. Build the house-funded prize first; it serves both plans.
+- [ ] **Validate subscriptions Opção 2 BEFORE the promo** — the promo's goal is subscriptions, and
+      today each one waits for a manual release in the panel. One small real purchase, then set
+      `SUBSCRIPTION_CHECKOUT=dynamic`, so late subscribers are not counted as non-subscribers.
+- [~] **10-minute scheduled rooms** (client spec, 2026-09-17: a room per level opens every 10 min;
+      80 seats = 100% occupancy; pool capped at 50% of what came in; nobody joins mid-tournament).
+      **Built:** `settle(prizePoolSharePct)`, `refundEntries`/`refundEntry` (TOURNAMENT_REFUND
+      kind), `ScheduledRoomsService` (clock-aligned windows, durable `RoomRegistration` table,
+      register / cancel, `closeWindow` start-or-refund) and a **hard floor**: a window never runs
+      below the occupancy where the prize table pays (8 of 80) — below it the house would keep every
+      cent. Settings: `ROOM_MIN_PLAYERS`, `TOURNAMENT_WINDOW_MINUTES`, `PRIZE_POOL_SHARE_PCT` (50).
+      **Pending:** the tick timer, the gateway wiring (seat rosters across tables and play the
+      bracket), the app (schedule screen, countdown, register) and an APK. The existing multi-table
+      settle still passes `capacity: MAX_PLAYERS` (800) — must become `ROOM_SEATS` (80) when wired.
+      **Economics:** in this format the winner gets 12% of the money in (25% share of a 50% pool),
+      so 8 players pays R$20 vs R$40 today. Recommend keeping the client's minimum of 40 and letting
+      today's 8-seat rooms serve low traffic, rather than lowering the minimum for launch.
+      **Open with the client:** run both formats side by side, or replace today's.
+- [ ] **Waiting panel** (`mobile/lib/widgets/waiting_panel.dart`) — built and tested, NOT in 1.0.7.
+      Ships with 1.0.8. Its "tempo estimado" box stays hidden until the scheduler supplies a start.
+- [x] **Publish `1.0.7+25`** — released and `/baixar` points at it (2026-09-17).
 - [x] **Overdraft race fixed** — `LedgerService.post` takes `requireNonNegative`, checked inside
       the serializable transaction, so concurrent debits (two rooms, two withdrawals, or a
       withdrawal racing an entry) can no longer push a wallet negative. See `wallet/overdraft.spec.ts`.
@@ -217,7 +274,7 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       `OTP_PROVIDER=dev`, so codes only reach the panel's **Códigos OTP** tab for an admin to
       relay. Set `OTP_PROVIDER=whatsapp` (+ Meta creds) or `twilio` for players to get them
       directly; both providers are already in the code.
-- [ ] **Rotate the admin panel password** to a strong value only the client holds.
+- [x] **Rotate the admin panel password** — done 2026-09-17 (values only in Render env).
 - [x] **Subscriptions purchase (Opção 1)** — the client's four fixed InfinitePay links
       (`SUBSCRIPTION_LINKS` in `backend/src/tournament/payment-links.ts`). The player taps a plan,
       we record a `SubscriptionRequest`, and the admin releases it in the panel's **Assinaturas**
@@ -233,6 +290,16 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       to go back to Opção 1 (fixed links + admin confirms). The app needs no new build either way.
 - [ ] **Repo hygiene** — untracked theme-asset `.zip`s + duplicated extract folders under
       `mobile/assets/` should be gitignored/removed.
+- [ ] **Fix Render auto-deploy** — the GitHub webhook does not reach Render (every deploy this
+      month was a manual click). Reconnect the repo in Settings → Build & Deploy.
+- [ ] **CAPA domain** — bought by the client, not pointed yet. Point it at the service, then move
+      the legal URLs, the landing page and ideally the support/DPO e-mail (today a Yahoo address)
+      onto it. Ad platforms prefer policy and site on the same domain; Search Console needs it.
+- [ ] **Google Ads category** — asked the client's agency whether the ad is reviewed under the
+      real-money gaming policy (often needs advertiser certification even for skill games). If
+      so, page content alone will not get it approved.
+- [ ] **Load test before a big campaign push**, and plan for horizontal scale: tournament state is
+      in memory in one process, so capacity grows only with a bigger instance until that changes.
 - [x] **Consent at registration** — the app asks the player to accept Termos + Privacidade +
       Regulamento (links open the live `/legal/*` pages) and the server stores `termsAcceptedAt`
       + `termsVersion` (`auth/legal-version.ts`). Bump `LEGAL_VERSION` when the lawyer issues new
