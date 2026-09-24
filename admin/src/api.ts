@@ -114,6 +114,13 @@ export interface PromoEvent {
   winnerSubscribed: boolean | null;
   prizePaidCents: string | null;
   paidAt: string | null;
+  startedAt: string | null;
+  startedWith: number | null;
+  /**
+   * Paid at the non-subscriber rate, but the winner asked for a plan before the
+   * start: REQUESTED = release it in Assinaturas; CONFIRMED = the difference is due.
+   */
+  subscriberDifference: 'REQUESTED' | 'CONFIRMED' | null;
   /** The running bracket, while the server holds one. */
   live: {
     registered: number;
@@ -220,6 +227,12 @@ export const api = {
   promoEvents: (token: string) => request<PromoEvent[]>('/admin/promo-events', {}, token),
   createPromoEvent: (token: string, event: NewPromoEvent) =>
     request<PromoEvent>('/admin/promo-events', { method: 'POST', body: JSON.stringify(event) }, token),
+  paySubscriberDifference: (token: string, id: string) =>
+    request<{ ok: true; differenceCents: string }>(
+      `/admin/promo-events/${id}/subscriber-difference`,
+      { method: 'POST' },
+      token,
+    ),
   cancelPromoEvent: (token: string, id: string) =>
     request<PromoEvent>(`/admin/promo-events/${id}/cancel`, { method: 'POST' }, token),
   // Subscription grant.

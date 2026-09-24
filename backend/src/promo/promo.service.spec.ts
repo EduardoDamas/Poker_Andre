@@ -277,4 +277,90 @@ describe('PromoService (free-entry promotion, one prize)', () => {
       }
     });
   });
+  describe('a plan bought before the start but released later', () => {
+    const START = new Date('2026-10-07T23:00:00Z');
+    const min = (m: number) => new Date(START.getTime() + m * 60_000);
+
+    async function request(userId: string, requestedAt: Date, status: 'REQUESTED' | 'CONFIRMED' | 'REJECTED', grantedUntil?: Date) {
+      await prisma.subscriptionRequest.create({
+        data: { userId, plan: 'MONTHLY', amountCents: 31250n, status, requestedAt, grantedUntil: grantedUntil ?? null },
+      });
+    }
+
+    it('counts when asked for before the start and released since', async () => {
+      const u = await player();
+      await request(u, min(-5), 'CONFIRMED', min(30 * 24 * 60));
+      expect(await promo.subscribedByRequestAt(u, START)).toBe(true);
+    });
+
+    it('does not count when asked for after the start, still waiting, rejected, or long expired', async () => {
+      const after = await player();
+      await request(after, min(10), 'CONFIRMED', min(30 * 24 * 60));
+      const waiting = await player();
+      await request(waiting, min(-5), 'REQUESTED');
+      const rejected = await player();
+      await request(rejected, min(-5), 'REJECTED');
+      const expired = await player();
+      await request(expired, min(-90 * 24 * 60), 'CONFIRMED', min(-60 * 24 * 60));
+      for (const u of [after, waiting, rejected, expired]) {
+        expect(await promo.subscribedByRequestAt(u, START)).toBe(false);
+      }
+    });
+
+    async function paidAsNonSubscriber(winner: string) {
+      const e = await event();
+      await promo.markStarted(e.id, START, 92);
+      await promo.awardPrize({ eventId: e.id, winnerId: winner, subscribedAtStart: false });
+      return (await prisma.promoEvent.findUnique({ where: { id: e.id } }))!;
+    }
+
+    it('flags the difference: waiting for release, then due', async () => {
+      const u = await player();
+      await request(u, min(-5), 'REQUESTED');
+      const e = await paidAsNonSubscriber(u);
+      expect(await promo.pendingSubscriberDifference(e)).toBe('REQUESTED');
+
+      await prisma.subscriptionRequest.updateMany({
+        where: { userId: u }, data: { status: 'CONFIRMED', grantedUntil: min(30 * 24 * 60) },
+      });
+      expect(await promo.pendingSubscriberDifference(e)).toBe('CONFIRMED');
+    });
+
+    it('nothing to flag for a winner who never asked for a plan', async () => {
+      const e = await paidAsNonSubscriber(await player());
+      expect(await promo.pendingSubscriberDifference(e)).toBeNull();
+    });
+
+    it('pays the R$250 difference once, then the winner reads as a subscriber', async () => {
+      const u = await player();
+      await request(u, min(-5), 'CONFIRMED', min(30 * 24 * 60));
+      const e = await paidAsNonSubscriber(u);
+
+      const top = await promo.topUpSubscriberPrize(e.id);
+      expect(top.prizeCents).toBe(R250);
+      expect(await wallet.getBalance(u)).toBe(R500);
+      expect(await promo.totalSpentCents()).toBe(R500);
+      const after = (await prisma.promoEvent.findUnique({ where: { id: e.id } }))!;
+      expect(after).toMatchObject({ winnerSubscribed: true, prizePaidCents: R500 });
+      expect(await promo.pendingSubscriberDifference(after)).toBeNull();
+
+      await expect(promo.topUpSubscriberPrize(e.id)).rejects.toThrow(/já recebeu/);
+      expect(await wallet.getBalance(u)).toBe(R500);
+    });
+
+    it('refuses the difference until the plan is released', async () => {
+      const u = await player();
+      await request(u, min(-5), 'REQUESTED');
+      const e = await paidAsNonSubscriber(u);
+      await expect(promo.topUpSubscriberPrize(e.id)).rejects.toThrow(/Libere o plano/);
+      expect(await wallet.getBalance(u)).toBe(R250);
+    });
+
+    it('records the start only once', async () => {
+      const e = await event();
+      await promo.markStarted(e.id, START, 92);
+      await promo.markStarted(e.id, min(5), 3);
+      expect(await prisma.promoEvent.findUnique({ where: { id: e.id } })).toMatchObject({ startedAt: START, startedWith: 92 });
+    });
+  });
 });

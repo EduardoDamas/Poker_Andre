@@ -31,6 +31,9 @@ const base: PromoEvent = {
   winnerSubscribed: null,
   prizePaidCents: null,
   paidAt: null,
+  startedAt: null,
+  startedWith: null,
+  subscriberDifference: null,
   live: null,
 };
 const START = Date.parse(base.startsAt);
@@ -169,6 +172,37 @@ describe('Promotions tab', () => {
     render(<Promotions token="tok" onForbidden={() => {}} />);
     await userEvent.click(await screen.findByRole('button', { name: 'Cancelar' }));
     await waitFor(() => expect(calls.some((c) => c.startsWith('POST') && c.includes('/admin/promo-events/e1/cancel'))).toBe(true));
+  });
+
+  const paidLow: PromoEvent = {
+    ...base, status: 'PAID', winnerId: 'u1', winnerName: 'Maria', winnerPhone: '+5513999990000',
+    winnerSubscribed: false, prizePaidCents: '25000',
+  };
+
+  it('tells the operator to release a pre-start plan before paying the difference', async () => {
+    stubFetch(() => ({ status: 200, body: [{ ...paidLow, subscriberDifference: 'REQUESTED' }] }));
+    render(<Promotions token="tok" onForbidden={() => {}} />);
+    expect(await screen.findByText(/Libere o plano em Assinaturas/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Pagar diferença' })).toBeNull();
+  });
+
+  it('pays the subscriber difference once the plan is released', async () => {
+    const calls: string[] = [];
+    let list: PromoEvent[] = [{ ...paidLow, subscriberDifference: 'CONFIRMED' }];
+    stubFetch((url, init) => {
+      calls.push(`${init?.method ?? 'GET'} ${url}`);
+      if (url.includes('/subscriber-difference')) return { status: 201, body: { ok: true, differenceCents: '25000' } };
+      return { status: 200, body: list };
+    });
+    let asked = '';
+    vi.stubGlobal('confirm', (q: string) => ((asked = q), true));
+    render(<Promotions token="tok" onForbidden={() => {}} />);
+
+    list = [{ ...paidLow, winnerSubscribed: true, prizePaidCents: '50000' }];
+    await userEvent.click(await screen.findByRole('button', { name: 'Pagar diferença' }));
+    expect(asked).toMatch(/R\$ 250,00 \(total R\$ 500,00\)/);
+    await waitFor(() => expect(calls.some((c) => c.startsWith('POST') && c.includes('/admin/promo-events/e1/subscriber-difference'))).toBe(true));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Pagar diferença' })).toBeNull());
   });
 
   it('calls onForbidden when the API returns 403', async () => {

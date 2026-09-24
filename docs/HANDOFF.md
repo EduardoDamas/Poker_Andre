@@ -4,7 +4,7 @@ Everything needed to continue development, build, and deploy on a **new computer
 Committed to git, so it travels with the repo. **Secret values are NOT here** — they
 live in gitignored files you copy manually (see §2).
 
-Last updated: 2026-09-23. App version live: **1.0.7+25**; **1.0.8+26** built, not yet released (see §10).
+Last updated: 2026-09-24. App version live: **1.0.8+26** (released 2026-09-24).
 
 ---
 
@@ -98,7 +98,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **461 passing / 60 suites** (app: 75 tests; panel: 30). On the 2026-09 machine port 5434 works fine
+Full suite is **470 passing / 60 suites** (app: 75 tests; panel: 32). On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
@@ -195,10 +195,10 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 - **Install page:** https://capa-contest-api.onrender.com/baixar — shows operator identity
   (ANDRE LUIZ LABADESSA LTDA · CNPJ 67.550.569/0001-00), support WhatsApp (13) 99600-1429 and
   LABA29@YAHOO.COM, matching the legal documents. Says "deposite com cartão, saque por Pix".
-- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.7/CAPA-CONTEST.apk`
+- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.8/CAPA-CONTEST.apk`
   (GitHub Release asset). To publish a build: create a new release with the APK, then update the
   link in `backend/public/install.html` (+ `docs/marketing/install.html`) and deploy — the public
-  `/baixar` URL never changes. Releases so far: v1.0.3, v1.0.5, v1.0.6, v1.0.7.
+  `/baixar` URL never changes. Releases so far: v1.0.3, v1.0.5, v1.0.6, v1.0.7, v1.0.8.
 - **Card payments (InfinitePay):** LIVE + validated with a real R$1 charge. Card-only for now
   (Pix disabled at InfinitePay per client). Deposit button mints a checkout link; webhook credits
   the wallet (`parseWebhook` treats `paid_amount`+`transaction_nsu` as paid). Deposits are capped
@@ -313,8 +313,20 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       spoke of ~15 min. To shorten it (the client's call): blinds doubling every 2 hands instead of
       3, a 20 s turn clock instead of 30 s, or a smaller starting stack — none built yet.
       Not yet tested against Render itself (it would need test accounts in production).
-      **Still to do:** publish 1.0.8 (release + `/baixar` link), schedule the event in the panel once
-      the client gives the time, and the real-phone rehearsal 05–06/10.
+      **Client confirmed (2026-09-24):** 100 vagas, 10 mesas + mesa final de 10, tolerância 30 min,
+      communicate "cerca de 1h a 1h30"; blinds: asked to keep as they are (every 3 hands) — the
+      2-hand change he mentioned the day before was NOT built; waiting for him to confirm.
+      **Subscriber rule vs manual plan release (2026-09-24):** plans bought through the fixed links
+      are released by hand, often after the payment. The prize now counts as subscriber when the
+      plan was active at the start, OR requested before the start and released by the time the
+      prize is paid (`PromoService.subscribedByRequestAt`). If still waiting at payout, R$250 is
+      paid and the panel says so; once released there, **Pagar diferença** pays the R$250 top-up
+      (ledger ref `promo-prize-topup-<id>`, once only, audited). `PromoEvent.startedAt/startedWith`
+      record the real start. Edge: someone who opens the checkout before the start and pays later
+      would count — not worth gaming (a plan costs more than the R$250 difference).
+      **1.0.8 released 2026-09-24** (`/baixar` points at it once deployed).
+      **Still to do:** schedule the event in the panel once the client gives the time, and the
+      real-phone rehearsal 05–06/10.
 - [ ] **Validate subscriptions Opção 2 BEFORE the promo** — the promo's goal is subscriptions, and
       today each one waits for a manual release in the panel. One small real purchase, then set
       `SUBSCRIPTION_CHECKOUT=dynamic`, so late subscribers are not counted as non-subscribers.

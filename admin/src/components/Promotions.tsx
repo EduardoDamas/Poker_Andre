@@ -159,6 +159,24 @@ export function Promotions({ token, onForbidden }: { token: string; onForbidden:
     }
   }
 
+  async function payDifference(e: PromoEvent) {
+    const difference = Number(e.prizeSubscriberCents) - Number(e.prizePaidCents ?? e.prizeCents);
+    const ok = confirm(
+      `${e.winnerName ?? 'O vencedor'} pediu a assinatura antes do início e o plano já foi liberado.\n\n` +
+        `Pagar a diferença de ${formatBRL(difference)} (total ${formatBRL(e.prizeSubscriberCents)})?`,
+    );
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await api.paySubscriberDifference(token, e.id);
+      load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Não foi possível pagar a diferença.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function cancel(e: PromoEvent) {
     const running = e.live?.started;
     const question = running
@@ -257,8 +275,21 @@ export function Promotions({ token, onForbidden }: { token: string; onForbidden:
                   {formatBRL(e.prizeCents)} · assinante {formatBRL(e.prizeSubscriberCents)}
                 </td>
                 <td>{rules(e)}</td>
-                <td>{promoSituation(e)}</td>
+                <td>
+                  {promoSituation(e)}
+                  {e.subscriberDifference === 'REQUESTED' && (
+                    <div className="warn">
+                      O vencedor pediu assinatura antes do início. Libere o plano em Assinaturas para
+                      pagar a diferença de assinante.
+                    </div>
+                  )}
+                </td>
                 <td className="actions">
+                  {e.subscriberDifference === 'CONFIRMED' && (
+                    <button className="approve" disabled={busy} onClick={() => payDifference(e)}>
+                      Pagar diferença
+                    </button>
+                  )}
                   {e.status === 'SCHEDULED' && (
                     <button className="reject" disabled={busy} onClick={() => cancel(e)}>
                       Cancelar

@@ -216,6 +216,100 @@ export class PromoService {
     return { eventId, winnerId, subscribed: subscribedAtStart, prizeCents, txnId, paidNow: true };
   }
 
+  /** Record when the bracket started and with how many (fire and forget). */
+  async markStarted(eventId: string, at: Date, players: number): Promise<void> {
+    await this.prisma.promoEvent.updateMany({
+      where: { id: eventId, startedAt: null },
+      data: { startedAt: at, startedWith: players },
+    });
+  }
+
+  /**
+   * Did [userId] ask for a plan before [at] that has since been released and
+   * covered [at]? Plans bought through the fixed links are released by hand in
+   * the panel, often minutes after the payment: a player who paid before the
+   * start is a subscriber "até o início" even if the release came later.
+   */
+  async subscribedByRequestAt(userId: string, at: Date): Promise<boolean> {
+    const req = await this.prisma.subscriptionRequest.findFirst({
+      where: { userId, status: 'CONFIRMED', requestedAt: { lte: at }, grantedUntil: { gt: at } },
+    });
+    return !!req;
+  }
+
+  /** The winner's plan request made before the start, if any (newest first). */
+  private async requestBefore(userId: string, at: Date) {
+    return this.prisma.subscriptionRequest.findFirst({
+      where: { userId, requestedAt: { lte: at }, status: { in: ['REQUESTED', 'CONFIRMED'] } },
+      orderBy: { requestedAt: 'desc' },
+    });
+  }
+
+  /**
+   * For a prize paid at the non-subscriber rate: whether the winner had asked
+   * for a plan before the start — still waiting for release (REQUESTED) or
+   * released since (CONFIRMED, so the difference is due).
+   */
+  async pendingSubscriberDifference(event: PromoEvent): Promise<'REQUESTED' | 'CONFIRMED' | null> {
+    if (event.status !== 'PAID' || event.winnerSubscribed || !event.winnerId || !event.startedAt) return null;
+    const req = await this.requestBefore(event.winnerId, event.startedAt);
+    if (!req) return null;
+    if (req.status === 'CONFIRMED' && !(req.grantedUntil && req.grantedUntil > event.startedAt)) return null;
+    return req.status as 'REQUESTED' | 'CONFIRMED';
+  }
+
+  /**
+   * Pay the subscriber difference to a winner paid as a non-subscriber whose
+   * plan, asked for before the start, was released afterwards. Once only.
+   */
+  async topUpSubscriberPrize(eventId: string): Promise<PromoPayout> {
+    const event = await this.prisma.promoEvent.findUnique({ where: { id: eventId } });
+    if (!event) throw new NotFoundException('Promoção não encontrada.');
+    if (event.status !== 'PAID' || !event.winnerId || !event.startedAt) {
+      throw new BadRequestException('Esta promoção ainda não pagou o prêmio.');
+    }
+    if (event.winnerSubscribed) throw new BadRequestException('O vencedor já recebeu o prêmio de assinante.');
+    if (!(await this.subscribedByRequestAt(event.winnerId, event.startedAt))) {
+      throw new BadRequestException(
+        'O vencedor não tem assinatura pedida antes do início e já liberada. Libere o plano em Assinaturas primeiro.',
+      );
+    }
+    const difference = event.prizeSubscriberCents - (event.prizePaidCents ?? event.prizeCents);
+    if (difference <= 0n) throw new BadRequestException('Não há diferença a pagar.');
+
+    const promotions = await ensureAccount(
+      this.prisma,
+      { id: PROMOTIONS_ACCOUNT_ID },
+      { id: PROMOTIONS_ACCOUNT_ID, type: 'PROMOTIONS' },
+    );
+    const player = await this.wallet.ensurePlayerAccount(event.winnerId);
+    let txnId: string;
+    try {
+      txnId = await this.ledger.post({
+        kind: 'PROMO_PRIZE',
+        referenceId: `promo-prize-topup-${eventId}`,
+        memo: `Diferença de assinante — promoção "${event.name}"`,
+        postings: [
+          { accountId: promotions.id, amountCents: -difference },
+          { accountId: player.id, amountCents: difference },
+        ],
+      });
+    } catch (e) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        throw new BadRequestException('A diferença desta promoção já foi paga.');
+      }
+      throw e;
+    }
+    await this.prisma.promoEvent.update({
+      where: { id: eventId },
+      data: { winnerSubscribed: true, prizePaidCents: event.prizeSubscriberCents },
+    });
+    this.logger.log(`Promo "${event.name}": subscriber difference ${difference} cents to ${event.winnerId}`);
+    return {
+      eventId, winnerId: event.winnerId, subscribed: true, prizeCents: difference, txnId, paidNow: true,
+    };
+  }
+
   /** All events, newest first (admin view). */
   list(): Promise<PromoEvent[]> {
     return this.prisma.promoEvent.findMany({ orderBy: { startsAt: 'desc' }, take: 100 });

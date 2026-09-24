@@ -22,6 +22,7 @@ function serializePromo(
   e: PromoEvent,
   bracket?: PromoBracket,
   winner?: { displayName: string; phone: string },
+  subscriberDifference: 'REQUESTED' | 'CONFIRMED' | null = null,
 ) {
   return {
     id: e.id,
@@ -39,6 +40,11 @@ function serializePromo(
     winnerSubscribed: e.winnerSubscribed,
     prizePaidCents: e.prizePaidCents?.toString() ?? null,
     paidAt: e.paidAt,
+    startedAt: e.startedAt,
+    startedWith: e.startedWith,
+    // Paid as a non-subscriber, but the winner asked for a plan before the
+    // start: REQUESTED = release it in Assinaturas; CONFIRMED = pay the difference.
+    subscriberDifference,
     live: bracket
       ? {
           registered: bracket.registered,
@@ -225,9 +231,27 @@ export class AdminController {
   async listPromoEvents() {
     const events = await this.promo.list();
     const winners = await this.promo.winners(events);
-    return events.map((e) =>
-      serializePromo(e, this.brackets.get(promoRoomId(e.id)), e.winnerId ? winners.get(e.winnerId) : undefined),
+    return Promise.all(
+      events.map(async (e) =>
+        serializePromo(
+          e,
+          this.brackets.get(promoRoomId(e.id)),
+          e.winnerId ? winners.get(e.winnerId) : undefined,
+          await this.promo.pendingSubscriberDifference(e),
+        ),
+      ),
     );
+  }
+
+  /** Pay a winner the subscriber difference once their pre-start plan is released. */
+  @Post('promo-events/:id/subscriber-difference')
+  async paySubscriberDifference(@CurrentUser() admin: JwtPayload, @Param('id') id: string) {
+    const payout = await this.promo.topUpSubscriberPrize(id);
+    await this.audit.record({
+      actorId: admin.sub, action: 'promo.subscriber-difference', targetType: 'promoEvent', targetId: id,
+      metadata: { winnerId: payout.winnerId, differenceCents: payout.prizeCents.toString() },
+    });
+    return { ok: true, differenceCents: payout.prizeCents.toString() };
   }
 
   /** Call off a promotion that has not paid out. */

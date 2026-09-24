@@ -376,6 +376,10 @@ model PromoEvent {
   // Minutes past startsAt after which it starts with whoever is present (2+)
   // even below minPlayers. Null: it waits for minPlayers until the room closes.
   waitMinutes          Int?             @default(30)
+  // When the bracket actually started, and with how many — the moment
+  // "assinante até o início" is measured against.
+  startedAt            DateTime?
+  startedWith          Int?
   status               PromoEventStatus @default(SCHEDULED)
   winnerId             String?
   winnerSubscribed     Boolean?

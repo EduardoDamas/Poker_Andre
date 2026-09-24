@@ -117,6 +117,35 @@ describe('Admin promotions API (e2e)', () => {
     expect(list.body[0].winnerPhone).toMatch(/^\+55/);
   });
 
+  it('flags a winner whose pre-start plan was released later, and pays the difference once', async () => {
+    const admin = await makeUser('ADMIN');
+    const winner = await makeUser('PLAYER', 'Assinante Atrasado');
+    const start = new Date(Date.now() - 3_600_000);
+    const e = await promo.createEvent({
+      name: 'Nível 0', startsAt: start, prizeCents: 25000n, prizeSubscriberCents: 50000n,
+    });
+    await promo.markStarted(e.id, start, 90);
+    await prisma.subscriptionRequest.create({
+      data: {
+        userId: winner.id, plan: 'MONTHLY', amountCents: 31250n, status: 'CONFIRMED',
+        requestedAt: new Date(start.getTime() - 60_000), grantedUntil: new Date(Date.now() + 30 * 86_400_000),
+      },
+    });
+    await promo.awardPrize({ eventId: e.id, winnerId: winner.id, subscribedAtStart: false });
+
+    const auth = { Authorization: `Bearer ${admin.token}` };
+    const before = await request(server()).get('/admin/promo-events').set(auth).expect(200);
+    expect(before.body[0]).toMatchObject({ subscriberDifference: 'CONFIRMED', prizePaidCents: '25000', startedWith: 90 });
+
+    const paid = await request(server()).post(`/admin/promo-events/${e.id}/subscriber-difference`).set(auth).expect(201);
+    expect(paid.body).toMatchObject({ ok: true, differenceCents: '25000' });
+    await request(server()).post(`/admin/promo-events/${e.id}/subscriber-difference`).set(auth).expect(400);
+
+    const after = await request(server()).get('/admin/promo-events').set(auth).expect(200);
+    expect(after.body[0]).toMatchObject({ subscriberDifference: null, prizePaidCents: '50000', winnerSubscribed: true });
+    expect(await prisma.auditLog.count({ where: { action: 'promo.subscriber-difference', targetId: e.id } })).toBe(1);
+  });
+
   it('cancels one that has not paid, and audits it', async () => {
     const admin = await makeUser('ADMIN');
     const e = await promo.createEvent({

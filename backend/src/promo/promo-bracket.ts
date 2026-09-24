@@ -47,6 +47,7 @@ export class PromoBracket {
   private pendingRound: MttTable[] = [];
   private _champion: string | null = null;
   private _startedWith = 0;
+  private _startedAt: Date | null = null;
 
   constructor(readonly config: PromoBracketConfig) {}
 
@@ -72,6 +73,10 @@ export class PromoBracket {
   /** How many started the tournament. */
   get startedWith(): number {
     return this._startedWith;
+  }
+  /** When it started — the moment "assinante até o início" refers to. */
+  get startedAt(): Date | null {
+    return this._startedAt;
   }
   get aliveCount(): number {
     return this.alive.size;
@@ -172,8 +177,9 @@ export class PromoBracket {
    * each player's plan read right now — "assinante até o início do torneio".
    * Returns the first round's tables.
    */
-  start(subscriptions: Map<string, Subscription>): MttTable[] {
+  start(subscriptions: Map<string, Subscription>, at: Date = new Date()): MttTable[] {
     if (this.started) throw new Error('Already started.');
+    this._startedAt = at;
     const players = shuffle(this.entrantIds());
     for (const id of players) {
       this.subscriptionsAtStart.set(id, subscriptions.get(id) ?? this.entrants.get(id)!.subscription);

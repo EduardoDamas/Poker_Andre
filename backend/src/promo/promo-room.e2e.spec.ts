@@ -8,6 +8,7 @@ import { io as ioClient, Socket } from 'socket.io-client';
 import { AppModule } from '../app.module';
 import { WalletService } from '../wallet/wallet.service';
 import { PromoService, promoRoomId } from './promo.service';
+import { SubscriptionRequestService } from '../payments/subscription-request.service';
 import { resetDb } from '../test-utils/reset-db';
 
 /**
@@ -105,9 +106,10 @@ describe('Promotion bracket (e2e)', () => {
   /**
    * Connect a player that goes all-in whenever it is their turn — or, when
    * [passive], never acts (an AFK player, or one kept to hold a hand open).
-   * Actions go out under [roomId], exactly as the installed app sends them.
+   * Actions go out under [roomId], exactly as the installed app sends them;
+   * with a [gate], only once it opens.
    */
-  async function connect(p: Player, roomId: string, passive = false) {
+  async function connect(p: Player, roomId: string, passive = false, gate?: Promise<void>) {
     const socket = ioClient(url, { auth: { token: p.token }, transports: ['websocket'], reconnection: false });
     sockets.push(socket);
     await new Promise<void>((resolve, reject) => {
@@ -122,7 +124,9 @@ describe('Promotion bracket (e2e)', () => {
         : la.includes('raise')
           ? { type: 'raise', amount: s.actingStack + s.actingCommitted }
           : la.includes('call') ? { type: 'call' } : { type: 'check' };
-      socket.emit('hand:action', { tableId: roomId, action });
+      const act = () => socket.emit('hand:action', { tableId: roomId, action });
+      if (gate) void gate.then(act);
+      else act();
     });
     return socket;
   }
@@ -259,6 +263,34 @@ describe('Promotion bracket (e2e)', () => {
     expect(dealtEarly).toBe(false); // nothing dealt before the scheduled start
     expect(result.prizeCents).toBe(R500);
     expect(await wallet.getBalance(result.winnerId!)).toBe(BigInt(R500));
+  }, 60000);
+
+  it('a plan bought before the start and released mid-tournament still pays R$500', async () => {
+    const e = await event(1500); // starts in 1.5s
+    const roomId = promoRoomId(e.id);
+    const a = await player();
+    const b = await player();
+    // Both pay through the fixed link before the start; nobody releases it yet.
+    for (const p of [a, b]) {
+      await prisma.subscriptionRequest.create({ data: { userId: p.userId, plan: 'MONTHLY', amountCents: 31250n } });
+    }
+    // Nobody plays until the plans have been released in the panel, after the start.
+    let released!: () => void;
+    const gate = new Promise<void>((r) => (released = r));
+    const sa = await connect(a, roomId, false, gate);
+    const sb = await connect(b, roomId, false, gate);
+    const done = championOf(sa);
+    sa.once('promo:started', async () => {
+      const subs = app.get(SubscriptionRequestService);
+      for (const r of await subs.list('REQUESTED')) await subs.confirm(r.id, 'conferido');
+      released();
+    });
+    await join(sa, roomId);
+    await join(sb, roomId);
+
+    const result = await done;
+    expect(result.prizeCents).toBe(R500);
+    expect(await prisma.promoEvent.findUnique({ where: { id: e.id } })).toMatchObject({ startedWith: 2 });
   }, 60000);
 
   it('does not start below its minimum while the tolerance runs', async () => {

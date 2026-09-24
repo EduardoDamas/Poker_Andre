@@ -487,6 +487,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       if (!bracket.shouldStart(Date.now())) return false;
       const tables = bracket.start(subs);
       this.promoTimers.get(bracket.roomId)?.forEach(clearTimeout);
+      void this.promo
+        .markStarted(bracket.eventId, bracket.startedAt!, bracket.startedWith)
+        .catch((e) => this.logger.error(`promo ${bracket.roomId}: start not recorded: ${(e as Error).message}`));
       this.logger.log(`promo ${bracket.roomId}: started with ${bracket.startedWith} players on ${tables.length} tables`);
       this.server
         .to(room(bracket.roomId))
@@ -594,14 +597,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
   }
 
-  /** The company-funded prize. A failure (e.g. blocked winner) holds it for review. */
+  /**
+   * The company-funded prize. The subscriber rate applies to a plan active at
+   * the start, or asked for before it and released by now (plans are released
+   * by hand). A failure (e.g. blocked winner) holds the prize for review.
+   */
   private async payPromoPrize(bracket: PromoBracket, winnerId: string): Promise<number | undefined> {
     try {
-      const payout = await this.promo.awardPrize({
-        eventId: bracket.eventId,
-        winnerId,
-        subscribedAtStart: bracket.subscribedAtStart(winnerId),
-      });
+      const subscribedAtStart =
+        bracket.subscribedAtStart(winnerId) ||
+        (await this.promo.subscribedByRequestAt(winnerId, bracket.startedAt ?? new Date()));
+      const payout = await this.promo.awardPrize({ eventId: bracket.eventId, winnerId, subscribedAtStart });
       return Number(payout.prizeCents);
     } catch (e) {
       this.logger.error(`promo prize for ${bracket.roomId} not paid: ${(e as Error).message}`);
