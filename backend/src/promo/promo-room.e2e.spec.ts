@@ -399,13 +399,30 @@ describe('Promotion bracket (e2e)', () => {
     expect(await promo.totalSpentCents()).toBe(BigInt(R250));
   }, 90000);
 
-  it('refuses the room when the promotion is not open yet', async () => {
+  it('too early, it tells the player when the room opens', async () => {
     const e = await event(2 * 3_600_000); // two hours away (opens 30 min before)
     const roomId = promoRoomId(e.id);
     const s = await connect(await player(), roomId);
     const res = await join(s, roomId);
     expect(res.ok).toBe(false);
-    expect(res.error).toMatch(/não está disponível/);
+    expect(res.error).toMatch(/^A sala do torneio abre às \d\d:\d\d e o torneio começa .+ às \d\d:\d\d\. Volte nesse horário!$/);
+  });
+
+  it('announces a scheduled promotion in the lobby days ahead, with its date', async () => {
+    const soon = await event(2 * 86_400_000); // in two days
+    await event(20 * 86_400_000); // too far ahead to announce
+    const { token } = await player();
+    const promos = (await lobby(token)).filter((r) => r.id.startsWith('promo-'));
+    expect(promos).toHaveLength(1);
+    expect(promos[0]).toMatchObject({ id: promoRoomId(soon.id), entryCents: 0, players: 0 });
+    expect(promos[0].name).toMatch(/^Nível 0 — GRÁTIS · \S{3} \d\d\/\d\d \d\d:\d\d$/);
+  });
+
+  it('a cancelled promotion leaves the lobby', async () => {
+    const e = await event(2 * 86_400_000);
+    await promo.cancel(e.id);
+    const { token } = await player();
+    expect((await lobby(token)).some((r) => r.id === promoRoomId(e.id))).toBe(false);
   });
 
   it('keeps a self-excluded player out, prize or not', async () => {

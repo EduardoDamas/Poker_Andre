@@ -98,7 +98,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **470 passing / 60 suites** (app: 75 tests; panel: 32). On the 2026-09 machine port 5434 works fine
+Full suite is **480 passing / 62 suites** (app: 75 tests; panel: 32). On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
@@ -325,8 +325,18 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       record the real start. Edge: someone who opens the checkout before the start and pays later
       would count — not worth gaming (a plan costs more than the R$250 difference).
       **1.0.8 released 2026-09-24** (`/baixar` points at it once deployed).
-      **Still to do:** schedule the event in the panel once the client gives the time, and the
-      real-phone rehearsal 05–06/10.
+      **Start time (client, 2026-09-24): quarta 07/10 às 19:30** (room opens 19:00; with 80 it
+      starts 19:30, otherwise by 20:00 with whoever is there). His campaign pop-up says "Prêmio
+      R$ 500,00 para o campeão" — only true for a subscriber champion; asked him to change the copy
+      ("ATÉ R$ 500") or pay R$500 to anyone (then schedule with both prizes at R$500).
+      **Announced ahead (2026-09-24):** a scheduled promotion is listed in the lobby from 14 days
+      before (`PROMO_ANNOUNCE_DAYS`) as "Nível 0 — GRÁTIS · qua 07/10 19:30" (Brasília time,
+      `promo-format.ts`) — every app version shows it; joining before the room opens says when it
+      opens. `/baixar` renders a "TORNEIO GRÁTIS" card for the next one (server-side, at
+      `<!--PROMO-->` in install.html): date, vagas, when the room opens, and the prize line from the
+      event itself (`promoPrizeLine`: one amount if equal, else the subscriber condition spelled out).
+      **Still to do:** schedule the event in the panel (07/10 19:30) once the client settles the
+      prize wording, and the real-phone rehearsal 05–06/10.
 - [ ] **Validate subscriptions Opção 2 BEFORE the promo** — the promo's goal is subscriptions, and
       today each one waits for a manual release in the panel. One small real purchase, then set
       `SUBSCRIPTION_CHECKOUT=dynamic`, so late subscribers are not counted as non-subscribers.

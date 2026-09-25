@@ -13,6 +13,12 @@ export const PROMOTIONS_ACCOUNT_ID = '00000000-0000-0000-0000-000000000006';
 export const PROMO_OPENS_MINUTES_BEFORE = 30;
 /** An event nobody played disappears this long after its start. Nothing is paid. */
 export const PROMO_CLOSES_HOURS_AFTER = 3;
+/** A scheduled event is announced (lobby, download page) this long before it starts. */
+export const PROMO_ANNOUNCE_DAYS = 14;
+
+/** When an event's room opens for players. */
+export const promoOpensAt = (event: { startsAt: Date }) =>
+  new Date(event.startsAt.getTime() - PROMO_OPENS_MINUTES_BEFORE * 60_000);
 
 /**
  * Most places an event may offer: 10 tables of up to 10 players, whose winners
@@ -113,22 +119,28 @@ export class PromoService {
     return event && this.isOpen(event, now) ? event : null;
   }
 
-  /** Every event whose room is open right now — what the lobby lists. */
-  async openEvents(now: Date = new Date()): Promise<PromoEvent[]> {
-    const candidates = await this.prisma.promoEvent.findMany({
+  /**
+   * Events to announce: scheduled, from PROMO_ANNOUNCE_DAYS before the start
+   * until the room closes — so players see the date and come back for it.
+   */
+  announcedEvents(now: Date = new Date()): Promise<PromoEvent[]> {
+    return this.prisma.promoEvent.findMany({
       where: {
         status: 'SCHEDULED',
         startsAt: {
-          lte: new Date(now.getTime() + PROMO_OPENS_MINUTES_BEFORE * 60_000),
+          lte: new Date(now.getTime() + PROMO_ANNOUNCE_DAYS * 86_400_000),
           gte: new Date(now.getTime() - PROMO_CLOSES_HOURS_AFTER * 3_600_000),
         },
       },
       orderBy: { startsAt: 'asc' },
     });
-    return candidates.filter((e) => this.isOpen(e, now));
   }
 
-  private isOpen(event: PromoEvent, now: Date): boolean {
+  find(eventId: string): Promise<PromoEvent | null> {
+    return this.prisma.promoEvent.findUnique({ where: { id: eventId } });
+  }
+
+  isOpen(event: PromoEvent, now: Date = new Date()): boolean {
     if (event.status !== 'SCHEDULED') return false;
     const opens = event.startsAt.getTime() - PROMO_OPENS_MINUTES_BEFORE * 60_000;
     const closes = event.startsAt.getTime() + PROMO_CLOSES_HOURS_AFTER * 3_600_000;

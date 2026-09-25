@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { TableService } from '../realtime/table.service';
 import { PromoService, promoRoomId } from '../promo/promo.service';
 import { PromoBrackets } from '../promo/promo-bracket';
+import { promoWhen } from '../promo/promo-format';
 
 /**
  * Lobby catalog of joinable Poker rooms (Phase 1).
@@ -49,18 +50,20 @@ export class TablesService {
   ) {}
 
   /**
-   * The lobby. An open promotion comes first, as a free Nível 0 room — the app
-   * renders whatever rooms it is sent, so no update is needed for it to appear.
+   * The lobby. A scheduled promotion comes first, as a free Nível 0 room named
+   * with its date and time ("Nível 0 — GRÁTIS · qua 07/10 19:30"), from two
+   * weeks before — the app renders whatever rooms it is sent, so every version
+   * announces it. Its room only lets players in from 30 minutes before.
    */
   async list(): Promise<TableInfo[]> {
-    const promos = (await this.promo.openEvents())
+    const promos = (await this.promo.announcedEvents())
       .filter((event) => !this.brackets.get(promoRoomId(event.id))?.finished)
       .map((event) => {
         const id = promoRoomId(event.id);
         const bracket = this.brackets.get(id);
         return {
           id,
-          name: `${event.name} — GRÁTIS`,
+          name: `${event.name} — GRÁTIS · ${promoWhen(event.startsAt)}`,
           level: 0,
           entryCents: 0,
           // Places, not seats: the bracket spreads them over up to 10 tables.

@@ -18,7 +18,8 @@ import { isBlocked } from '../auth/user-status';
 import { PlayerLimitService } from '../responsible/player-limit.service';
 import { MultiTableTournamentManager, SubTableRunner } from '../tournament/multi-table-manager';
 import { MttTable, SEATS_PER_TABLE } from '../tournament/multi-table';
-import { PromoService, promoEventIdOf } from '../promo/promo.service';
+import { PromoService, promoEventIdOf, promoOpensAt } from '../promo/promo.service';
+import { promoTime, promoWhenLong } from '../promo/promo-format';
 import { PromoBracket, PromoBrackets } from '../promo/promo-bracket';
 import { Subscription } from '../tournament/subscription';
 
@@ -373,7 +374,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         return { ok: false, error: 'Você está em autoexclusão. Jogos a dinheiro estão bloqueados.' };
       }
       const event = await this.promo.openEvent(eventId);
-      if (!event) return { ok: false, error: 'Esta promoção não está disponível agora.' };
+      if (!event) return { ok: false, error: await this.promoClosedReason(eventId) };
       const bracket = this.brackets.getOrCreate({
         eventId: event.id,
         roomId,
@@ -394,6 +395,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     } catch (err) {
       return { ok: false, error: (err as Error).message };
     }
+  }
+
+  /** Why a promotion room is closed: too early says when to come back. */
+  private async promoClosedReason(eventId: string): Promise<string> {
+    const event = await this.promo.find(eventId);
+    if (event?.status === 'SCHEDULED' && Date.now() < promoOpensAt(event).getTime()) {
+      return (
+        `A sala do torneio abre às ${promoTime(promoOpensAt(event))} e o torneio começa ` +
+        `${promoWhenLong(event.startsAt)}. Volte nesse horário!`
+      );
+    }
+    return 'Esta promoção não está disponível agora.';
   }
 
   /** A player of a running bracket came back: put them back at their table. */
