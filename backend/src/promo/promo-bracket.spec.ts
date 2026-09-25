@@ -200,4 +200,35 @@ describe('PromoBracket', () => {
       expect(b.subscribedAtStart('p1')).toBe(false);
     });
   });
+  describe('rehearsal robots', () => {
+    it('fill up to the places at the start, once, and are known as robots', () => {
+      const b = bracket({ minPlayers: 2, maxPlayers: 20, robots: 30 });
+      fill(b, 3);
+      expect(b.rehearsal).toBe(true);
+      expect(b.addRobots()).toHaveLength(17); // capped by the 20 places
+      expect(b.addRobots()).toHaveLength(0);
+      expect(b.isRobot('robot-1')).toBe(true);
+      expect(b.isRobot('p0')).toBe(false);
+      const seated = b.start(noSubs).flatMap((t) => t.players);
+      expect(seated).toHaveLength(20);
+      expect(seated.filter((id) => b.isRobot(id))).toHaveLength(17);
+    });
+
+    it('count toward the minimum, so one phone can run a rehearsal — never nobody', () => {
+      const b = bracket({ minPlayers: 2, maxPlayers: 100, robots: 90, waitMinutes: 0 });
+      expect(b.shouldStart(START)).toBe(false); // no phone yet
+      fill(b, 1);
+      expect(b.shouldStart(START - 1)).toBe(false); // not before its time
+      expect(b.shouldStart(START)).toBe(true);
+      b.addRobots();
+      expect(b.start(noSubs)).toHaveLength(10); // 91 players → 10 tables → a final of 10
+    });
+
+    it('a real event has none', () => {
+      const b = bracket({ minPlayers: 2 });
+      fill(b, 3);
+      expect(b.rehearsal).toBe(false);
+      expect(b.addRobots()).toEqual([]);
+    });
+  });
 });

@@ -24,7 +24,7 @@ export class DownloadController {
   constructor(private readonly promo: PromoService) {}
 
   private async promoCard(): Promise<string> {
-    const [event] = await this.promo.announcedEvents();
+    const event = (await this.promo.announcedEvents()).find((e) => e.robots === 0); // never a rehearsal
     if (!event) return '';
     const opens = promoTime(promoOpensAt(event));
     return `

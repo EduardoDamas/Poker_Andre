@@ -79,11 +79,13 @@ export class PromoService {
     minPlayers?: number;
     maxPlayers?: number;
     waitMinutes?: number | null;
+    robots?: number;
   }): Promise<PromoEvent> {
     const { name, startsAt, prizeCents, prizeSubscriberCents } = params;
     const minPlayers = params.minPlayers ?? 2;
     const maxPlayers = params.maxPlayers ?? PROMO_MAX_PLAYERS;
     const waitMinutes = params.waitMinutes === undefined ? 30 : params.waitMinutes;
+    const robots = params.robots ?? 0;
     if (!Number.isInteger(minPlayers) || minPlayers < 2) {
       throw new BadRequestException('O mínimo de participantes deve ser 2 ou mais.');
     }
@@ -95,6 +97,9 @@ export class PromoService {
     if (waitMinutes !== null && (!Number.isInteger(waitMinutes) || waitMinutes < 0)) {
       throw new BadRequestException('A tolerância deve ser em minutos (0 ou mais).');
     }
+    if (!Number.isInteger(robots) || robots < 0 || robots >= maxPlayers) {
+      throw new BadRequestException('Os robôs do ensaio devem ser menos que as vagas.');
+    }
     if (!name.trim()) throw new BadRequestException('Dê um nome à promoção.');
     if (prizeCents <= 0n || prizeSubscriberCents <= 0n) {
       throw new BadRequestException('Os prêmios devem ser maiores que zero.');
@@ -105,7 +110,7 @@ export class PromoService {
     }
     return this.prisma.promoEvent.create({
       data: {
-        name: name.trim(), startsAt, prizeCents, prizeSubscriberCents, minPlayers, maxPlayers, waitMinutes,
+        name: name.trim(), startsAt, prizeCents, prizeSubscriberCents, minPlayers, maxPlayers, waitMinutes, robots,
       },
     });
   }
@@ -228,6 +233,17 @@ export class PromoService {
     return { eventId, winnerId, subscribed: subscribedAtStart, prizeCents, txnId, paidNow: true };
   }
 
+  /**
+   * Close a rehearsal: record its champion (possibly a robot) and pay nothing —
+   * no ledger movement, no entry in the winners feed.
+   */
+  async finishRehearsal(eventId: string, championId: string): Promise<void> {
+    await this.prisma.promoEvent.updateMany({
+      where: { id: eventId, status: 'SCHEDULED', robots: { gt: 0 } },
+      data: { status: 'PAID', winnerId: championId, winnerSubscribed: false, prizePaidCents: 0n, paidAt: new Date() },
+    });
+  }
+
   /** Record when the bracket started and with how many (fire and forget). */
   async markStarted(eventId: string, at: Date, players: number): Promise<void> {
     await this.prisma.promoEvent.updateMany({
@@ -264,6 +280,7 @@ export class PromoService {
    */
   async pendingSubscriberDifference(event: PromoEvent): Promise<'REQUESTED' | 'CONFIRMED' | null> {
     if (event.status !== 'PAID' || event.winnerSubscribed || !event.winnerId || !event.startedAt) return null;
+    if (event.robots > 0) return null; // a rehearsal pays nothing
     const req = await this.requestBefore(event.winnerId, event.startedAt);
     if (!req) return null;
     if (req.status === 'CONFIRMED' && !(req.grantedUntil && req.grantedUntil > event.startedAt)) return null;
@@ -280,6 +297,7 @@ export class PromoService {
     if (event.status !== 'PAID' || !event.winnerId || !event.startedAt) {
       throw new BadRequestException('Esta promoção ainda não pagou o prêmio.');
     }
+    if (event.robots > 0) throw new BadRequestException('Um ensaio não paga prêmio.');
     if (event.winnerSubscribed) throw new BadRequestException('O vencedor já recebeu o prêmio de assinante.');
     if (!(await this.subscribedByRequestAt(event.winnerId, event.startedAt))) {
       throw new BadRequestException(

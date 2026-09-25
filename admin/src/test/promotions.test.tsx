@@ -24,6 +24,7 @@ const base: PromoEvent = {
   minPlayers: 80,
   maxPlayers: 100,
   waitMinutes: 30,
+  robots: 0,
   status: 'SCHEDULED',
   winnerId: null,
   winnerName: null,
@@ -69,6 +70,12 @@ describe('Promotions: where an event stands', () => {
     expect(promoSituation(e)).toMatch(/NÃO pago/);
   });
 
+  it('a finished rehearsal says so, with no prize', () => {
+    const e: PromoEvent = { ...base, robots: 20, status: 'PAID', winnerId: 'robot-4', prizePaidCents: '0' };
+    expect(promoSituation(e)).toBe('Ensaio concluído — campeão: um robô (sem prêmio)');
+    expect(promoSituation({ ...e, winnerId: 'u1', winnerName: 'Eduardo' })).toBe('Ensaio concluído — campeão: Eduardo (sem prêmio)');
+  });
+
   it('cancelled, or never played', () => {
     expect(promoSituation({ ...base, status: 'CANCELLED' })).toBe('Cancelada');
     expect(promoSituation(base, START + 4 * 3_600_000)).toBe('Encerrada sem jogo');
@@ -79,7 +86,7 @@ describe('Promotions: the form', () => {
   const now = Date.parse('2026-09-23T12:00:00Z');
   const good = {
     name: 'Nível 0', startsAt: '2026-10-07T20:00', prize: '250', prizeSubscriber: '500',
-    minPlayers: '80', maxPlayers: '100', waitMinutes: '30', noTolerance: false,
+    minPlayers: '80', maxPlayers: '100', waitMinutes: '30', noTolerance: false, rehearsal: false, robots: '20',
   };
 
   it("turns the operator's entries into the API's (cents, ISO, null tolerance)", () => {
@@ -89,6 +96,14 @@ describe('Promotions: the form', () => {
     });
     expect(new Date(event!.startsAt).getTime()).toBe(new Date('2026-10-07T20:00').getTime());
     expect(validatePromo(good, now).event!.waitMinutes).toBe(30);
+  });
+
+  it('a real event has no robots; a rehearsal needs fewer robots than places', () => {
+    expect(validatePromo(good, now).event!.robots).toBe(0);
+    const r = { ...good, rehearsal: true, minPlayers: '2', maxPlayers: '30', robots: '20' };
+    expect(validatePromo(r, now).event!.robots).toBe(20);
+    expect(validatePromo({ ...r, robots: '30' }, now).error).toMatch(/robôs/);
+    expect(validatePromo({ ...r, robots: '0' }, now).error).toMatch(/robôs/);
   });
 
   it('says what is wrong, in Portuguese', () => {
@@ -131,6 +146,31 @@ describe('Promotions tab', () => {
     expect(post.url).toMatch(/\/admin\/promo-events$/);
     expect(post.body).toMatchObject({
       name: 'Nível 0', prizeCents: 25000, prizeSubscriberCents: 50000, minPlayers: 80, maxPlayers: 100, waitMinutes: null,
+    });
+  });
+
+  it('a rehearsal switches to its settings and warns that nothing is paid', async () => {
+    const calls: { method: string; body?: unknown }[] = [];
+    stubFetch((_url, init) => {
+      calls.push({ method: init?.method ?? 'GET', body: init?.body ? JSON.parse(String(init.body)) : undefined });
+      if (init?.method === 'POST') return { status: 201, body: base };
+      return { status: 200, body: [] };
+    });
+    let asked = '';
+    vi.stubGlobal('confirm', (q: string) => ((asked = q), true));
+
+    render(<Promotions token="tok" onForbidden={() => {}} />);
+    await screen.findByText('Nenhuma promoção agendada.');
+    await userEvent.click(screen.getByLabelText('Ensaio'));
+    expect(screen.getByLabelText('Nome')).toHaveValue('Ensaio');
+    expect(screen.getByLabelText('Robôs')).toHaveValue('90');
+    fireEvent.change(screen.getByLabelText('Início'), { target: { value: '2099-10-05T20:00' } });
+    await userEvent.click(screen.getByRole('button', { name: 'Agendar promoção' }));
+
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true));
+    expect(asked).toMatch(/ENSAIO.*NENHUM prêmio/);
+    expect(calls.find((c) => c.method === 'POST')!.body).toMatchObject({
+      name: 'Ensaio', minPlayers: 2, maxPlayers: 100, waitMinutes: 0, robots: 90,
     });
   });
 

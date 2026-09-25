@@ -12,6 +12,8 @@ export interface PromoBracketConfig {
   maxPlayers: number;
   /** Minutes past startsAt after which 2+ present players start anyway; null = never. */
   waitMinutes: number | null;
+  /** Rehearsal: robots added at the start (nothing is paid). 0 for a real event. */
+  robots?: number;
 }
 
 interface Entrant {
@@ -48,6 +50,7 @@ export class PromoBracket {
   private _champion: string | null = null;
   private _startedWith = 0;
   private _startedAt: Date | null = null;
+  private readonly robotIds = new Set<string>();
 
   constructor(readonly config: PromoBracketConfig) {}
 
@@ -83,6 +86,9 @@ export class PromoBracket {
   }
   get round(): number {
     return this.coordinator?.round ?? 0;
+  }
+  get rehearsal(): boolean {
+    return (this.config.robots ?? 0) > 0;
   }
 
   /** When 2+ present players start even below the minimum, if ever. */
@@ -141,6 +147,27 @@ export class PromoBracket {
     }
   }
 
+  /**
+   * Rehearsal: fill up with the event's robots, within the places, right before
+   * the start. They hold no socket and never drop.
+   */
+  addRobots(): string[] {
+    if (this.started) return [];
+    const added: string[] = [];
+    for (let i = 1; i <= (this.config.robots ?? 0) && this.entrants.size < this.config.maxPlayers; i++) {
+      const id = `robot-${i}`;
+      if (this.entrants.has(id)) continue;
+      this.entrants.set(id, { socketId: `robot:${this.roomId}:${i}`, connected: true, subscription: 'NONE' });
+      this.robotIds.add(id);
+      added.push(id);
+    }
+    return added;
+  }
+
+  isRobot(userId: string): boolean {
+    return this.robotIds.has(userId);
+  }
+
   entrant(userId: string): Readonly<Entrant> | undefined {
     return this.entrants.get(userId);
   }
@@ -155,12 +182,14 @@ export class PromoBracket {
 
   /**
    * May it start now? At/after startsAt with the minimum present; or, once the
-   * tolerance has passed, with anyone who is there (2 or more).
+   * tolerance has passed, with anyone who is there (2 or more). In a rehearsal
+   * the robots count, so a single phone can run it — but never with no one.
    */
   shouldStart(now: number): boolean {
     if (this.started) return false;
-    const present = this.entrants.size;
-    if (now < this.config.startsAt.getTime() || present < 2) return false;
+    const humans = this.entrants.size;
+    const present = Math.min(humans + (this.config.robots ?? 0), this.config.maxPlayers);
+    if (now < this.config.startsAt.getTime() || humans < 1 || present < 2) return false;
     if (present >= this.config.minPlayers) return true;
     const anyway = this.startAnywayAt;
     return anyway !== null && now >= anyway.getTime();

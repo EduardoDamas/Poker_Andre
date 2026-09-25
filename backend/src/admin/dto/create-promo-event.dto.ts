@@ -46,4 +46,11 @@ export class CreatePromoEventDto {
   @Min(0)
   @Max(150)
   waitMinutes?: number | null;
+
+  /** Rehearsal: robots that join at the start. Nothing is paid. 0 or absent = a real event. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(99)
+  robots?: number;
 }

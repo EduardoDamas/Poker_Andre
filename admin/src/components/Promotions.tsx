@@ -15,6 +15,10 @@ const hhmm = (d: Date) => d.toLocaleTimeString('pt-BR', { hour: '2-digit', minut
 /** Where an event stands right now, in words for the operator. */
 export function promoSituation(e: PromoEvent, now = Date.now()): string {
   if (e.status === 'CANCELLED') return 'Cancelada';
+  if (e.status === 'PAID' && e.robots > 0) {
+    const who = e.winnerName ?? (e.winnerId?.startsWith('robot-') ? 'um robô' : e.winnerId ?? '—');
+    return `Ensaio concluído — campeão: ${who} (sem prêmio)`;
+  }
   if (e.status === 'PAID') {
     const who = e.winnerName ? `${e.winnerName} (${e.winnerPhone ?? '—'})` : e.winnerId ?? '—';
     const prize = e.prizePaidCents ? formatBRL(e.prizePaidCents) : '—';
@@ -35,7 +39,8 @@ export function promoSituation(e: PromoEvent, now = Date.now()): string {
 
 const rules = (e: PromoEvent) =>
   `mínimo ${e.minPlayers} · ${e.maxPlayers} vagas · ` +
-  (e.waitMinutes === null ? 'sem tolerância' : `tolerância ${e.waitMinutes} min`);
+  (e.waitMinutes === null ? 'sem tolerância' : `tolerância ${e.waitMinutes} min`) +
+  (e.robots > 0 ? ` · ENSAIO com ${e.robots} robôs` : '');
 
 interface Form {
   name: string;
@@ -46,6 +51,8 @@ interface Form {
   maxPlayers: string;
   waitMinutes: string;
   noTolerance: boolean;
+  rehearsal: boolean;
+  robots: string;
 }
 
 const EMPTY: Form = {
@@ -57,7 +64,15 @@ const EMPTY: Form = {
   maxPlayers: '100',
   waitMinutes: '30',
   noTolerance: false,
+  rehearsal: false,
+  robots: '20',
 };
+
+/**
+ * A rehearsal's usual settings: the real format (100 places → 10 tables → final
+ * of 10) filled with 90 robots, starting on time with whatever phones are in.
+ */
+const REHEARSAL: Partial<Form> = { name: 'Ensaio', minPlayers: '2', maxPlayers: '100', waitMinutes: '0', robots: '90' };
 
 const reaisToCents = (v: string) => Math.round(Number(v.replace(',', '.')) * 100);
 
@@ -69,6 +84,7 @@ export function validatePromo(f: Form, now = Date.now()): { event?: NewPromoEven
   const minPlayers = Number(f.minPlayers);
   const maxPlayers = Number(f.maxPlayers);
   const waitMinutes = f.noTolerance ? null : Number(f.waitMinutes);
+  const robots = f.rehearsal ? Number(f.robots) : 0;
   if (!f.name.trim()) return { error: 'Dê um nome à promoção.' };
   if (!f.startsAt || Number.isNaN(start.getTime())) return { error: 'Informe a data e a hora de início.' };
   if (start.getTime() <= now) return { error: 'O início precisa ser no futuro.' };
@@ -81,6 +97,9 @@ export function validatePromo(f: Form, now = Date.now()): { event?: NewPromoEven
   if (waitMinutes !== null && (!Number.isInteger(waitMinutes) || waitMinutes < 0 || waitMinutes > 150)) {
     return { error: 'A tolerância deve ser de 0 a 150 minutos.' };
   }
+  if (f.rehearsal && (!Number.isInteger(robots) || robots < 1 || robots >= maxPlayers)) {
+    return { error: 'No ensaio, os robôs devem ser de 1 até as vagas menos 1.' };
+  }
   return {
     event: {
       name: f.name.trim(),
@@ -90,6 +109,7 @@ export function validatePromo(f: Form, now = Date.now()): { event?: NewPromoEven
       minPlayers,
       maxPlayers,
       waitMinutes,
+      robots,
     },
   };
 }
@@ -127,6 +147,13 @@ export function Promotions({ token, onForbidden }: { token: string; onForbidden:
 
   const set = (k: keyof Form) => (ev: { target: { value: string; checked?: boolean; type?: string } }) =>
     setForm((f) => ({ ...f, [k]: ev.target.type === 'checkbox' ? !!ev.target.checked : ev.target.value }));
+  // Ticking "Ensaio" switches to a rehearsal's settings; unticking restores the real event's.
+  const setRehearsal = (ev: { target: { checked: boolean } }) =>
+    setForm((f) =>
+      ev.target.checked
+        ? { ...f, ...REHEARSAL, noTolerance: false, rehearsal: true }
+        : { ...EMPTY, startsAt: f.startsAt },
+    );
 
   async function create(ev: FormEvent) {
     ev.preventDefault();
@@ -138,6 +165,10 @@ export function Promotions({ token, onForbidden }: { token: string; onForbidden:
     }
     setFormError(null);
     const summary =
+      (event.robots > 0
+        ? `⚠ ENSAIO — ${event.robots} robôs completam as mesas e NENHUM prêmio é pago.\n` +
+          'Não aparece na página de download; no app, só com a sala aberta.\n\n'
+        : '') +
       `${event.name} — início ${when(event.startsAt)}\n` +
       `Prêmio ${formatBRL(event.prizeCents)} · assinante ${formatBRL(event.prizeSubscriberCents)}\n` +
       `Mínimo ${event.minPlayers} · ${event.maxPlayers} vagas · ` +
@@ -241,6 +272,16 @@ export function Promotions({ token, onForbidden }: { token: string; onForbidden:
           <input type="checkbox" checked={form.noTolerance} onChange={set('noTolerance')} aria-label="Sem tolerância" />
           Sem tolerância: só começa com o mínimo
         </label>
+        <label className="check">
+          <input type="checkbox" checked={form.rehearsal} onChange={setRehearsal} aria-label="Ensaio" />
+          Ensaio com robôs (não paga prêmio)
+        </label>
+        {form.rehearsal && (
+          <label>
+            Robôs
+            <input inputMode="numeric" value={form.robots} onChange={set('robots')} aria-label="Robôs" />
+          </label>
+        )}
         <button type="submit" disabled={busy}>
           Agendar promoção
         </button>

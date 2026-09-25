@@ -33,6 +33,7 @@ function serializePromo(
     minPlayers: e.minPlayers,
     maxPlayers: e.maxPlayers,
     waitMinutes: e.waitMinutes,
+    robots: e.robots,
     status: e.status,
     winnerId: e.winnerId,
     winnerName: winner?.displayName ?? null,
@@ -216,12 +217,13 @@ export class AdminController {
       minPlayers: dto.minPlayers,
       maxPlayers: dto.maxPlayers,
       waitMinutes: dto.waitMinutes,
+      robots: dto.robots,
     });
     await this.audit.record({
       actorId: admin.sub, action: 'promo.create', targetType: 'promoEvent', targetId: event.id,
       metadata: { name: event.name, startsAt: event.startsAt.toISOString(), prizeCents: dto.prizeCents,
         prizeSubscriberCents: dto.prizeSubscriberCents, minPlayers: event.minPlayers,
-        maxPlayers: event.maxPlayers, waitMinutes: event.waitMinutes },
+        maxPlayers: event.maxPlayers, waitMinutes: event.waitMinutes, robots: event.robots },
     });
     return serializePromo(event);
   }

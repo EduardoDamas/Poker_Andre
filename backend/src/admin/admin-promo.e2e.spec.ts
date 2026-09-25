@@ -92,6 +92,22 @@ describe('Admin promotions API (e2e)', () => {
     expect(res.body.waitMinutes).toBeNull();
   });
 
+  it('schedules a rehearsal with robots', async () => {
+    const admin = await makeUser('ADMIN');
+    const res = await request(server())
+      .post('/admin/promo-events')
+      .set('Authorization', `Bearer ${admin.token}`)
+      .send({ ...nivel0, name: 'Ensaio', minPlayers: 2, maxPlayers: 30, waitMinutes: 0, robots: 20 })
+      .expect(201);
+    expect(res.body).toMatchObject({ name: 'Ensaio', robots: 20, maxPlayers: 30 });
+    const real = await request(server())
+      .post('/admin/promo-events')
+      .set('Authorization', `Bearer ${admin.token}`)
+      .send(nivel0)
+      .expect(201);
+    expect(real.body.robots).toBe(0);
+  });
+
   it('refuses places a single final table cannot hold', async () => {
     const admin = await makeUser('ADMIN');
     const res = await request(server())

@@ -72,6 +72,13 @@ describe('Download page (e2e)', () => {
     expect(html).not.toContain('<h2>Depois</h2>');
   });
 
+  it('never advertises a rehearsal', async () => {
+    await promo.createEvent({
+      name: 'Ensaio', startsAt: inDays(1), prizeCents: 25000n, prizeSubscriberCents: 50000n, maxPlayers: 30, robots: 20,
+    });
+    expect(await page()).not.toContain('TORNEIO GRÁTIS');
+  });
+
   it('/download serves the same page', async () => {
     await promo.createEvent({ name: 'Nível 0', startsAt: inDays(2), prizeCents: 25000n, prizeSubscriberCents: 50000n });
     const res = await request(app.getHttpServer()).get('/download').expect(200);

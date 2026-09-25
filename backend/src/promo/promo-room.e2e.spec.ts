@@ -35,6 +35,7 @@ describe('Promotion bracket (e2e)', () => {
     BRACKET_ROUND_DELAY_MS: '50',
     TURN_TIMEOUT_MS: '300',
     TOURNAMENT_DISCONNECT_GRACE_MS: '300',
+    ROBOT_DELAY_MS: '5',
   };
   const OLD_ENV: Record<string, string | undefined> = {};
 
@@ -73,7 +74,10 @@ describe('Promotion bracket (e2e)', () => {
     await prisma.playerLimit.deleteMany();
   });
 
-  const event = (startsInMs: number, opts: { minPlayers?: number; maxPlayers?: number; waitMinutes?: number | null } = {}) =>
+  const event = (
+    startsInMs: number,
+    opts: { minPlayers?: number; maxPlayers?: number; waitMinutes?: number | null; robots?: number } = {},
+  ) =>
     promo.createEvent({
       name: 'Nível 0',
       startsAt: new Date(Date.now() + startsInMs),
@@ -82,6 +86,7 @@ describe('Promotion bracket (e2e)', () => {
       minPlayers: opts.minPlayers ?? 2,
       maxPlayers: opts.maxPlayers,
       waitMinutes: opts.waitMinutes,
+      robots: opts.robots,
     });
 
   /** A player with an EMPTY wallet — the promotion must not need money. */
@@ -362,6 +367,40 @@ describe('Promotion bracket (e2e)', () => {
     expect(res.ok).toBe(false);
     expect(res.error).toMatch(/já começou/);
   }, 30000);
+
+  it('rehearsal: two phones and 18 robots play every stage, and nothing is paid', async () => {
+    // Both phones are in before the start, as in the real rehearsal (the room opens 30 min early).
+    const e = await event(1500, { minPlayers: 2, maxPlayers: 30, robots: 18 });
+    const roomId = promoRoomId(e.id);
+    const a = await player();
+    const b = await player();
+    const sa = await connect(a, roomId);
+    const sb = await connect(b, roomId);
+    const tablesSeen: string[] = [];
+    sa.on('tournament:table', (d: { tableId: string }) => tablesSeen.push(d.tableId));
+    const champion = new Promise<{ winnerId: string; prizeCents?: number }>((r) => sa.on('tournament:champion', r));
+    await join(sa, roomId);
+    await join(sb, roomId);
+
+    const result = await champion;
+    expect(result.prizeCents).toBeUndefined();
+    expect(tablesSeen.length).toBeGreaterThanOrEqual(1);
+    expect(tablesSeen[0]).toMatch(/-r1-t\d$/); // 20 players → two first-round tables
+    expect(await promo.totalSpentCents()).toBe(0n);
+    expect(await wallet.getBalance(a.userId)).toBe(0n);
+    expect(await wallet.getBalance(b.userId)).toBe(0n);
+    expect(await prisma.promoEvent.findUnique({ where: { id: e.id } }))
+      .toMatchObject({ status: 'PAID', prizePaidCents: 0n, winnerId: result.winnerId, startedWith: 20 });
+  }, 120000);
+
+  it('a rehearsal is not advertised: in the lobby only while its room is open', async () => {
+    const later = await event(2 * 86_400_000, { robots: 10, maxPlayers: 30 });
+    const now = await event(-1000, { robots: 10, maxPlayers: 30, minPlayers: 5 });
+    const { token } = await player();
+    const ids = (await lobby(token)).map((r) => r.id);
+    expect(ids).toContain(promoRoomId(now.id));
+    expect(ids).not.toContain(promoRoomId(later.id));
+  });
 
   it('a player who never acts does not stall it: the clock checks or folds for them', async () => {
     const e = await event(-1000, { minPlayers: 3 });

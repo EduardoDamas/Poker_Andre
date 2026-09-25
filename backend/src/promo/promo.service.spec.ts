@@ -363,4 +363,48 @@ describe('PromoService (free-entry promotion, one prize)', () => {
       expect(await prisma.promoEvent.findUnique({ where: { id: e.id } })).toMatchObject({ startedAt: START, startedWith: 92 });
     });
   });
+  describe('rehearsal', () => {
+    const rehearsal = () =>
+      promo.createEvent({
+        name: 'Ensaio', startsAt: new Date(), prizeCents: R250, prizeSubscriberCents: R500,
+        minPlayers: 2, maxPlayers: 30, robots: 20,
+      });
+
+    it('closes with its champion and pays nothing', async () => {
+      const e = await rehearsal();
+      const champ = await player();
+      await promo.finishRehearsal(e.id, champ);
+      expect(await prisma.promoEvent.findUnique({ where: { id: e.id } }))
+        .toMatchObject({ status: 'PAID', winnerId: champ, prizePaidCents: 0n });
+      expect(await wallet.getBalance(champ)).toBe(0n);
+      expect(await promo.totalSpentCents()).toBe(0n);
+      expect(await prisma.tournamentWin.count()).toBe(0); // not in the winners feed
+    });
+
+    it('a robot may be its champion', async () => {
+      const e = await rehearsal();
+      await promo.finishRehearsal(e.id, 'robot-7');
+      expect((await prisma.promoEvent.findUnique({ where: { id: e.id } }))!.winnerId).toBe('robot-7');
+    });
+
+    it('never closes a real event, and never pays a subscriber difference', async () => {
+      const real = await event();
+      await promo.finishRehearsal(real.id, await player());
+      expect((await prisma.promoEvent.findUnique({ where: { id: real.id } }))!.status).toBe('SCHEDULED');
+
+      const e = await rehearsal();
+      const champ = await player();
+      await promo.markStarted(e.id, new Date(), 22);
+      await promo.finishRehearsal(e.id, champ);
+      const done = (await prisma.promoEvent.findUnique({ where: { id: e.id } }))!;
+      expect(await promo.pendingSubscriberDifference(done)).toBeNull();
+      await expect(promo.topUpSubscriberPrize(e.id)).rejects.toThrow(/ensaio/);
+    });
+
+    it('needs fewer robots than places', async () => {
+      await expect(promo.createEvent({
+        name: 'Ensaio', startsAt: new Date(), prizeCents: R250, prizeSubscriberCents: R500, maxPlayers: 20, robots: 20,
+      })).rejects.toThrow(/robôs/);
+    });
+  });
 });

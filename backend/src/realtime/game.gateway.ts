@@ -48,6 +48,8 @@ const handDelay = () => Number(process.env.TOURNAMENT_HAND_DELAY_MS ?? '1500');
 const turnMs = () => Number(process.env.TURN_TIMEOUT_MS ?? '30000');
 /** Pause between a bracket round's last table and the next round's deal. */
 const roundDelay = () => Number(process.env.BRACKET_ROUND_DELAY_MS ?? '5000');
+/** A robot's pause before acting (a rehearsal's robot-only tables play at this pace). */
+const robotDelay = () => Number(process.env.ROBOT_DELAY_MS ?? '600');
 /** How long a disconnected player keeps their place in a running tournament. */
 const disconnectGrace = () => Number(process.env.TOURNAMENT_DISCONNECT_GRACE_MS ?? '60000');
 
@@ -273,7 +275,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       const action =
         this.tables.robotToAct(t) === actorId ? this.tables.robotDecision(t) : ({ type: 'fold' } as Action);
       void this.autoAct(tableId, actorId, action);
-    }, 600);
+    }, robotDelay());
   }
 
   /** Act for someone who is not acting themselves (robot, absent, out of time). */
@@ -382,6 +384,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         minPlayers: Math.max(2, event.minPlayers),
         maxPlayers: event.maxPlayers,
         waitMinutes: event.waitMinutes,
+        robots: event.robots,
       });
       if (bracket.started) return this.rejoinBracket(client, userId, bracket);
       const subscription = await this._subscriptionOf(userId);
@@ -498,6 +501,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       for (const id of bracket.entrantIds()) subs.set(id, await this._subscriptionOf(id));
       // Re-check: players may have left while we were reading.
       if (!bracket.shouldStart(Date.now())) return false;
+      bracket.addRobots(); // rehearsal only
       const tables = bracket.start(subs);
       this.promoTimers.get(bracket.roomId)?.forEach(clearTimeout);
       void this.promo
@@ -524,6 +528,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       });
       for (const pid of mt.players) {
         this.tables.recordTournamentEntry(table, pid, bracket.subscriptionOf(pid));
+        if (bracket.isRobot(pid)) {
+          this.tables.seatRobot(mt.id, pid);
+          continue;
+        }
         const e = bracket.entrant(pid);
         if (!e?.connected) {
           // Away: dealt in and auto-folded; withdrawn if not back in time.
@@ -616,6 +624,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
    * by hand). A failure (e.g. blocked winner) holds the prize for review.
    */
   private async payPromoPrize(bracket: PromoBracket, winnerId: string): Promise<number | undefined> {
+    if (bracket.rehearsal) {
+      await this.promo
+        .finishRehearsal(bracket.eventId, winnerId)
+        .catch((e) => this.logger.error(`rehearsal ${bracket.roomId} not closed: ${(e as Error).message}`));
+      return undefined; // a rehearsal pays nothing
+    }
     try {
       const subscribedAtStart =
         bracket.subscribedAtStart(winnerId) ||

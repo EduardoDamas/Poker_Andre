@@ -98,7 +98,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **480 passing / 62 suites** (app: 75 tests; panel: 34). On the 2026-09 machine port 5434 works fine
+Full suite is **491 passing / 62 suites** (app: 75 tests; panel: 37). On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
@@ -335,8 +335,18 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       opens. `/baixar` renders a "TORNEIO GRÁTIS" card for the next one (server-side, at
       `<!--PROMO-->` in install.html): date, vagas, when the room opens, and the prize line from the
       event itself (`promoPrizeLine`: one amount if equal, else the subscriber condition spelled out).
-      **Still to do:** schedule the event in the panel (07/10 19:30) once the client settles the
-      prize wording, and the real-phone rehearsal 05–06/10.
+      **Scheduled 2026-09-24** in the panel: 07/10/2026 19:30, R$250/R$500, 80/100/30 min — `/baixar`
+      shows its card. The client still has to settle the pop-up's prize wording.
+      **Rehearsal mode (2026-09-25):** `PromoEvent.robots` > 0 makes an event a rehearsal — that many
+      robots join at the start (`PromoBracket.addRobots`, seated with `TableService.seatRobot`,
+      played by the robot driver, `ROBOT_DELAY_MS`), robots count toward the minimum so one phone
+      can run it (never zero phones), the champion (maybe a robot) is recorded with
+      `finishRehearsal` and **nothing is paid** (no ledger, no winners feed, no subscriber
+      difference). Not on `/baixar`; in the lobby only while its room is open. Panel: tick
+      "Ensaio com robôs" → Ensaio · mín 2 · 100 vagas · tolerância 0 · 90 robôs (the real format:
+      10 tables → final of 10, and a production load test at the same time).
+      **Rehearsal checklist:** `docs/ENSAIO.md` (PT-BR, for Eduardo, the client and testers).
+      **Still to do:** run the rehearsal 05–06/10 with 3–4 phones.
 - [ ] **Validate subscriptions Opção 2 BEFORE the promo** — the promo's goal is subscriptions, and
       today each one waits for a manual release in the panel. One small real purchase, then set
       `SUBSCRIPTION_CHECKOUT=dynamic`, so late subscribers are not counted as non-subscribers.

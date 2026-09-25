@@ -116,6 +116,8 @@ export interface PromoEvent {
   maxPlayers: number;
   /** Minutes past the start after which it starts with whoever is there; null = never. */
   waitMinutes: number | null;
+  /** Rehearsal: robots that join at the start; nothing is paid. 0 = a real event. */
+  robots: number;
   status: 'SCHEDULED' | 'PAID' | 'CANCELLED';
   winnerId: string | null;
   winnerName: string | null;
@@ -150,6 +152,7 @@ export interface NewPromoEvent {
   minPlayers: number;
   maxPlayers: number;
   waitMinutes: number | null;
+  robots: number;
 }
 
 export interface Session {

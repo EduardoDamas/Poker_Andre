@@ -58,6 +58,8 @@ export class TablesService {
   async list(): Promise<TableInfo[]> {
     const promos = (await this.promo.announcedEvents())
       .filter((event) => !this.brackets.get(promoRoomId(event.id))?.finished)
+      // A rehearsal is not advertised: it shows only while its room is open.
+      .filter((event) => event.robots === 0 || this.promo.isOpen(event))
       .map((event) => {
         const id = promoRoomId(event.id);
         const bracket = this.brackets.get(id);

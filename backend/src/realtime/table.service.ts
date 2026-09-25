@@ -300,6 +300,14 @@ export class TableService {
     return added;
   }
 
+  /** Seat a promotion rehearsal's robot at its bracket table. */
+  seatRobot(id: string, userId: string): void {
+    const table = this.tables.get(id);
+    if (!table || table.seats.some((s) => s?.userId === userId)) return;
+    const i = table.seats.findIndex((s) => s === null);
+    if (i !== -1) table.seats[i] = { userId, socketId: `robot:${id}:${userId}`, isRobot: true };
+  }
+
   hasRobots(table: Table): boolean {
     return this.seatedSlots(table).some((s) => s.isRobot);
   }
