@@ -13,6 +13,14 @@ export class ApiError extends Error {
   }
 }
 
+// Admin sessions last 7 days (JWT_EXPIRES_IN). When the server refuses a stored
+// session, the app is told once so it can show the login form again instead of
+// every tab failing with a generic error.
+let sessionExpired: (() => void) | null = null;
+export function onSessionExpired(fn: (() => void) | null): void {
+  sessionExpired = fn;
+}
+
 async function request<T>(path: string, opts: RequestInit = {}, token?: string): Promise<T> {
   const res = await fetch(BASE + path, {
     ...opts,
@@ -23,6 +31,7 @@ async function request<T>(path: string, opts: RequestInit = {}, token?: string):
     },
   });
   const text = await res.text();
+  if (res.status === 401 && token) sessionExpired?.();
   if (!res.ok) {
     // Keep the server's reason (e.g. "O prêmio do assinante não pode ser menor…").
     let reason = `Request failed (${res.status})`;

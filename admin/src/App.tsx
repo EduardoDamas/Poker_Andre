@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from './api';
+import { api, onSessionExpired } from './api';
 import { Login } from './components/Login';
 import { Players } from './components/Players';
 import { Withdrawals } from './components/Withdrawals';
@@ -25,16 +25,29 @@ export function App() {
   const [tab, setTab] = useState<Tab>('deposits');
   const [forbidden, setForbidden] = useState(false);
   const [autoFailed, setAutoFailed] = useState(false);
+  const [expired, setExpired] = useState(false);
 
   function authed(t: string) {
     localStorage.setItem(TOKEN_KEY, t);
     setForbidden(false);
+    setExpired(false);
     setToken(t);
   }
   function logout() {
     localStorage.removeItem(TOKEN_KEY);
     setToken(null);
   }
+
+  // A stored session the server no longer accepts (older than 7 days): back to
+  // the login form, saying why.
+  useEffect(() => {
+    onSessionExpired(() => {
+      localStorage.removeItem(TOKEN_KEY);
+      setExpired(true);
+      setToken(null);
+    });
+    return () => onSessionExpired(null);
+  }, []);
 
   // On load, log in automatically with the built-in credentials — no form.
   useEffect(() => {
@@ -57,7 +70,9 @@ export function App() {
         </div>
       );
     }
-    return <Login onAuthed={authed} />;
+    return (
+      <Login onAuthed={authed} notice={expired ? 'Sua sessão expirou. Entre novamente.' : undefined} />
+    );
   }
 
   if (forbidden) {

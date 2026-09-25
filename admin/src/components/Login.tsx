@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api, ApiError } from '../api';
 
-export function Login({ onAuthed }: { onAuthed: (token: string) => void }) {
+export function Login({ onAuthed, notice }: { onAuthed: (token: string) => void; notice?: string }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +30,7 @@ export function Login({ onAuthed }: { onAuthed: (token: string) => void }) {
         <span className="red">CAPA</span> CONTEST
       </h1>
       <p className="muted">Painel administrativo</p>
+      {notice && <p className="warn">{notice}</p>}
       <input
         aria-label="Usuário"
         placeholder="Usuário"
