@@ -28,6 +28,7 @@ class SocketGameConnection implements GameConnection {
   final GameEvents _events;
   final _controller = StreamController<GameSnapshot>.broadcast();
   GameSnapshot _snapshot = const GameSnapshot();
+  bool _wasConnected = false; // reached the server at least once
 
   SocketGameConnection({
     required String baseUrl,
@@ -42,6 +43,11 @@ class SocketGameConnection implements GameConnection {
           io.OptionBuilder()
               .setTransports(['websocket'])
               .disableAutoConnect()
+              // A connection of its own, with this session's token. Without it
+              // the library hands back the first socket it ever made for this
+              // URL — still signed in as whoever opened a table first, and
+              // stuck on an expired token after logging in again.
+              .enableForceNew()
               .setAuth({'token': token})
               .build(),
         ) {
@@ -56,6 +62,7 @@ class SocketGameConnection implements GameConnection {
 
   void _wire() {
     _socket.on('connected', (_) {
+      _wasConnected = true;
       _emit(_snapshot.copyWith(status: ConnStatus.connected));
       final join = <String, dynamic>{'tableId': tableId, 'maxSeats': maxSeats};
       if (level != null) join['level'] = level; // money tournament room
@@ -84,8 +91,12 @@ class SocketGameConnection implements GameConnection {
     _socket.on('unauthorized', (_) {
       _emit(_snapshot.copyWith(status: ConnStatus.error, error: 'Não autorizado.'));
     });
+    // Network lost: the library reconnects by itself and 'connected' re-joins.
+    _socket.onDisconnect((_) {
+      if (!_left) _emit(_events.connectionLost(_snapshot, wasConnected: _wasConnected));
+    });
     _socket.onConnectError((_) {
-      _emit(_snapshot.copyWith(status: ConnStatus.error, error: 'Falha de conexão.'));
+      _emit(_events.connectionLost(_snapshot, wasConnected: _wasConnected));
     });
   }
 

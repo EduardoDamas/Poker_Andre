@@ -72,12 +72,17 @@ class _GradientButtonState extends State<GradientButton> {
             ),
             child: widget.busy
                 ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (widget.icon != null) ...[Icon(widget.icon, size: 18, color: fg), const SizedBox(width: 8)],
-                      Text(widget.label, style: TextStyle(color: fg, fontSize: 15, fontWeight: FontWeight.w700)),
-                    ],
+                // Shrinks to fit a narrow button (three actions on a 360 dp
+                // phone) instead of cutting the label.
+                : FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.icon != null) ...[Icon(widget.icon, size: 18, color: fg), const SizedBox(width: 8)],
+                        Text(widget.label, style: TextStyle(color: fg, fontSize: 15, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
                   ),
           ),
         ),

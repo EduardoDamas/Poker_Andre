@@ -114,6 +114,17 @@ void main() {
     expect(find.text('Você ganhou 200 fichas!'), findsOneWidget);
   });
 
+  testWidgets('while reconnecting it says so, with a spinner — not an error', (tester) async {
+    final c = FakeConnection(const GameSnapshot(
+      status: ConnStatus.connecting, error: 'Conexão perdida. Reconectando…',
+    ));
+    await tester.pumpWidget(tableWith(c));
+    await tester.pump();
+    expect(find.text('Conexão perdida. Reconectando…'), findsOneWidget);
+    expect(find.byKey(const Key('tableError')), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
   testWidgets('shows an error state', (tester) async {
     final c = FakeConnection(const GameSnapshot(status: ConnStatus.error, error: 'Não autorizado.'));
     await tester.pumpWidget(tableWith(c));
@@ -246,6 +257,73 @@ void main() {
 
       expect(find.byKey(const Key('leaveTable')), findsNothing);
       expect(find.byKey(const Key('bracketNext')), findsOneWidget);
+    });
+
+    Future<void> openTable(WidgetTester tester, FakeConnection c) async {
+      await tester.pumpWidget(MaterialApp(
+        theme: buildCapaTheme(),
+        home: Builder(
+          builder: (ctx) => TextButton(
+            key: const Key('openTable'),
+            onPressed: () => Navigator.push(ctx, MaterialPageRoute(builder: (_) => TableScreen(connection: c))),
+            child: const Text('lobby'),
+          ),
+        ),
+      ));
+      await tester.tap(find.byKey(const Key('openTable')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('back in the middle of the tournament asks first: staying keeps the place', (tester) async {
+      final c = FakeConnection(const GameSnapshot(
+        status: ConnStatus.connected, stage: 'Rodada 1', holeCards: ['Ah', 'Kh'],
+      ));
+      await openTable(tester, c);
+
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('perde sua vaga'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('stayBtn')));
+      await tester.pumpAndSettle();
+      expect(c.left, isFalse);
+      expect(find.byType(TableScreen), findsOneWidget);
+
+      // Android's own back button asks too.
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('leaveWarning')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('confirmLeaveBtn')));
+      await tester.pumpAndSettle();
+      expect(c.left, isTrue);
+      expect(find.byType(TableScreen), findsNothing);
+    });
+
+    testWidgets('back in the waiting room warns the place will be freed', (tester) async {
+      final c = FakeConnection(GameSnapshot(
+        status: ConnStatus.connected,
+        lobby: PromoLobby(registered: 12, minPlayers: 80, maxPlayers: 100, startsAt: DateTime.now().add(const Duration(minutes: 20))),
+      ));
+      await openTable(tester, c);
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.textContaining('vaga fica livre'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('confirmLeaveBtn')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(c.left, isTrue);
+      await tester.pumpWidget(const SizedBox()); // stop the waiting-room clocks
+    });
+
+    testWidgets('out of the tournament, or at an ordinary table, back just leaves', (tester) async {
+      final c = FakeConnection(const GameSnapshot(
+        status: ConnStatus.connected, stage: 'Rodada 1', out: true, notice: 'Você foi eliminado.',
+      ));
+      await openTable(tester, c);
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('leaveWarning')), findsNothing);
+      expect(c.left, isTrue);
     });
 
     testWidgets('on a clocked table my turn counts down', (tester) async {

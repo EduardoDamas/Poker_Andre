@@ -25,6 +25,14 @@ class GameEvents {
         finished: s.finished,
       );
 
+  /// The connection dropped, or a reconnect attempt failed. Once the player has
+  /// been in, the app says it is reconnecting — it does, by itself, and the
+  /// server keeps the seat for a while — instead of an error that looks final.
+  /// A first connection that never worked is an error.
+  GameSnapshot connectionLost(GameSnapshot s, {required bool wasConnected}) => wasConnected
+      ? s.copyWith(status: ConnStatus.connecting, error: 'Conexão perdida. Reconectando…')
+      : s.copyWith(status: ConnStatus.error, error: 'Falha de conexão.');
+
   /// The table went back to "waiting for players" (opponents withdrew — no
   /// walkover payout): clear any hand/result state, keep seats.
   GameSnapshot waiting(GameSnapshot s) => _fresh(s);

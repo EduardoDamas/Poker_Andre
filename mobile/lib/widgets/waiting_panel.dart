@@ -86,8 +86,9 @@ class _WaitingPanelState extends State<WaitingPanel> {
   }
 
   void _cannotInvite() {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Não foi possível abrir o convite.')));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Não foi possível abrir o convite.')));
   }
 
   @override
@@ -95,99 +96,123 @@ class _WaitingPanelState extends State<WaitingPanel> {
     final missing = widget.needed - widget.seated;
     final startsIn = widget.startsAt?.difference(DateTime.now());
 
+    // Scrolls on short screens rather than cutting the invite button off.
     return Center(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 24),
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
-        constraints: const BoxConstraints(maxWidth: 420),
-        decoration: BoxDecoration(
-          color: Brand.surface.withValues(alpha: 0.96),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Brand.gold.withValues(alpha: 0.5)),
-          boxShadow: Brand.cardShadow,
-        ),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(widget.roomName,
-              key: const Key('waitingRoomName'),
-              textAlign: TextAlign.center,
-              style: Brand.h2.copyWith(color: Brand.gold)),
-          const SizedBox(height: 6),
-          Divider(color: Brand.gold.withValues(alpha: 0.35), height: 18),
-          Text(
-            widget.headline ??
-                (missing > 0
-                    ? 'O torneio começa assim que a sala completar'
-                    : 'O torneio começa em instantes'),
-            key: const Key('waitingHeadline'),
-            textAlign: TextAlign.center,
-            style: Brand.body,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 24),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+          constraints: const BoxConstraints(maxWidth: 420),
+          decoration: BoxDecoration(
+            color: Brand.surface.withValues(alpha: 0.96),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Brand.gold.withValues(alpha: 0.5)),
+            boxShadow: Brand.cardShadow,
           ),
-          const SizedBox(height: 14),
-          if (missing > 0)
-            Text.rich(
-              TextSpan(style: Brand.h3, children: [
-                const TextSpan(text: 'Faltam '),
-                TextSpan(
-                  text: '$missing',
-                  style: Brand.h2.copyWith(color: Brand.crimson),
-                ),
-                TextSpan(text: missing == 1 ? ' participante' : ' participantes'),
-              ]),
-              key: const Key('waitingMissing'),
-              textAlign: TextAlign.center,
-            )
-          else
-            Text(widget.doneText, style: Brand.h3, textAlign: TextAlign.center),
-          const SizedBox(height: 6),
-          Text(widget.countText ?? 'Na sala: ${widget.seated} de ${widget.needed}',
-              key: const Key('waitingCount'), style: Brand.micro),
-          if (widget.footnote != null) ...[
-            const SizedBox(height: 10),
-            Text(widget.footnote!,
-                key: const Key('waitingFootnote'),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.roomName,
+                key: const Key('waitingRoomName'),
                 textAlign: TextAlign.center,
-                style: Brand.caption.copyWith(color: Brand.champagne)),
-          ],
-          const SizedBox(height: 18),
-          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-            if (startsIn != null) ...[
-              _clock('Tempo estimado', _mmss(startsIn), key: const Key('waitingEstimate')),
-              const SizedBox(width: 18),
-            ],
-            _clock('Tempo de espera', _mmss(_elapsed), key: const Key('waitingElapsed')),
-          ]),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              key: const Key('inviteFriendsBtn'),
-              onPressed: _invite,
-              icon: const Icon(Icons.person_add_alt, size: 18, color: Brand.gold),
-              label: Text('CONVIDAR AMIGOS',
-                  style: Brand.label.copyWith(color: Brand.gold, letterSpacing: 0.5)),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Brand.gold),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                style: Brand.h2.copyWith(color: Brand.gold),
               ),
-            ),
+              const SizedBox(height: 6),
+              Divider(color: Brand.gold.withValues(alpha: 0.35), height: 18),
+              Text(
+                widget.headline ??
+                    (missing > 0
+                        ? 'O torneio começa assim que a sala completar'
+                        : 'O torneio começa em instantes'),
+                key: const Key('waitingHeadline'),
+                textAlign: TextAlign.center,
+                style: Brand.body,
+              ),
+              const SizedBox(height: 14),
+              if (missing > 0)
+                Text.rich(
+                  TextSpan(
+                    style: Brand.h3,
+                    children: [
+                      const TextSpan(text: 'Faltam '),
+                      TextSpan(
+                        text: '$missing',
+                        style: Brand.h2.copyWith(color: Brand.crimson),
+                      ),
+                      TextSpan(text: missing == 1 ? ' participante' : ' participantes'),
+                    ],
+                  ),
+                  key: const Key('waitingMissing'),
+                  textAlign: TextAlign.center,
+                )
+              else
+                Text(widget.doneText, style: Brand.h3, textAlign: TextAlign.center),
+              const SizedBox(height: 6),
+              Text(
+                widget.countText ?? 'Na sala: ${widget.seated} de ${widget.needed}',
+                key: const Key('waitingCount'),
+                style: Brand.micro,
+              ),
+              if (widget.footnote != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  widget.footnote!,
+                  key: const Key('waitingFootnote'),
+                  textAlign: TextAlign.center,
+                  style: Brand.caption.copyWith(color: Brand.champagne),
+                ),
+              ],
+              const SizedBox(height: 18),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (startsIn != null) ...[
+                    _clock('Tempo estimado', _mmss(startsIn), key: const Key('waitingEstimate')),
+                    const SizedBox(width: 18),
+                  ],
+                  _clock('Tempo de espera', _mmss(_elapsed), key: const Key('waitingElapsed')),
+                ],
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  key: const Key('inviteFriendsBtn'),
+                  onPressed: _invite,
+                  icon: const Icon(Icons.person_add_alt, size: 18, color: Brand.gold),
+                  label: Text(
+                    'CONVIDAR AMIGOS',
+                    style: Brand.label.copyWith(color: Brand.gold, letterSpacing: 0.5),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Brand.gold),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ]),
+        ),
       ),
     );
   }
 
-  Widget _clock(String label, String value, {Key? key}) => Column(children: [
-        Text(label, style: Brand.micro),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-          decoration: BoxDecoration(
-            color: Brand.bg.withValues(alpha: 0.6),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Brand.border),
-          ),
-          child: Text(value, key: key, style: Brand.money.copyWith(fontSize: 20)),
+  Widget _clock(String label, String value, {Key? key}) => Column(
+    children: [
+      Text(label, style: Brand.micro),
+      const SizedBox(height: 4),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+        decoration: BoxDecoration(
+          color: Brand.bg.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Brand.border),
         ),
-      ]);
+        child: Text(value, key: key, style: Brand.money.copyWith(fontSize: 20)),
+      ),
+    ],
+  );
 }

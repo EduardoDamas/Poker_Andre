@@ -119,6 +119,21 @@ void main() {
     expect(connected.inBracket, isFalse); // an ordinary table
   });
 
+  group('network', () {
+    test('a drop after being in says it is reconnecting, not a final error', () {
+      final s = ev.connectionLost(connected.copyWith(stage: 'Rodada 1'), wasConnected: true);
+      expect(s.status, ConnStatus.connecting);
+      expect(s.error, 'Conexão perdida. Reconectando…');
+      expect(s.stage, 'Rodada 1'); // the table context is kept for when it comes back
+    });
+
+    test('a first connection that never worked is an error', () {
+      final s = ev.connectionLost(const GameSnapshot(), wasConnected: false);
+      expect(s.status, ConnStatus.error);
+      expect(s.error, 'Falha de conexão.');
+    });
+  });
+
   group('turn clock', () {
     final now = DateTime(2026, 10, 7, 20);
 

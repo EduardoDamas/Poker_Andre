@@ -94,7 +94,39 @@ class _TableScreenState extends State<TableScreen> {
   }
 
   /// Leave the table (frees the seat on the server) and return to the lobby.
+  /// In a promotion, leaving costs the place — so the player is asked first.
   Future<void> _leave() async {
+    final s = widget.connection.current;
+    final waiting = s.lobby != null && s.stage == null && s.status == ConnStatus.connected;
+    if (s.inBracket || waiting) {
+      final leave = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Brand.surface,
+          title: Text('Sair do torneio?', style: Brand.h3),
+          content: Text(
+            s.inBracket
+                ? 'Se você sair agora, perde sua vaga no torneio e não pode voltar.'
+                : 'Se você sair, sua vaga fica livre para outra pessoa. '
+                    'Você pode voltar enquanto houver vagas.',
+            key: const Key('leaveWarning'),
+          ),
+          actions: [
+            TextButton(
+              key: const Key('stayBtn'),
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Ficar'),
+            ),
+            TextButton(
+              key: const Key('confirmLeaveBtn'),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Sair', style: TextStyle(color: Brand.danger)),
+            ),
+          ],
+        ),
+      );
+      if (leave != true) return;
+    }
     await widget.connection.leaveTable();
     if (mounted) Navigator.of(context).pop();
   }
@@ -132,6 +164,17 @@ class _TableScreenState extends State<TableScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Android's back button goes through _leave too (it asks in a promotion).
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _leave();
+      },
+      child: _scaffold(context),
+    );
+  }
+
+  Widget _scaffold(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -154,10 +197,19 @@ class _TableScreenState extends State<TableScreen> {
           final s = snap.data ?? const GameSnapshot();
           if (s.status == ConnStatus.error) {
             return _Centered(child: Text(s.error ?? 'Erro', key: const Key('tableError'),
-                style: const TextStyle(color: Brand.danger, fontSize: 16)));
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Brand.danger, fontSize: 16, height: 1.4)));
           }
           if (s.status == ConnStatus.connecting) {
-            return const _Centered(child: CircularProgressIndicator(color: Brand.crimson));
+            return _Centered(
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const CircularProgressIndicator(color: Brand.crimson),
+                if (s.error != null) ...[
+                  const SizedBox(height: 16),
+                  Text(s.error!, key: const Key('reconnecting'), style: Brand.body),
+                ],
+              ]),
+            );
           }
           return _TableView(
               snapshot: s,
@@ -196,6 +248,7 @@ class _Centered extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
         decoration: const BoxDecoration(gradient: Brand.obsidianGrad),
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Center(child: child),
       );
 }
@@ -437,16 +490,6 @@ class _TableView extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Where the player is in a promotion bracket.
-                            if (s.stage != null) ...[
-                              Text(s.stage!.toUpperCase(),
-                                  key: const Key('stageLabel'),
-                                  style: Brand.micro.copyWith(
-                                      color: Brand.gold,
-                                      letterSpacing: 1.5,
-                                      fontWeight: FontWeight.w800)),
-                              const SizedBox(height: 6),
-                            ],
                             Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 14, vertical: 5),
@@ -472,7 +515,7 @@ class _TableView extends StatelessWidget {
                                     // in once, when its street is dealt.
                                     for (var i = 0; i < s.board.length; i++)
                                       PlayingCard(s.board[i],
-                                          width: 42,
+                                          width: s.maxSeats > 8 ? 34 : 42,
                                           key: ValueKey('board-$i-${s.board[i]}')),
                                   ])
                             else if (s.holeCards.isNotEmpty || s.handComplete)
@@ -495,6 +538,20 @@ class _TableView extends StatelessWidget {
                     ]),
                   ),
                 ),
+                // Where the player is in a promotion bracket — above the table,
+                // clear of the seats.
+                if (s.stage != null)
+                  Positioned(
+                    top: 8,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Text(s.stage!.toUpperCase(),
+                          key: const Key('stageLabel'),
+                          style: Brand.micro.copyWith(
+                              color: Brand.gold, letterSpacing: 1.5, fontWeight: FontWeight.w800)),
+                    ),
+                  ),
                 // Last child = on top: while the room is still filling, a
                 // still panel explains the wait instead of leaving the player
                 // looking at an empty table.
@@ -721,7 +778,8 @@ class _TableSeats extends StatelessWidget {
     }
 
     return LayoutBuilder(builder: (context, c) {
-      const seatSize = 52.0;
+      // A final table of 10 needs smaller avatars to keep them apart.
+      final seatSize = max > 8 ? 42.0 : 52.0;
       // Ellipse matched to the tbl-crimson-base artwork: the rail's center sits
       // at ~40% of the frame height (the pedestal fills the lower part), spanning
       // ~92% × 60% of it — so avatars straddle the leather rail.
@@ -740,7 +798,7 @@ class _TableSeats extends StatelessWidget {
         children.add(Positioned(
           left: dx.clamp(0.0, c.maxWidth - seatSize),
           top: dy.clamp(0.0, c.maxHeight - seatSize),
-          child: _SeatWidget(size: seatSize, seat: seat, acting: acting),
+          child: _SeatWidget(size: seatSize, seat: seat, acting: acting, compact: max > 8),
         ));
       }
       return Stack(children: children);
@@ -752,7 +810,10 @@ class _SeatWidget extends StatelessWidget {
   final double size;
   final SeatInfo? seat;
   final bool acting;
-  const _SeatWidget({required this.size, required this.seat, required this.acting});
+  // A table of 10: opponents drop the "Jogador" caption (it says nothing and,
+  // at the side edges, would run into the seat below).
+  final bool compact;
+  const _SeatWidget({required this.size, required this.seat, required this.acting, this.compact = false});
 
   @override
   Widget build(BuildContext context) {
@@ -794,8 +855,9 @@ class _SeatWidget extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 3),
-        Text(seat.isMe ? 'Você' : 'Jogador',
-            style: Brand.micro.copyWith(color: seat.isMe ? Brand.champagne : Brand.textSec)),
+        if (seat.isMe || !compact)
+          Text(seat.isMe ? 'Você' : 'Jogador',
+              style: Brand.micro.copyWith(color: seat.isMe ? Brand.champagne : Brand.textSec)),
       ],
     );
   }
