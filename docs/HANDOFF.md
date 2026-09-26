@@ -4,7 +4,7 @@ Everything needed to continue development, build, and deploy on a **new computer
 Committed to git, so it travels with the repo. **Secret values are NOT here** — they
 live in gitignored files you copy manually (see §2).
 
-Last updated: 2026-09-24. App version live: **1.0.8+26** (released 2026-09-24).
+Last updated: 2026-09-25. App version live: **1.0.8+26**; **1.0.9+27** built (end-to-end fixes), not yet released.
 
 ---
 
@@ -98,7 +98,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **491 passing / 62 suites** (app: 75 tests; panel: 37). On the 2026-09 machine port 5434 works fine
+Full suite is **496 passing / 62 suites** (app: 81 tests; panel: 38; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
@@ -346,7 +346,15 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       "Ensaio com robôs" → Ensaio · mín 2 · 100 vagas · tolerância 0 · 90 robôs (the real format:
       10 tables → final of 10, and a production load test at the same time).
       **Rehearsal checklist:** `docs/ENSAIO.md` (PT-BR, for Eduardo, the client and testers).
-      **Still to do:** run the rehearsal 05–06/10 with 3–4 phones.
+      **End-to-end run (2026-09-25, `docs/E2E.md`):** the app's own client code against a real
+      server, 10 scenarios (100 phones, network drops, AFK, subscribers, rehearsal, paid rooms).
+      It found and we fixed: tables freezing forever when a hand is over as dealt (all-in from the
+      blinds — server fix, also affected paid rooms); a server restart mid-tournament starting a
+      new one (now refused + panel **Remarcar**); and in the app (1.0.9) the shared socket across
+      logins, the silent forfeit on back, a final-looking "Falha de conexão." and 360 dp layout.
+      **Never deploy on the tournament evening** (a restart loses the running bracket; if it
+      happens: panel → Remarcar).
+      **Still to do:** release 1.0.9 before the rehearsal; run the rehearsal 05–06/10 with 3–4 phones.
 - [ ] **Validate subscriptions Opção 2 BEFORE the promo** — the promo's goal is subscriptions, and
       today each one waits for a manual release in the panel. One small real purchase, then set
       `SUBSCRIPTION_CHECKOUT=dynamic`, so late subscribers are not counted as non-subscribers.
