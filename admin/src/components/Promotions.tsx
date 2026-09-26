@@ -25,6 +25,10 @@ export function promoSituation(e: PromoEvent, now = Date.now()): string {
     return `Paga: ${who} — ${prize}${e.winnerSubscribed ? ' (assinante)' : ''}`;
   }
   const live = e.live;
+  if (e.status === 'SCHEDULED' && e.startedAt && !live?.started) {
+    // Started, but the server holds no bracket: it restarted mid-tournament.
+    return 'INTERROMPIDA — o servidor reiniciou durante o torneio. Use "Remarcar" para recomeçar.';
+  }
   if (live?.started && live.championId) return 'Campeão definido, prêmio NÃO pago — verificar a conta do vencedor';
   if (live?.started) {
     const tables = live.tablesLeft === 1 ? '1 mesa jogando' : `${live.tablesLeft} mesas jogando`;
@@ -208,6 +212,30 @@ export function Promotions({ token, onForbidden }: { token: string; onForbidden:
     }
   }
 
+  async function reschedule(e: PromoEvent) {
+    const answer = window.prompt(
+      `Recomeçar "${e.name}" em quantos minutos?\n\n` +
+        'Os jogadores voltam para a sala e o torneio começa do zero no novo horário ' +
+        '(a sala abre na hora se faltar menos de 30 minutos).',
+      '10',
+    );
+    if (answer === null) return;
+    const minutes = Number(answer);
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 180) {
+      setLoadError('Informe de 1 a 180 minutos.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.reschedulePromoEvent(token, e.id, new Date(Date.now() + minutes * 60_000).toISOString());
+      load();
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Não foi possível remarcar.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function cancel(e: PromoEvent) {
     const running = e.live?.started;
     const question = running
@@ -326,6 +354,11 @@ export function Promotions({ token, onForbidden }: { token: string; onForbidden:
                   )}
                 </td>
                 <td className="actions">
+                  {e.status === 'SCHEDULED' && e.startedAt && !e.live?.started && (
+                    <button className="approve" disabled={busy} onClick={() => reschedule(e)}>
+                      Remarcar
+                    </button>
+                  )}
                   {e.subscriberDifference === 'CONFIRMED' && (
                     <button className="approve" disabled={busy} onClick={() => payDifference(e)}>
                       Pagar diferença

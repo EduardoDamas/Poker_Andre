@@ -245,6 +245,12 @@ export const api = {
       { method: 'POST' },
       token,
     ),
+  reschedulePromoEvent: (token: string, id: string, startsAt: string) =>
+    request<PromoEvent>(
+      `/admin/promo-events/${id}/reschedule`,
+      { method: 'POST', body: JSON.stringify({ startsAt }) },
+      token,
+    ),
   cancelPromoEvent: (token: string, id: string) =>
     request<PromoEvent>(`/admin/promo-events/${id}/cancel`, { method: 'POST' }, token),
   // Subscription grant.

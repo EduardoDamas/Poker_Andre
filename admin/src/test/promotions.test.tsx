@@ -245,6 +245,25 @@ describe('Promotions tab', () => {
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Pagar diferença' })).toBeNull());
   });
 
+  it('an interrupted promotion (server restarted mid-tournament) can be rescheduled', async () => {
+    const interrupted: PromoEvent = { ...base, startedAt: '2026-10-07T22:31:00.000Z', startedWith: 88 };
+    expect(promoSituation(interrupted)).toMatch(/^INTERROMPIDA/);
+    const calls: { url: string; body?: { startsAt: string } }[] = [];
+    stubFetch((url, init) => {
+      if (init?.method === 'POST') calls.push({ url, body: JSON.parse(String(init.body)) });
+      return { status: 200, body: [interrupted] };
+    });
+    vi.stubGlobal('prompt', () => '10');
+    render(<Promotions token="tok" onForbidden={() => {}} />);
+    const before = Date.now();
+    await userEvent.click(await screen.findByRole('button', { name: 'Remarcar' }));
+    await waitFor(() => expect(calls).toHaveLength(1));
+    expect(calls[0].url).toMatch(/\/admin\/promo-events\/e1\/reschedule$/);
+    const at = Date.parse(calls[0].body!.startsAt);
+    expect(at - before).toBeGreaterThanOrEqual(9.9 * 60_000);
+    expect(at - before).toBeLessThan(10.5 * 60_000);
+  });
+
   it('calls onForbidden when the API returns 403', async () => {
     stubFetch(() => ({ status: 403, body: null }));
     const onForbidden = vi.fn();
