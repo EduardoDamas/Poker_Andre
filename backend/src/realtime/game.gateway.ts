@@ -227,6 +227,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       if (started) {
         // The first actor may be a robot (e.g. you are BB, a robot is SB).
         this.driveRobots(body.tableId);
+        void this.afterDeal(body.tableId);
       } else if (
         process.env.ROBOTS_FILL === '1' &&
         !this.tables.isTournament(table) && // robots never join money tournaments
@@ -258,6 +259,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     }
     this.broadcastGameState(tableId);
     this.driveRobots(tableId);
+    void this.afterDeal(tableId);
   }
 
   // Drive consecutive robot turns (with a short delay), broadcasting state.
@@ -343,6 +345,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     if (!this.tables.startHand(table)) return;
     this.announceHand(tableId);
     this.driveRobots(tableId); // an absent player may be first to act
+    void this.afterDeal(tableId);
+  }
+
+  /**
+   * A hand can be over the moment it is dealt (every player all-in from the
+   * blinds). Nobody will act on it, so process its result right away — else the
+   * table waits forever and, in a bracket, so does the whole tournament.
+   */
+  private async afterDeal(tableId: string): Promise<void> {
+    try {
+      const result = await this.tables.completeDealtHand(tableId);
+      if (result) await this.afterHand(tableId, result);
+    } catch (e) {
+      this.logger.error(`dealt hand at ${tableId} not settled: ${(e as Error).message}`);
+    }
   }
 
   /** Broadcast a freshly dealt hand: public state, private hole cards, turn. */
@@ -377,6 +394,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       }
       const event = await this.promo.openEvent(eventId);
       if (!event) return { ok: false, error: await this.promoClosedReason(eventId) };
+      if (event.startedAt && !running) {
+        // It started, but this process holds no bracket: the server restarted
+        // mid-tournament. Never start a new one behind the players' backs —
+        // the organizer reschedules it from the panel.
+        return {
+          ok: false,
+          error: 'O torneio foi interrompido por uma falha técnica. Aguarde as instruções da organização.',
+        };
+      }
       const bracket = this.brackets.getOrCreate({
         eventId: event.id,
         roomId,
@@ -549,6 +575,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       if (this.tables.startHand(table)) {
         this.announceHand(mt.id);
         this.driveRobots(mt.id);
+        void this.afterDeal(mt.id);
       }
     }
   }
@@ -758,6 +785,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         }
         this.broadcastGameState(subTableId);
         this.driveRobots(subTableId);
+        void this.afterDeal(subTableId);
       }
     });
   }

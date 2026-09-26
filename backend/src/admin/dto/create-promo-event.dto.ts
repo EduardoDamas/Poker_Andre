@@ -1,5 +1,11 @@
 import { IsDateString, IsInt, IsOptional, IsString, Length, Max, Min, ValidateIf } from 'class-validator';
 
+export class ReschedulePromoEventDto {
+  /** The new start (ISO 8601). The room opens right away if within 30 minutes. */
+  @IsDateString()
+  startsAt!: string;
+}
+
 export class CreatePromoEventDto {
   @IsString()
   @Length(2, 60)

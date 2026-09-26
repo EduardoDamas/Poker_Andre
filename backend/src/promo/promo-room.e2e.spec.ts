@@ -438,6 +438,26 @@ describe('Promotion bracket (e2e)', () => {
     expect(await promo.totalSpentCents()).toBe(BigInt(R250));
   }, 90000);
 
+  it('after a server restart mid-tournament it refuses to start a new one, until rescheduled', async () => {
+    // A restart loses the in-memory bracket; the database still says it started.
+    const e = await event(-60_000);
+    await promo.markStarted(e.id, new Date(Date.now() - 30_000), 88);
+    const roomId = promoRoomId(e.id);
+    const a = await player();
+    const b = await player();
+    const sa = await connect(a, roomId);
+    const res = await join(sa, roomId);
+    expect(res.ok).toBe(false);
+    expect(res.error).toMatch(/interrompido/);
+
+    // The organizer reschedules: it starts fresh with whoever gathers.
+    await promo.reschedule(e.id, new Date(Date.now() + 1500));
+    const done = championOf(sa);
+    expect(await join(sa, roomId)).toMatchObject({ ok: true });
+    expect(await join(await connect(b, roomId), roomId)).toMatchObject({ ok: true });
+    expect((await done).prizeCents).toBe(R250);
+  }, 60000);
+
   it('too early, it tells the player when the room opens', async () => {
     const e = await event(2 * 3_600_000); // two hours away (opens 30 min before)
     const roomId = promoRoomId(e.id);

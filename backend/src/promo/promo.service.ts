@@ -356,6 +356,22 @@ export class PromoService {
     return new Map(users.map((u) => [u.id, { displayName: u.displayName, phone: u.phone }]));
   }
 
+  /**
+   * Put an interrupted event back on: a new start time, and forget that it had
+   * started. For when the server restarted mid-tournament (the bracket lives in
+   * memory) — players gather again and it starts fresh at [startsAt].
+   */
+  async reschedule(eventId: string, startsAt: Date, now: Date = new Date()): Promise<PromoEvent> {
+    const event = await this.prisma.promoEvent.findUnique({ where: { id: eventId } });
+    if (!event) throw new NotFoundException('Promoção não encontrada.');
+    if (event.status !== 'SCHEDULED') throw new BadRequestException('Só uma promoção agendada pode ser remarcada.');
+    if (startsAt.getTime() <= now.getTime()) throw new BadRequestException('O novo início precisa ser no futuro.');
+    return this.prisma.promoEvent.update({
+      where: { id: eventId },
+      data: { startsAt, startedAt: null, startedWith: null },
+    });
+  }
+
   /** Cancel an event that has not paid out (e.g. it never ran). */
   async cancel(eventId: string): Promise<PromoEvent> {
     const event = await this.prisma.promoEvent.findUnique({ where: { id: eventId } });

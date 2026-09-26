@@ -582,8 +582,24 @@ export class TableService {
     table.hand.act(userId, action);
 
     if (!table.hand.isComplete()) return { complete: false };
+    return { complete: true, result: await this.finishHand(table) };
+  }
 
-    const out = table.hand.result();
+  /**
+   * A hand that was over the moment it was dealt: every player all-in from
+   * the blinds (they double every 3 hands, so short stacks late in a
+   * tournament get there). Nobody can act, so no action will ever finish it —
+   * take its result now. Null when the table's hand is still being played.
+   */
+  async completeDealtHand(tableId: string): Promise<HandResultPayload | null> {
+    const table = this.tables.get(tableId);
+    if (!table?.hand?.isComplete()) return null;
+    return this.finishHand(table);
+  }
+
+  /** Book a completed hand: stacks, eliminations and any prize; free the table. */
+  private async finishHand(table: Table): Promise<HandResultPayload> {
+    const out = table.hand!.result();
 
     const payload: HandResultPayload = {
       board: out.board,
@@ -601,7 +617,7 @@ export class TableService {
       await this.settle(table, out.finalStacks);
     }
 
-    return { complete: true, result: payload };
+    return payload;
   }
 
   /**

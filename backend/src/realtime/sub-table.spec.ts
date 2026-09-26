@@ -89,4 +89,39 @@ describe('TableService sub-table (multi-table) mode', () => {
     const entries = await prisma.ledgerEntry.count();
     expect(entries).toBe(0);
   });
+  // Found by the app end-to-end run (2026-09-25): a hand where every player is
+  // all-in from the blinds is over the moment it is dealt; nobody can act, so
+  // it was never booked and the table (and a whole bracket) waited forever.
+  it('a hand that is over as dealt (all-in from the blinds) is still booked — the table never stalls', async () => {
+    const id = 'dealt-over-t1';
+    const table = tables.enableTournament(id, 0, 8, { subTable: true });
+    tables.recordTournamentEntry(table, 'a', 'NONE');
+    tables.recordTournamentEntry(table, 'b', 'NONE');
+    table.tournament!.handsPlayed = 30; // deep in the escalation: blinds far above both stacks
+
+    expect(tables.startHand(table)).toBe(true);
+    expect(table.hand!.actingPlayerId).toBeNull(); // nobody can act on it
+    let result = await tables.completeDealtHand(id);
+    expect(result).not.toBeNull();
+    expect(table.handInProgress).toBe(false);
+
+    // Every following hand is the same; the table still plays to one winner.
+    let guard = 0;
+    while (!result!.tournament!.over && guard++ < 100) {
+      expect(tables.startHand(table)).toBe(true);
+      result = await tables.completeDealtHand(id);
+    }
+    expect(result!.tournament!.over).toBe(true);
+    expect(['a', 'b']).toContain(result!.tournament!.winnerId);
+  });
+
+  it('a hand still being played is left alone', async () => {
+    const id = 'dealt-live-t1';
+    const table = tables.enableTournament(id, 0, 8, { subTable: true });
+    tables.recordTournamentEntry(table, 'a', 'NONE');
+    tables.recordTournamentEntry(table, 'b', 'NONE');
+    expect(tables.startHand(table)).toBe(true);
+    expect(await tables.completeDealtHand(id)).toBeNull();
+    expect(table.handInProgress).toBe(true);
+  });
 });

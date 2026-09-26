@@ -407,4 +407,20 @@ describe('PromoService (free-entry promotion, one prize)', () => {
       })).rejects.toThrow(/robôs/);
     });
   });
+  describe('reschedule after an interruption', () => {
+    it('sets the new start and forgets the old one', async () => {
+      const e = await event();
+      await promo.markStarted(e.id, new Date(), 80);
+      const later = new Date(Date.now() + 600_000);
+      const r = await promo.reschedule(e.id, later);
+      expect(r).toMatchObject({ startsAt: later, startedAt: null, startedWith: null, status: 'SCHEDULED' });
+    });
+
+    it('refuses a past time, or an event that paid or was cancelled', async () => {
+      const e = await event();
+      await expect(promo.reschedule(e.id, new Date(Date.now() - 1000))).rejects.toThrow(/futuro/);
+      await promo.cancel(e.id);
+      await expect(promo.reschedule(e.id, new Date(Date.now() + 60_000))).rejects.toThrow(/agendada/);
+    });
+  });
 });

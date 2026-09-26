@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { WithdrawalStatus, DepositStatus, Deposit, SubscriptionRequestStatus, PromoEvent } from '@prisma/client';
 import { JwtAuthGuard, JwtPayload } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -15,7 +15,7 @@ import { SettleSubscriptionRequestDto } from './dto/settle-subscription-request.
 import { SubscriptionRequestService } from '../payments/subscription-request.service';
 import { PromoService, promoRoomId } from '../promo/promo.service';
 import { PromoBracket, PromoBrackets } from '../promo/promo-bracket';
-import { CreatePromoEventDto } from './dto/create-promo-event.dto';
+import { CreatePromoEventDto, ReschedulePromoEventDto } from './dto/create-promo-event.dto';
 
 /** BigInt-free view of a promotion, with its live bracket when there is one. */
 function serializePromo(
@@ -254,6 +254,24 @@ export class AdminController {
       metadata: { winnerId: payout.winnerId, differenceCents: payout.prizeCents.toString() },
     });
     return { ok: true, differenceCents: payout.prizeCents.toString() };
+  }
+
+  /** Restart an interrupted promotion at a new time (server restarted mid-tournament). */
+  @Post('promo-events/:id/reschedule')
+  async reschedulePromoEvent(
+    @CurrentUser() admin: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: ReschedulePromoEventDto,
+  ) {
+    if (this.brackets.get(promoRoomId(id))?.started && !this.brackets.get(promoRoomId(id))?.finished) {
+      throw new BadRequestException('O torneio está em andamento; não pode ser remarcado agora.');
+    }
+    const event = await this.promo.reschedule(id, new Date(dto.startsAt));
+    await this.audit.record({
+      actorId: admin.sub, action: 'promo.reschedule', targetType: 'promoEvent', targetId: id,
+      metadata: { startsAt: event.startsAt.toISOString() },
+    });
+    return serializePromo(event);
   }
 
   /** Call off a promotion that has not paid out. */
