@@ -35,6 +35,18 @@ export const promoRoomId = (eventId: string) => `promo-${eventId}`;
 export const promoEventIdOf = (roomId: string): string | null =>
   /^promo-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(roomId)?.[1] ?? null;
 
+/** "Maria Souza Lima" → "Maria S." — enough to recognise, not to expose. */
+export function shortName(displayName: string): string {
+  const parts = displayName.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  return `${parts[0]} ${parts[1][0].toUpperCase()}.`;
+}
+
+export interface PromoClassification {
+  event: PromoEvent;
+  entries: { place: number; playerId: string; name: string }[];
+}
+
 export interface PromoPayout {
   eventId: string;
   winnerId: string;
@@ -241,6 +253,48 @@ export class PromoService {
     await this.prisma.promoEvent.updateMany({
       where: { id: eventId, status: 'SCHEDULED', robots: { gt: 0 } },
       data: { status: 'PAID', winnerId: championId, winnerSubscribed: false, prizePaidCents: 0n, paidAt: new Date() },
+    });
+  }
+
+  /** Record where players finished (idempotent: a player keeps their first place). */
+  async recordPlacements(eventId: string, places: Map<string, number>): Promise<void> {
+    if (!places.size) return;
+    await this.prisma.promoPlacement.createMany({
+      data: [...places].map(([playerId, place]) => ({ eventId, playerId, place })),
+      skipDuplicates: true,
+    });
+  }
+
+  /**
+   * The classification: the event and every participant by place, names
+   * shortened for privacy ("Maria S."). Robots in a rehearsal read "Robô N".
+   */
+  async classification(eventId: string): Promise<PromoClassification | null> {
+    const event = await this.prisma.promoEvent.findUnique({ where: { id: eventId } });
+    if (!event) return null;
+    const rows = await this.prisma.promoPlacement.findMany({ where: { eventId }, orderBy: [{ place: 'asc' }, { createdAt: 'asc' }] });
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: rows.map((r) => r.playerId).filter((id) => !id.startsWith('robot-')) } },
+      select: { id: true, displayName: true },
+    });
+    const names = new Map(users.map((u) => [u.id, shortName(u.displayName)]));
+    return {
+      event,
+      entries: rows.map((r) => ({
+        place: r.place,
+        playerId: r.playerId,
+        name: r.playerId.startsWith('robot-') ? `Robô ${r.playerId.slice(6)}` : names.get(r.playerId) ?? 'Jogador',
+      })),
+    };
+  }
+
+  /** The latest real (not rehearsal) promotion that has a champion on record. */
+  async latestClassified(): Promise<PromoEvent | null> {
+    const champions = await this.prisma.promoPlacement.findMany({ where: { place: 1 }, select: { eventId: true } });
+    if (!champions.length) return null;
+    return this.prisma.promoEvent.findFirst({
+      where: { robots: 0, id: { in: champions.map((c) => c.eventId) } },
+      orderBy: { startsAt: 'desc' },
     });
   }
 

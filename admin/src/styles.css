@@ -108,3 +108,5 @@ h2 { font-size: 18px; margin: 24px 0 8px; }
 .promo-form input:disabled { opacity: 0.5; }
 
 .warn { color: #F5C45E; font-size: 12px; margin-top: 4px; }
+
+a.link { color: var(--off-white); align-self: center; font-weight: 700; }

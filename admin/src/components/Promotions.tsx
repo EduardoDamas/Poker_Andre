@@ -354,6 +354,11 @@ export function Promotions({ token, onForbidden }: { token: string; onForbidden:
                   )}
                 </td>
                 <td className="actions">
+                  {e.status === 'PAID' && (
+                    <a className="link" href={`${api.base}/classificacao/${e.id}`} target="_blank" rel="noreferrer">
+                      Classificação
+                    </a>
+                  )}
                   {e.status === 'SCHEDULED' && e.startedAt && !e.live?.started && (
                     <button className="approve" disabled={busy} onClick={() => reschedule(e)}>
                       Remarcar

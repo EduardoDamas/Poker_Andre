@@ -98,7 +98,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **496 passing / 62 suites** (app: 81 tests; panel: 38; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
+Full suite is **502 passing / 62 suites** (app: 81 tests; panel: 39; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
@@ -354,7 +354,20 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
       logins, the silent forfeit on back, a final-looking "Falha de conexão." and 360 dp layout.
       **Never deploy on the tournament evening** (a restart loses the running bracket; if it
       happens: panel → Remarcar).
-      **1.0.9 released 2026-09-26.** **Still to do:** run the rehearsal 05–06/10 with 3–4 phones.
+      **1.0.9 released 2026-09-26.**
+      **Classification (client, 2026-09-29/10-02):** champion 1st, then reverse order of
+      elimination; same hand → more chips before it ranks higher, equal chips share the place
+      (first knockouts often tie: everyone starts with 1000). Saved as players go out
+      (`PromoPlacement`, also withdrawals). Public page **`/classificacao`** (latest real
+      tournament) and `/classificacao/<id>`; JSON `/promo/classification/<id>`; `/baixar` links to
+      it for a week after; panel → Classificação. Names shortened ("Maria S.").
+      **App 1.0.10:** eliminated window "Você quase chegou lá! … Continue competindo nos outros
+      níveis!" + "Ver outros níveis" (back to the lobby).
+      **Next promotion (pending results):** 3 prize tiers — R$1.200 trimestral / R$600 mensal /
+      R$300 não assinante (ask: semestral/anual = trimestral?). Facebook login and Instagram
+      sharing requested for 1.0.11 (Meta developer app needed; first Facebook login still asks
+      CPF + birth date).
+      **Still to do:** run the rehearsal 05–06/10 with 3–4 phones.
 - [ ] **Validate subscriptions Opção 2 BEFORE the promo** — the promo's goal is subscriptions, and
       today each one waits for a manual release in the panel. One small real purchase, then set
       `SUBSCRIPTION_CHECKOUT=dynamic`, so late subscribers are not counted as non-subscribers.

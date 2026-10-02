@@ -593,15 +593,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   private async afterBracketHand(bracket: PromoBracket, tableId: string, result: HandResultPayload): Promise<void> {
     const status = result.tournament;
     const table = this.tables.getTable(tableId);
-    const busted = (status?.busted ?? []).filter((id) => bracket.isAlive(id));
-    if (busted.length) {
-      const place = bracket.knockOut(busted);
-      for (const id of busted) {
-        this.emitToPlayer(bracket, id, 'tournament:eliminated', {
-          tournamentId: bracket.roomId, tableId, place, players: bracket.startedWith,
-        });
-      }
+    const places = bracket.knockOut(status?.busted ?? [], status?.bustedStacks);
+    for (const [id, place] of places) {
+      this.emitToPlayer(bracket, id, 'tournament:eliminated', {
+        tournamentId: bracket.roomId, tableId, place, players: bracket.startedWith,
+      });
     }
+    this.recordPlaces(bracket, places);
 
     if (!status?.over || !status.winnerId) {
       this.server.to(room(tableId)).emit('hand:result', result);
@@ -613,7 +611,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const winnerId = status.winnerId;
     if (bracket.isFinal(tableId)) {
       // The champion. Pay first, so the result can show the prize.
-      bracket.tableWon(tableId, winnerId);
+      this.recordPlaces(bracket, bracket.tableWon(tableId, winnerId).knockedOut);
+      this.recordPlaces(bracket, new Map([[winnerId, 1]]));
       const prizeCents = await this.payPromoPrize(bracket, winnerId);
       this.server.to(room(tableId)).emit('hand:result', { ...result, tournament: { ...status, prizeCents } });
       if (table) this.server.to(room(tableId)).emit('table:state', this.tables.publicState(table));
@@ -632,6 +631,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     });
     if (table) this.server.to(room(tableId)).emit('table:state', this.tables.publicState(table));
     const outcome = bracket.tableWon(tableId, winnerId);
+    this.recordPlaces(bracket, outcome.knockedOut);
     if (outcome.nextRound) {
       this.emitToPlayer(bracket, winnerId, 'tournament:advanced', {
         tournamentId: bracket.roomId, round: bracket.round - 1, tablesLeft: 0,
@@ -643,6 +643,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         this.emitToPlayer(bracket, id, 'tournament:advanced', this.advancedState(bracket));
       }
     }
+  }
+
+  /** Save where players finished, for the public classification (never blocks play). */
+  private recordPlaces(bracket: PromoBracket, places: Map<string, number>): void {
+    if (!places.size) return;
+    void this.promo
+      .recordPlacements(bracket.eventId, places)
+      .catch((e) => this.logger.error(`promo ${bracket.roomId}: places not saved: ${(e as Error).message}`));
   }
 
   /**
@@ -868,7 +876,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     if (!res) return;
     const { table, result } = res;
     const bracket = this.brackets.forTable(tableId);
-    if (bracket && res.withdrew && bracket.isAlive(userId)) bracket.knockOut([userId]);
+    if (bracket && res.withdrew) this.recordPlaces(bracket, bracket.knockOut([userId]));
 
     this.server.to(room(tableId)).emit('table:state', this.tables.publicState(table));
 

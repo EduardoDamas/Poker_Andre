@@ -182,12 +182,24 @@ describe('PromoBracket', () => {
       expect(b.isAlive(t.players[1])).toBe(false);
     });
 
-    it('places: players knocked out together share their place', () => {
+    it('places: the first out is last; on the same hand more chips is the better place', () => {
       const b = bracket({ minPlayers: 2 });
       fill(b, 16);
       b.start(noSubs);
-      expect(b.knockOut(['p0'])).toBe(16);
-      expect(b.knockOut(['p1', 'p2'])).toBe(14);
+      expect(b.knockOut(['p0']).get('p0')).toBe(16); // first out of 16
+      const same = b.knockOut(['p1', 'p2', 'p3'], { p1: 300, p2: 900, p3: 300 });
+      expect(same.get('p2')).toBe(13); // had the most chips before the hand
+      expect(same.get('p1')).toBe(14); // equal chips share the place
+      expect(same.get('p3')).toBe(14);
+      expect(b.knockOut(['p1']).size).toBe(0); // already out
+    });
+
+    it('a table won while someone was still counted places them too', () => {
+      const b = bracket({ minPlayers: 2 });
+      fill(b, 3);
+      const [t] = b.start(noSubs);
+      const out = b.tableWon(t.id, t.players[0]);
+      expect([...out.knockedOut.values()].sort()).toEqual([2, 2]);
     });
   });
 

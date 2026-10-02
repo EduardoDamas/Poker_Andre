@@ -28,6 +28,8 @@ export interface TableOutcome {
   nextRound?: MttTable[];
   /** Tables of the current round still playing. */
   tablesLeft: number;
+  /** Anyone at that table still counted as in, now out, with their place. */
+  knockedOut: Map<string, number>;
 }
 
 /**
@@ -268,12 +270,23 @@ export class PromoBracket {
   }
 
   /**
-   * Players knocked out (busted or withdrawn). Returns the place they finished
-   * in — shared when several go out on the same hand.
+   * Players knocked out together (busted on the same hand, or one who
+   * withdrew), with the place each finishes in: the best of them takes the
+   * field left + 1. On the same hand more chips before it is the better place;
+   * equal chips share it. Players already out are ignored.
    */
-  knockOut(userIds: string[]): number {
-    for (const id of userIds) this.alive.delete(id);
-    return this.alive.size + 1;
+  knockOut(userIds: string[], stacksBefore: Record<string, number> = {}): Map<string, number> {
+    const out = userIds.filter((id) => this.alive.has(id));
+    for (const id of out) this.alive.delete(id);
+    const chips = (id: string) => stacksBefore[id] ?? 0;
+    const sorted = [...out].sort((a, b) => chips(b) - chips(a));
+    const places = new Map<string, number>();
+    let place = this.alive.size + 1;
+    sorted.forEach((id, i) => {
+      if (i > 0 && chips(id) !== chips(sorted[i - 1])) place = this.alive.size + 1 + i;
+      places.set(id, place);
+    });
+    return places;
   }
 
   /** A table played down to [winnerId]: everyone else there is out. */
@@ -282,10 +295,12 @@ export class PromoBracket {
     if (!c) throw new Error('Not started.');
     const table = c.currentTables.find((t) => t.id === tableId);
     if (!table) throw new Error(`Unknown table ${tableId}.`);
-    for (const p of table.players) if (p !== winnerId) this.alive.delete(p);
+    // Normally everyone else already went out (busted or withdrew); anyone
+    // still counted gets a place too, so the classification stays complete.
+    const knockedOut = this.knockOut(table.players.filter((p) => p !== winnerId));
     c.reportTableWinner(tableId, winnerId);
     const nextRound = this.takePendingRound();
-    return { nextRound: nextRound.length ? nextRound : undefined, tablesLeft: this.tablesLeft() };
+    return { nextRound: nextRound.length ? nextRound : undefined, tablesLeft: this.tablesLeft(), knockedOut };
   }
 
   private takePendingRound(): MttTable[] {

@@ -394,6 +394,19 @@ model PromoEvent {
   @@index([status, startsAt])
 }
 
+// Where each participant finished a promotion (client, 2026-09-29): the
+// champion 1st, the rest in reverse order of elimination; on the same hand,
+// more chips before it is the better place. Written as players go out.
+model PromoPlacement {
+  eventId   String
+  playerId  String // a user id — or robot-N in a rehearsal
+  place     Int
+  createdAt DateTime @default(now())
+
+  @@id([eventId, playerId])
+  @@index([eventId, place])
+}
+
 enum PromoEventStatus {
   SCHEDULED
   PAID

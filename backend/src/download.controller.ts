@@ -2,10 +2,7 @@ import { Controller, Get, Header, NotFoundException } from '@nestjs/common';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { PromoService, promoOpensAt } from './promo/promo.service';
-import { promoPrizeLine, promoTime, promoWhenLong } from './promo/promo-format';
-
-const escapeHtml = (s: string) =>
-  s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+import { escapeHtml, promoPrizeLine, promoTime, promoWhen, promoWhenLong } from './promo/promo-format';
 
 /**
  * Public (no-auth) install/download page for the direct-link APK distribution.
@@ -25,7 +22,7 @@ export class DownloadController {
 
   private async promoCard(): Promise<string> {
     const event = (await this.promo.announcedEvents()).find((e) => e.robots === 0); // never a rehearsal
-    if (!event) return '';
+    if (!event) return this.lastResultCard();
     const opens = promoTime(promoOpensAt(event));
     return `
   <section class="promo" id="torneio">
@@ -49,6 +46,18 @@ export class DownloadController {
     const file = candidates.find((f) => existsSync(f));
     if (!file) throw new NotFoundException('Página indisponível.');
     return readFileSync(file, 'utf8');
+  }
+
+  /** After a tournament (for a week): a link to its classification. */
+  private async lastResultCard(): Promise<string> {
+    const last = await this.promo.latestClassified();
+    if (!last || Date.now() - last.startsAt.getTime() > 7 * 86_400_000) return '';
+    return `
+  <section class="promo" id="torneio">
+    <div class="promo-tag">RESULTADO</div>
+    <h2>${escapeHtml(last.name)} · ${promoWhen(last.startsAt)}</h2>
+    <p class="promo-when"><a href="/classificacao/${last.id}" style="color:var(--gold)">Veja a classificação completa →</a></p>
+  </section>`;
   }
 
   private async render(): Promise<string> {

@@ -48,3 +48,7 @@ export function promoPrizeLine(event: { prizeCents: bigint; prizeSubscriberCents
     `(assinatura ativa até o início do torneio) ou ${brl(event.prizeCents)} para quem não é assinante`
   );
 }
+
+/** For text put into a server-rendered page. */
+export const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);

@@ -118,8 +118,10 @@ export interface TournamentStatus {
   // Everyone else WITHDREW (not busted): no payout — the table went back to
   // "waiting for players" so the survivor plays when someone new joins.
   reverted?: boolean;
-  // Players who busted to zero chips on this hand.
+  // Players who busted to zero chips on this hand…
   busted?: string[];
+  // …and the chips each had when it began (more chips = the better place).
+  bustedStacks?: Record<string, number>;
 }
 
 export interface HandResultPayload {
@@ -630,6 +632,7 @@ export class TableService {
     finalStacks: Record<string, number>,
   ): Promise<TournamentStatus> {
     const t = table.tournament!;
+    const before = { ...t.stacks };
     const busted: string[] = [];
     for (const id of t.entries.keys()) {
       if (finalStacks[id] !== undefined) t.stacks[id] = finalStacks[id];
@@ -639,9 +642,10 @@ export class TableService {
       }
     }
 
+    const bustedStacks = Object.fromEntries(busted.map((id) => [id, before[id] ?? 0]));
     const live = this.liveEntrants(table);
     if (live.length > 1) {
-      return { over: false, remaining: live.length, busted };
+      return { over: false, remaining: live.length, busted, bustedStacks };
     }
 
     // Only one live entrant. A prize is paid only when the tournament was WON
@@ -663,7 +667,7 @@ export class TableService {
     // Sub-table of a bigger tournament: report the winner but move NO money here.
     if (t.subTable) {
       t.settled = true;
-      return { over: true, remaining: 1, winnerId, busted };
+      return { over: true, remaining: 1, winnerId, busted, bustedStacks };
     }
 
     let payout: TournamentPayout | undefined;

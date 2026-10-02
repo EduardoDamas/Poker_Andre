@@ -213,7 +213,7 @@ describe('Promotion bracket (e2e)', () => {
   }, 60000);
 
   it('24 players: three tables, their winners at a final table, one champion paid once', async () => {
-    const { players, moves, places, champion } = await playField(24);
+    const { e, players, moves, places, champion } = await playField(24);
 
     expect(players.map((p) => p.userId)).toContain(champion.winnerId);
     expect(champion.prizeCents).toBe(R250);
@@ -229,6 +229,28 @@ describe('Promotion bracket (e2e)', () => {
     expect(await promo.totalSpentCents()).toBe(BigInt(R250)); // exactly one prize
     const others = players.filter((p) => p.userId !== champion.winnerId);
     for (const p of others.slice(0, 5)) expect(await wallet.getBalance(p.userId)).toBe(0n);
+
+    // The public classification: all 24, champion 1st, each player once, places as told.
+    await new Promise((r) => setTimeout(r, 300)); // places are saved without blocking play
+    const cls = (await request(app.getHttpServer()).get(`/promo/classification/${e.id}`).expect(200)).body as {
+      players: number; finished: boolean; entries: { place: number; name: string }[];
+    };
+    expect(cls).toMatchObject({ players: 24, finished: true });
+    expect(cls.entries).toHaveLength(24);
+    expect(cls.entries[0].place).toBe(1);
+    const saved = await prisma.promoPlacement.findMany({ where: { eventId: e.id } });
+    expect(new Set(saved.map((s) => s.playerId)).size).toBe(24);
+    expect(saved.find((s) => s.playerId === champion.winnerId)!.place).toBe(1);
+    for (const [userId, place] of places) {
+      expect(saved.find((s) => s.playerId === userId)!.place).toBe(place); // the page matches what each phone was told
+    }
+    const html = (await request(app.getHttpServer()).get(`/classificacao/${e.id}`).expect(200)).text;
+    expect(html).toContain('CAMPEÃO');
+    expect(html).toContain('24 participantes');
+    // Places run to 24 at most; players out on the same hand with equal chips share one.
+    const worst = Math.max(...saved.map((s) => s.place));
+    expect(worst).toBeLessThanOrEqual(24);
+    expect(html).toContain(`<span class="pos">${worst}º</span>`);
   }, 120000);
 
   it('100 players: ten tables of ten, then a final table of the ten winners', async () => {

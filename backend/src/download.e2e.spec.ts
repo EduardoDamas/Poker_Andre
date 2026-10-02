@@ -79,6 +79,23 @@ describe('Download page (e2e)', () => {
     expect(await page()).not.toContain('TORNEIO GRÁTIS');
   });
 
+  it('after the tournament, links to its classification for a week', async () => {
+    const done = await promo.createEvent({
+      name: 'Nível 0', startsAt: new Date(Date.now() - 86_400_000), prizeCents: 25000n, prizeSubscriberCents: 50000n,
+    });
+    await prisma.promoPlacement.create({ data: { eventId: done.id, playerId: 'someone', place: 1 } });
+    const html = await page();
+    expect(html).toContain('RESULTADO');
+    expect(html).toContain(`/classificacao/${done.id}`);
+    await prisma.promoPlacement.deleteMany();
+  });
+
+  it('/classificacao shows the latest tournament, or says it is coming', async () => {
+    await prisma.promoPlacement.deleteMany();
+    expect((await request(app.getHttpServer()).get('/classificacao').expect(200)).text).toContain('depois do torneio');
+    expect((await request(app.getHttpServer()).get('/classificacao/nao-existe')).status).toBe(404);
+  });
+
   it('/download serves the same page', async () => {
     await promo.createEvent({ name: 'Nível 0', startsAt: inDays(2), prizeCents: 25000n, prizeSubscriberCents: 50000n });
     const res = await request(app.getHttpServer()).get('/download').expect(200);

@@ -264,6 +264,13 @@ describe('Promotions tab', () => {
     expect(at - before).toBeLessThan(10.5 * 60_000);
   });
 
+  it('a finished promotion links to its public classification', async () => {
+    stubFetch(() => ({ status: 200, body: [{ ...base, status: 'PAID', winnerName: 'Maria', prizePaidCents: '25000' }] }));
+    render(<Promotions token="tok" onForbidden={() => {}} />);
+    const link = await screen.findByRole('link', { name: 'Classificação' });
+    expect(link.getAttribute('href')).toMatch(/\/classificacao\/e1$/);
+  });
+
   it('calls onForbidden when the API returns 403', async () => {
     stubFetch(() => ({ status: 403, body: null }));
     const onForbidden = vi.fn();

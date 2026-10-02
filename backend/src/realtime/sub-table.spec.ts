@@ -113,6 +113,10 @@ describe('TableService sub-table (multi-table) mode', () => {
     }
     expect(result!.tournament!.over).toBe(true);
     expect(['a', 'b']).toContain(result!.tournament!.winnerId);
+    // Who busted on that hand, with the chips they had when it began.
+    const loser = result!.tournament!.winnerId === 'a' ? 'b' : 'a';
+    expect(result!.tournament!.busted).toEqual([loser]);
+    expect(result!.tournament!.bustedStacks![loser]).toBeGreaterThan(0);
   });
 
   it('a hand still being played is left alone', async () => {

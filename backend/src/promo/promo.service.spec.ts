@@ -423,4 +423,39 @@ describe('PromoService (free-entry promotion, one prize)', () => {
       await expect(promo.reschedule(e.id, new Date(Date.now() + 60_000))).rejects.toThrow(/agendada/);
     });
   });
+  describe('classification', () => {
+    beforeEach(() => prisma.promoPlacement.deleteMany());
+
+    it('lists everyone by place with short names; recording twice keeps the first place', async () => {
+      const e = await event();
+      const champ = await player({ displayName: 'Maria Souza Lima' });
+      const second = await player({ displayName: 'João' });
+      await promo.recordPlacements(e.id, new Map([[second, 2]]));
+      await promo.recordPlacements(e.id, new Map([[champ, 1]]));
+      await promo.recordPlacements(e.id, new Map([[second, 5]])); // ignored
+      const c = (await promo.classification(e.id))!;
+      expect(c.entries).toEqual([
+        { place: 1, playerId: champ, name: 'Maria S.' },
+        { place: 2, playerId: second, name: 'João' },
+      ]);
+    });
+
+    it('robots of a rehearsal read as robots', async () => {
+      const e = await event();
+      await promo.recordPlacements(e.id, new Map([['robot-7', 3]]));
+      expect((await promo.classification(e.id))!.entries[0].name).toBe('Robô 7');
+    });
+
+    it('the latest classified is the last real tournament with a champion, never a rehearsal', async () => {
+      const real = await promo.createEvent({ name: 'Real', startsAt: new Date(Date.now() - 86_400_000), prizeCents: R250, prizeSubscriberCents: R500 });
+      const rehearsal = await promo.createEvent({
+        name: 'Ensaio', startsAt: new Date(), prizeCents: R250, prizeSubscriberCents: R500, maxPlayers: 30, robots: 20,
+      });
+      const unfinished = await promo.createEvent({ name: 'Rodando', startsAt: new Date(), prizeCents: R250, prizeSubscriberCents: R500 });
+      await promo.recordPlacements(real.id, new Map([[await player(), 1]]));
+      await promo.recordPlacements(rehearsal.id, new Map([['robot-1', 1]]));
+      await promo.recordPlacements(unfinished.id, new Map([[await player(), 9]]));
+      expect((await promo.latestClassified())!.id).toBe(real.id);
+    });
+  });
 });
