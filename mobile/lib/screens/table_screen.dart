@@ -350,11 +350,12 @@ class _NoticePanel extends StatelessWidget {
               style: Brand.h3.copyWith(color: Brand.champagne, height: 1.4)),
           if (onLeave != null) ...[
             const SizedBox(height: 18),
-            GradientButton('Sair',
+            // Out of the tournament: back to the room list, to keep playing.
+            GradientButton('Ver outros níveis',
                 key: const Key('noticeLeave'),
-                icon: Icons.logout,
+                icon: Icons.grid_view_rounded,
                 expand: false,
-                variant: BtnVariant.crimson,
+                variant: BtnVariant.gold,
                 onPressed: onLeave),
           ],
         ]),

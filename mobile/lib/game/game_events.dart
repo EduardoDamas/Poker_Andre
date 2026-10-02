@@ -161,7 +161,8 @@ class GameEvents {
     return s.copyWith(notice: 'Você venceu sua mesa! 🎉\n$wait');
   }
 
-  /// `tournament:eliminated` — knocked out, with the place they finished in.
+  /// `tournament:eliminated` — knocked out, with the place they finished in,
+  /// and an invitation to keep playing (client, 2026-10-02).
   GameSnapshot eliminated(GameSnapshot s, Map data) {
     final place = (data['place'] as num?)?.toInt();
     final players = (data['players'] as num?)?.toInt();
@@ -171,7 +172,11 @@ class GameEvents {
             ? '\nVocê ficou em $placeº lugar.'
             : '\nVocê ficou em $placeº lugar entre $players.';
     return _withDeadline(
-      s.copyWith(out: true, notice: 'Você foi eliminado.$where\nObrigado por participar!', isMyTurn: false),
+      s.copyWith(
+        out: true,
+        notice: 'Você quase chegou lá!$where\nContinue competindo nos outros níveis!',
+        isMyTurn: false,
+      ),
       null,
     );
   }

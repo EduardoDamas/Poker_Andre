@@ -64,8 +64,9 @@ void main() {
       final s = ev.eliminated(connected.copyWith(isMyTurn: true), {'place': 37, 'players': 80});
       expect(s.out, isTrue);
       expect(s.isMyTurn, isFalse);
-      expect(s.notice, contains('Você foi eliminado.'));
+      expect(s.notice, startsWith('Você quase chegou lá!'));
       expect(s.notice, contains('37º lugar entre 80'));
+      expect(s.notice, endsWith('Continue competindo nos outros níveis!'));
     });
 
     test('the bracket context survives new hands and results', () {

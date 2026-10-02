@@ -162,7 +162,7 @@ void main() {
   testWidgets('05 eliminated', (tester) async {
     await table(tester, '05-eliminado', GameSnapshot(
       status: ConnStatus.connected, stage: 'Rodada 1', out: true, maxSeats: 10, seats: seats10,
-      notice: 'Você foi eliminado.\nVocê ficou em 37º lugar entre 94.\nObrigado por participar!',
+      notice: 'Você quase chegou lá!\nVocê ficou em 37º lugar entre 94.\nContinue competindo nos outros níveis!',
     ));
   });
 

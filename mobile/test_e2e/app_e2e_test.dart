@@ -372,6 +372,14 @@ void main() {
       final e = await event(roomId);
       expect(e['status'], 'PAID');
       expect(e['startedWith'], 100);
+      // The public classification: all 100, the champion first.
+      await Future.delayed(const Duration(milliseconds: 500));
+      final cls = jsonDecode((await http.get(Uri.parse('$base/promo/classification/${e['id']}'))).body) as Map;
+      final entries = (cls['entries'] as List).cast<Map>();
+      expect(entries, hasLength(100));
+      expect(entries.first['place'], 1);
+      expect(entries.where((x) => x['place'] == 1), hasLength(1));
+      expect(entries.every((x) => (x['place'] as int) <= 100), isTrue);
       await closeAll(seats);
     }, timeout: const Timeout(Duration(minutes: 12)));
   });
@@ -418,7 +426,7 @@ void main() {
       expect(gone.saw((s) => s.status == ConnStatus.connecting && s.error == 'Conexão perdida. Reconectando…'), isTrue);
       final back = await gone.until((s) => (s.error?.contains('eliminado') ?? false) || s.out,
           timeout: const Duration(seconds: 30));
-      expect(back.error ?? back.notice, contains('eliminado'));
+      expect(back.out || (back.error?.contains('eliminado') ?? false), isTrue);
 
       // The AFK phone showed the turn clock and was played for.
       expect(afk.saw((s) => s.isMyTurn && s.turnDeadline != null), isTrue);

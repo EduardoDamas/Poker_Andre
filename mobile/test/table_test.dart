@@ -229,17 +229,18 @@ void main() {
       expect(find.byKey(const Key('noticeLeave')), findsNothing); // leaving would forfeit
     });
 
-    testWidgets('a knocked-out player sees their place and can leave', (tester) async {
+    testWidgets('a knocked-out player sees their place and is invited to the other levels', (tester) async {
       final c = FakeConnection(const GameSnapshot(
         status: ConnStatus.connected,
         stage: 'Rodada 1',
         out: true,
-        notice: 'Você foi eliminado.\nVocê ficou em 37º lugar entre 80.\nObrigado por participar!',
+        notice: 'Você quase chegou lá!\nVocê ficou em 37º lugar entre 80.\nContinue competindo nos outros níveis!',
       ));
       await tester.pumpWidget(tableWith(c));
       await tester.pump();
 
       expect(find.textContaining('37º lugar entre 80'), findsOneWidget);
+      expect(find.text('Ver outros níveis'), findsOneWidget);
       await tester.tap(find.byKey(const Key('noticeLeave')));
       await tester.pumpAndSettle();
       expect(c.left, isTrue);
