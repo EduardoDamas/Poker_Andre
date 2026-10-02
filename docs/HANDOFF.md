@@ -4,7 +4,7 @@ Everything needed to continue development, build, and deploy on a **new computer
 Committed to git, so it travels with the repo. **Secret values are NOT here** — they
 live in gitignored files you copy manually (see §2).
 
-Last updated: 2026-09-25. App version live: **1.0.9+27** (released 2026-09-26).
+Last updated: 2026-09-25. App version live: **1.0.10+28** (released 2026-10-02).
 
 ---
 
@@ -195,10 +195,10 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 - **Install page:** https://capa-contest-api.onrender.com/baixar — shows operator identity
   (ANDRE LUIZ LABADESSA LTDA · CNPJ 67.550.569/0001-00), support WhatsApp (13) 99600-1429 and
   LABA29@YAHOO.COM, matching the legal documents. Says "deposite com cartão, saque por Pix".
-- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.9/CAPA-CONTEST.apk`
+- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.10/CAPA-CONTEST.apk`
   (GitHub Release asset). To publish a build: create a new release with the APK, then update the
   link in `backend/public/install.html` (+ `docs/marketing/install.html`) and deploy — the public
-  `/baixar` URL never changes. Releases so far: v1.0.3, v1.0.5, v1.0.6, v1.0.7, v1.0.8, v1.0.9.
+  `/baixar` URL never changes. Releases so far: v1.0.3, v1.0.5, v1.0.6, v1.0.7, v1.0.8, v1.0.9, v1.0.10.
 - **Card payments (InfinitePay):** LIVE + validated with a real R$1 charge. Card-only for now
   (Pix disabled at InfinitePay per client). Deposit button mints a checkout link; webhook credits
   the wallet (`parseWebhook` treats `paid_amount`+`transaction_nsu` as paid). Deposits are capped
