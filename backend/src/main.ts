@@ -26,6 +26,26 @@ async function bootstrap() {
       .get('/panel', (_req: Request, res: Response) => res.redirect(301, '/panel/'));
   }
 
+  // The app in the browser (client, 2026-10-12: iPhone players, and no Android
+  // "unknown apps" warning) at /jogar. Same resolution as the panel:
+  // dist/../web in the image, or mobile/build/web in a local checkout.
+  // no-cache = revalidate on every load (cheap 304s), so a release reaches
+  // players at once — Flutter's file names carry no version hash.
+  const webDir = [
+    join(__dirname, '..', 'web'),
+    join(__dirname, '..', '..', 'mobile', 'build', 'web'),
+  ].find((d) => existsSync(d));
+  if (webDir) {
+    app.useStaticAssets(webDir, {
+      prefix: '/jogar',
+      setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
+    });
+    app
+      .getHttpAdapter()
+      .getInstance()
+      .get('/jogar', (_req: Request, res: Response) => res.redirect(301, '/jogar/'));
+  }
+
   const port = process.env.PORT ?? 3000;
   // Bind to 0.0.0.0 so the container is reachable on hosting platforms.
   await app.listen(port, '0.0.0.0');

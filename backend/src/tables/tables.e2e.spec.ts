@@ -29,6 +29,9 @@ describe('GET /tables (e2e)', () => {
 
   beforeEach(async () => {
     await resetDb(prisma);
+    // resetDb leaves promotions alone; one scheduled by another spec would be
+    // announced in this lobby and make it 8 rooms.
+    await prisma.promoEvent.deleteMany();
   });
 
   const server = () => app.getHttpServer();

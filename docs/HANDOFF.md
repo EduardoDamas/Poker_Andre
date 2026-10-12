@@ -25,7 +25,7 @@ Last updated: 2026-09-25. App version live: **1.0.10+28** (released 2026-10-02).
 | Tool | Version used | Notes |
 |---|---|---|
 | Node.js + npm | Node 20+ | backend + admin |
-| Flutter SDK | stable (Dart 3.12+) | was at `C:\flutter` (not on PATH → call `C:\flutter\bin\flutter.bat`) |
+| Flutter SDK | **3.47.x** (Dart 3.12+) | `C:\flutter` (not on PATH → call `C:\flutter\bin\flutter.bat`); an older 3.35 elsewhere on PATH can't build this project |
 | Android SDK | build-tools 36.0.0 | was at `C:\Android\Sdk`; `apksigner` under `build-tools\36.0.0\` |
 | JDK | 17 | bundled with Android Studio / Flutter |
 | PostgreSQL | 17 | local dev + tests only (prod DB is on Render) |
@@ -128,6 +128,24 @@ Staged builds are copied to `mobile/dist/capa-contest-<version>.apk` (gitignored
 Default backend URL is baked in `mobile/lib/config.dart` → `https://capa-contest-api.onrender.com`.
 
 Launcher icon: `flutter_launcher_icons` config in pubspec → `dart run flutter_launcher_icons`.
+
+### 5b. The same app in the browser — `/jogar` (2026-10-12)
+
+For iPhone players (no App Store) and to avoid Android's "unknown apps" warning. Same code,
+same accounts and tournaments; served by the backend at **`/jogar/`**, linked from `/baixar`.
+```
+cd mobile
+C:\flutter\bin\flutter.bat build web --release --base-href /jogar/
+# copy build/web → backend/web, WITHOUT canvaskit/ (36 MB; the app loads Flutter's
+# engine from Google's CDN — www.gstatic.com/flutter-canvaskit — with integrity hashes):
+robocopy build\web ..\backend\web /E /XD canvaskit /XF .last_build_id
+```
+`backend/web` (~12.6 MB) is committed and copied into the Docker image; `main.ts` serves it with
+`Cache-Control: no-cache` so a deploy reaches players at once. Re-copy it whenever the app
+changes, together with the APK release. The session lives in memory: reloading the page asks for
+login again. On iPhone, Safari → "Adicionar à Tela de Início" opens it like an app.
+Checked in headless Chrome at iPhone size against a local server: login, lobby, the promotion
+dialog, waiting room, a full table with the turn countdown, 21 actions, no page errors.
 
 ---
 

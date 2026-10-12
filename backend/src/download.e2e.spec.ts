@@ -40,6 +40,13 @@ describe('Download page (e2e)', () => {
     expect(html).not.toContain('<!--PROMO-->');
   });
 
+  it('offers the browser version for iPhone players (client, 2026-10-12)', async () => {
+    const html = await page();
+    expect(html).toContain('href="/jogar/"');
+    expect(html).toContain('Jogar no navegador');
+    expect(html).not.toContain('apenas Android');
+  });
+
   it('announces the next promotion with the prize as it is paid', async () => {
     await promo.createEvent({
       name: 'Nível 0', startsAt: inDays(3), prizeCents: 25000n, prizeSubscriberCents: 50000n,

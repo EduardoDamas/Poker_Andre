@@ -27,6 +27,8 @@ COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/legal ./legal
 # Built admin panel (served at /panel by main.ts).
 COPY --from=build /app/panel ./panel
+# The app built for the browser (served at /jogar by main.ts).
+COPY --from=build /app/web ./web
 # Public install/download page (served at /baixar).
 COPY --from=build /app/public ./public
 COPY --from=build /app/package.json ./package.json
