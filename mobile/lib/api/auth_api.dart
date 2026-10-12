@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../config.dart';
 
@@ -44,9 +43,9 @@ class AuthApi {
       return await req().timeout(_timeout);
     } on TimeoutException {
       throw AuthException('Servidor não respondeu. Verifique sua conexão.');
-    } on SocketException {
-      throw AuthException('Sem conexão com o servidor.');
     } on http.ClientException {
+      // Also covers a dead socket: package:http wraps SocketException in a
+      // ClientException, so no dart:io here — the same code builds for the web.
       throw AuthException('Sem conexão com o servidor.');
     }
   }
