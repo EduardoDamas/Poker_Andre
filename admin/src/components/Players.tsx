@@ -80,6 +80,24 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
     run(p.id, () => api.grantSubscription(token, p.id, sub, untilMs));
   }
 
+  // Link a player who signed up without the agent's code (or fix/remove it).
+  async function changeAgent(p: Player) {
+    const code = prompt(
+      `Código do agente de ${p.displayName} (deixe vazio para desvincular):`,
+      p.agentCode ?? '',
+    );
+    if (code === null) return;
+    setBusy(p.id);
+    try {
+      await api.linkAgent(token, p.id, code.trim() || null);
+      load();
+    } catch (e) {
+      alert(e instanceof ApiError ? e.message : 'Ação falhou.');
+    } finally {
+      setBusy(null);
+    }
+  }
+
   if (error) return <p className="error">{error}</p>;
   if (!players) return <p className="muted">Carregando…</p>;
 
@@ -93,6 +111,7 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
           <th>Telefone</th>
           <th>Status</th>
           <th>Assinatura</th>
+          <th>Agente</th>
           <th>Limites</th>
           <th>Saldo</th>
           <th>Ações</th>
@@ -117,6 +136,18 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
                     <option key={t} value={t}>{SUB_LABELS[t]}</option>
                   ))}
                 </select>
+              )}
+            </td>
+            <td>
+              {p.role === 'ADMIN' ? (
+                <span className="muted">—</span>
+              ) : (
+                <>
+                  {p.agentCode ? <strong>{p.agentCode}</strong> : <span className="muted">—</span>}{' '}
+                  <button disabled={busy === p.id} onClick={() => changeAgent(p)}>
+                    {p.agentCode ? 'Alterar' : 'Vincular'}
+                  </button>
+                </>
               )}
             </td>
             <td><LimitsCell p={p} /></td>

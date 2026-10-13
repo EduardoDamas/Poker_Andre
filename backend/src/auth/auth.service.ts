@@ -16,6 +16,7 @@ import { hashPassword, verifyPassword } from './password';
 import { LEGAL_VERSION } from './legal-version';
 import { RegisterDto } from './dto/register.dto';
 import { AuthToken, OtpService } from './otp/otp.service';
+import { ReferralService } from '../referral/referral.service';
 
 export type PublicUser = Pick<
   User,
@@ -29,6 +30,7 @@ export class AuthService {
     private readonly wallet: WalletService,
     private readonly jwt: JwtService,
     private readonly otp: OtpService,
+    private readonly referrals: ReferralService,
   ) {}
 
   /**
@@ -46,6 +48,14 @@ export class AuthService {
       throw new BadRequestException('You must be at least 18 years old.');
     }
 
+    // Checked before anything is written: a wrong code fails the sign-up so
+    // the player can fix it, instead of creating an account with no agent.
+    const code = dto.referralCode?.trim();
+    const agent = code ? await this.referrals.agentByCode(code) : null;
+    if (code && !agent) {
+      throw new BadRequestException('Código de indicação inválido.');
+    }
+
     try {
       const user = await this.prisma.user.create({
         data: {
@@ -61,6 +71,7 @@ export class AuthService {
           ...(dto.acceptedTerms === true
             ? { termsAcceptedAt: new Date(), termsVersion: LEGAL_VERSION }
             : {}),
+          ...(agent ? { agentId: agent.id, agentLinkedAt: new Date() } : {}),
         },
       });
       // Every player gets a wallet account at registration.

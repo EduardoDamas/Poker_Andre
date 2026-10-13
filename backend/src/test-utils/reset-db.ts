@@ -17,6 +17,7 @@ export async function resetDb(prisma: PrismaClient): Promise<void> {
         '"OtpCode"',
         '"AuditLog"',
         '"User"',
+        '"Agent"',
       ].join(', ') +
       ' RESTART IDENTITY CASCADE',
   );

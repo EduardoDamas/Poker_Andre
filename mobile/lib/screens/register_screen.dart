@@ -26,6 +26,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _cpf = TextEditingController();
   final _birth = TextEditingController();
   final _password = TextEditingController();
+  final _referral = TextEditingController();
   bool _busy = false;
   bool _accepted = false;
   String? _error;
@@ -72,6 +73,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         birthDate: isoBirth,
         password: password,
         acceptedTerms: _accepted,
+        referralCode: _referral.text,
       );
       if (!mounted) return;
       // Go back to login with phone pre-filled so they can request OTP.
@@ -133,6 +135,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 16),
                   _Field(controller: _password, label: 'Senha', hint: 'mínimo 6 caracteres',
                       obscure: true),
+                  const SizedBox(height: 16),
+                  _Field(
+                    key: const Key('referralField'),
+                    controller: _referral,
+                    label: 'Código de indicação (opcional)',
+                    hint: 'Se um agente te convidou',
+                    caps: TextCapitalization.characters,
+                  ),
                   const SizedBox(height: 20),
                   _TermsConsent(
                     accepted: _accepted,
@@ -230,13 +240,16 @@ class _Field extends StatelessWidget {
   final TextInputType type;
   final List<TextInputFormatter>? formatters;
   final bool obscure;
+  final TextCapitalization caps;
   const _Field({
+    super.key,
     required this.controller,
     required this.label,
     this.hint = '',
     this.type = TextInputType.text,
     this.formatters,
     this.obscure = false,
+    this.caps = TextCapitalization.none,
   });
 
   @override
@@ -246,6 +259,7 @@ class _Field extends StatelessWidget {
       keyboardType: type,
       inputFormatters: formatters,
       obscureText: obscure,
+      textCapitalization: caps,
       style: Brand.label,
       decoration: InputDecoration(labelText: label, hintText: hint),
     );

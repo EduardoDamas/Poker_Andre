@@ -33,4 +33,14 @@ export class RegisterDto {
   @IsOptional()
   @IsBoolean()
   acceptedTerms?: boolean;
+
+  /**
+   * The agent's referral code, if the player has one (client, 2026-10-12).
+   * Optional — apps before 1.0.11 have no field. An unknown code is refused
+   * rather than silently dropped, so a typo doesn't cost the agent the player.
+   */
+  @IsOptional()
+  @IsString()
+  @Length(0, 40)
+  referralCode?: string;
 }

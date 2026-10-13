@@ -199,12 +199,17 @@ export class TableService {
    * Record that a real player paid the entry fee and joins the tournament with a
    * fresh chip stack. Call AFTER the gateway has escrowed their entry.
    */
-  recordTournamentEntry(table: Table, userId: string, subscription: Subscription): void {
+  recordTournamentEntry(
+    table: Table,
+    userId: string,
+    subscription: Subscription,
+    stack: number = TOURNEY_STARTING_STACK,
+  ): void {
     const t = table.tournament;
     if (!t) throw new Error('Not a tournament table.');
     if (!t.entries.has(userId)) {
       t.entries.set(userId, subscription);
-      t.stacks[userId] = TOURNEY_STARTING_STACK;
+      t.stacks[userId] = stack;
     }
   }
 

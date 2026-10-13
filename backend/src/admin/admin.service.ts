@@ -24,6 +24,8 @@ export interface AdminPlayer {
   limitDailyCents: string | null;
   limitWeeklyCents: string | null;
   limitMonthlyCents: string | null;
+  // The agent who brought the player (referral code), if any.
+  agentCode: string | null;
 }
 
 export interface AdminWithdrawal {
@@ -47,7 +49,7 @@ export class AdminService {
   async listPlayers(): Promise<AdminPlayer[]> {
     const users = await this.prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { limits: true },
+      include: { limits: true, agent: true },
     });
     const now = Date.now();
     return Promise.all(
@@ -74,6 +76,7 @@ export class AdminService {
           blocked: isBlocked(u),
           blockedUntil: u.blockedUntil,
           blockReason: u.blockReason,
+          agentCode: u.agent?.code ?? null,
         };
       }),
     );

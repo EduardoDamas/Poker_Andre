@@ -10,6 +10,7 @@ import { WalletService } from '../wallet/wallet.service';
 import { PromoService, promoRoomId } from './promo.service';
 import { SubscriptionRequestService } from '../payments/subscription-request.service';
 import { resetDb } from '../test-utils/reset-db';
+import { TableService } from '../realtime/table.service';
 
 /**
  * The client's free promotion, played over real sockets as a multi-table
@@ -541,5 +542,29 @@ describe('Promotion bracket (e2e)', () => {
       intruder.emit('table:join', { tableId, maxSeats: 8 }, r),
     );
     expect(res.ok).toBe(false);
+  }, 30000);
+
+  it('a referred annual subscriber starts with 3000 chips; a plain player with 1000', async () => {
+    const e = await event(-1000);
+    const roomId = promoRoomId(e.id);
+    const agent = await prisma.agent.create({ data: { name: 'João', code: 'JOAO10' } });
+    const a = await player({
+      agentId: agent.id,
+      subscription: 'ANNUAL',
+      subscriptionUntil: new Date(Date.now() + 365 * 86_400_000),
+    });
+    const b = await player({ agentId: null });
+    const sa = await connect(a, roomId, true);
+    const sb = await connect(b, roomId, true);
+    const table = new Promise<string>((r) => sa.once('tournament:table', (d: { tableId: string }) => r(d.tableId)));
+    await join(sa, roomId);
+    await join(sb, roomId);
+    const tableId = await table;
+
+    // Stacks are booked when a hand ends; both players are passive, so the
+    // first hand is still open and these are the starting stacks.
+    const stacks = app.get(TableService).getTable(tableId)!.tournament!.stacks;
+    expect(stacks[a.userId]).toBe(3000);
+    expect(stacks[b.userId]).toBe(1000);
   }, 30000);
 });

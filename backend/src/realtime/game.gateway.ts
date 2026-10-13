@@ -115,6 +115,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     return user.subscription;
   }
 
+  /** Which of these players came through an agent's referral code. */
+  private async _referred(userIds: string[]): Promise<Set<string>> {
+    const rows = await this.prisma.user.findMany({
+      where: { id: { in: userIds }, agentId: { not: null } },
+      select: { id: true },
+    });
+    return new Set(rows.map((r) => r.id));
+  }
+
   async handleConnection(client: Socket): Promise<void> {
     const token = this.extractToken(client);
     if (!token) return this.reject(client, 'Missing token.');
@@ -525,10 +534,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       if (!(await this.promo.openEvent(bracket.eventId))) return false; // cancelled meanwhile
       const subs = new Map<string, Subscription>();
       for (const id of bracket.entrantIds()) subs.set(id, await this._subscriptionOf(id));
+      const referred = await this._referred(bracket.entrantIds());
       // Re-check: players may have left while we were reading.
       if (!bracket.shouldStart(Date.now())) return false;
       bracket.addRobots(); // rehearsal only
-      const tables = bracket.start(subs);
+      const tables = bracket.start(subs, new Date(), referred);
       this.promoTimers.get(bracket.roomId)?.forEach(clearTimeout);
       void this.promo
         .markStarted(bracket.eventId, bracket.startedAt!, bracket.startedWith)
@@ -553,7 +563,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         subTable: true,
       });
       for (const pid of mt.players) {
-        this.tables.recordTournamentEntry(table, pid, bracket.subscriptionOf(pid));
+        this.tables.recordTournamentEntry(table, pid, bracket.subscriptionOf(pid), bracket.startingStackOf(pid));
         if (bracket.isRobot(pid)) {
           this.tables.seatRobot(mt.id, pid);
           continue;

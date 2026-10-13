@@ -7,6 +7,7 @@ import { Deposits } from './components/Deposits';
 import { Subscriptions } from './components/Subscriptions';
 import { OtpRequests } from './components/OtpRequests';
 import { Promotions } from './components/Promotions';
+import { Agents } from './components/Agents';
 
 const TOKEN_KEY = 'capa_admin_token';
 
@@ -18,7 +19,7 @@ const env = (import.meta as { env?: Record<string, string> }).env ?? {};
 const AUTO_USER = env.VITE_ADMIN_USER ?? 'admin';
 const AUTO_PASS = env.VITE_ADMIN_PASS ?? '';
 
-type Tab = 'deposits' | 'withdrawals' | 'subscriptions' | 'players' | 'promotions' | 'otp';
+type Tab = 'deposits' | 'withdrawals' | 'subscriptions' | 'players' | 'promotions' | 'agents' | 'otp';
 
 export function App() {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem(TOKEN_KEY));
@@ -111,6 +112,9 @@ export function App() {
           <button className={tab === 'promotions' ? 'active' : ''} onClick={() => setTab('promotions')}>
             Promoções
           </button>
+          <button className={tab === 'agents' ? 'active' : ''} onClick={() => setTab('agents')}>
+            Agentes
+          </button>
           <button className={tab === 'otp' ? 'active' : ''} onClick={() => setTab('otp')}>
             Códigos OTP
           </button>
@@ -128,6 +132,8 @@ export function App() {
           <Players token={token} onForbidden={onForbidden} />
         ) : tab === 'promotions' ? (
           <Promotions token={token} onForbidden={onForbidden} />
+        ) : tab === 'agents' ? (
+          <Agents token={token} onForbidden={onForbidden} />
         ) : (
           <OtpRequests token={token} />
         )}

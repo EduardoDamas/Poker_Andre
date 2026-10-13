@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { WithdrawalStatus, DepositStatus, Deposit, SubscriptionRequestStatus, PromoEvent } from '@prisma/client';
 import { JwtAuthGuard, JwtPayload } from '../auth/jwt-auth.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
@@ -16,6 +16,8 @@ import { SubscriptionRequestService } from '../payments/subscription-request.ser
 import { PromoService, promoRoomId } from '../promo/promo.service';
 import { PromoBracket, PromoBrackets } from '../promo/promo-bracket';
 import { CreatePromoEventDto, ReschedulePromoEventDto } from './dto/create-promo-event.dto';
+import { CreateAgentDto, LinkAgentDto, UpdateAgentDto } from './dto/agent.dto';
+import { AgentReport, AgentSummary, ReferralService } from '../referral/referral.service';
 
 /** BigInt-free view of a promotion, with its live bracket when there is one. */
 function serializePromo(
@@ -85,6 +87,7 @@ export class AdminController {
     private readonly subRequests: SubscriptionRequestService,
     private readonly promo: PromoService,
     private readonly brackets: PromoBrackets,
+    private readonly referrals: ReferralService,
   ) {}
 
   @Get('players')
@@ -337,5 +340,51 @@ export class AdminController {
       metadata: { subscription: dto.subscription, untilMs: dto.untilMs ?? null },
     });
     return { ok: true };
+  }
+
+  // --- Agents & referral codes (client, 2026-10-12) ---
+
+  @Get('agents')
+  agents(): Promise<AgentSummary[]> {
+    return this.referrals.list();
+  }
+
+  @Post('agents')
+  async createAgent(@CurrentUser() admin: JwtPayload, @Body() dto: CreateAgentDto): Promise<AgentSummary> {
+    const agent = await this.referrals.create(dto);
+    await this.audit.record({
+      actorId: admin.sub, action: 'agent.create', targetType: 'agent', targetId: agent.id,
+      metadata: { name: agent.name, code: agent.code, commissionPct: agent.commissionPct },
+    });
+    return agent;
+  }
+
+  @Patch('agents/:id')
+  async updateAgent(
+    @CurrentUser() admin: JwtPayload,
+    @Param('id') id: string,
+    @Body() dto: UpdateAgentDto,
+  ): Promise<AgentSummary> {
+    const agent = await this.referrals.update(id, dto);
+    await this.audit.record({
+      actorId: admin.sub, action: 'agent.update', targetType: 'agent', targetId: id, metadata: { ...dto },
+    });
+    return agent;
+  }
+
+  /** The agent's players with first subscription + first deposit and the commission. */
+  @Get('agents/:id/report')
+  agentReport(@Param('id') id: string): Promise<AgentReport> {
+    return this.referrals.report(id);
+  }
+
+  // Link a player who signed up without the code (or fix a wrong one).
+  @Post('users/:id/agent')
+  async linkAgent(@CurrentUser() admin: JwtPayload, @Param('id') id: string, @Body() dto: LinkAgentDto) {
+    const linked = await this.referrals.link(id, dto.code ?? null);
+    await this.audit.record({
+      actorId: admin.sub, action: 'user.agent', targetType: 'user', targetId: id, metadata: linked,
+    });
+    return { ok: true, ...linked };
   }
 }

@@ -43,6 +43,11 @@ model User {
   // (1.0.6 and older) — those clients send nothing rather than a false accept.
   termsAcceptedAt DateTime?
   termsVersion    String?
+  // The agent who brought this player (referral code typed at sign-up, or
+  // linked by the admin). Tracking only — it changes no price.
+  agent         Agent?    @relation(fields: [agentId], references: [id])
+  agentId       String?
+  agentLinkedAt DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -58,6 +63,26 @@ model User {
   tournamentWins TournamentWin[]
 
   @@index([status])
+  @@index([agentId])
+}
+
+// A sales agent (client, 2026-10-12). Players type the agent's code at sign-up
+// so the admin knows who brought each subscriber; the agent earns a commission
+// on the player's FIRST confirmed subscription + FIRST confirmed deposit
+// (renewals don't count). In promotions a referred subscriber also starts with
+// more chips (see referral/referral.ts).
+model Agent {
+  id            String   @id @default(uuid())
+  name          String
+  code          String   @unique // upper-case letters/digits, typed by the player
+  phone         String?
+  // Percent of (first subscription + first deposit). Null = not agreed yet:
+  // the report shows the base and leaves the commission blank.
+  commissionPct Int?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+
+  players User[]
 }
 
 // ── Points economy ──────────────────────────────────────────────────────────

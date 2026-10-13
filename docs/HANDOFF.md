@@ -98,7 +98,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **502 passing / 62 suites** (app: 81 tests; panel: 39; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
+Full suite is **518 passing / 64 suites** (app: 85 tests; panel: 47; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
@@ -158,6 +158,25 @@ Local: `cd admin && npm install && npm run dev` → http://localhost:5173 (point
 **Build the hosted panel with `VITE_API_BASE=https://capa-contest-api.onrender.com`** — `admin/.env`
 points at localhost and Vite applies it to production builds too, which would break the live panel.
 Check the bundle has no `localhost` before committing `backend/panel/`.
+
+### 6b. Agents & referral codes — tab "Agentes" (client, 2026-10-12)
+
+- Each agent has a **code** (typed, or suggested from the name like `JOAO47`; letters/digits,
+  stored upper-case). The player types it at sign-up (app **1.0.11** / web, optional field). An
+  unknown or deactivated code fails the sign-up with "Código de indicação inválido." so a typo
+  never silently costs the agent the player. Players who signed up without it are linked in
+  **Jogadores → Agente → Vincular** (empty code unlinks).
+- **Commission** = % of the referred player's **first confirmed subscription + first confirmed
+  deposit** (manual Pix `Deposit` CONFIRMED or card `PaymentOrder` DEPOSIT PAID, whichever came
+  first). Renewals, later deposits and plans granted by hand (no price) don't count. The % is per
+  agent and optional — blank shows the base with no commission. The panel only reports; paying the
+  agent happens outside the app.
+- **Promotion bonus chips** (`referral/referral.ts`): a referred player starts each promotion
+  table with 1500 / 2000 / 2500 / 3000 chips for Mensal / Trimestral / Semestral / Anual held when
+  the tournament starts; no plan or no code = 1000. Bracket rounds deal fresh stacks, so the bonus
+  applies at every table. Paid 10-minute rooms are unchanged (always 1000).
+- Code: `backend/src/referral/` (rules, service, e2e), admin endpoints `/admin/agents*` and
+  `/admin/users/:id/agent`, panel `admin/src/components/Agents.tsx`. Migration `20261013100000_agents`.
 
 ---
 

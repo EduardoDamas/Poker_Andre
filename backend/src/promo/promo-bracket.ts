@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { MultiTableCoordinator } from '../tournament/multi-table-coordinator';
 import { MttTable } from '../tournament/multi-table';
 import { Subscription } from '../tournament/subscription';
+import { promoStartingStack } from '../referral/referral';
 
 export interface PromoBracketConfig {
   eventId: string;
@@ -48,6 +49,7 @@ export class PromoBracket {
   private coordinator: MultiTableCoordinator | null = null;
   private readonly alive = new Set<string>();
   private readonly subscriptionsAtStart = new Map<string, Subscription>();
+  private referredAtStart: ReadonlySet<string> = new Set();
   private pendingRound: MttTable[] = [];
   private _champion: string | null = null;
   private _startedWith = 0;
@@ -205,12 +207,18 @@ export class PromoBracket {
 
   /**
    * Start with everyone holding a place, seated at random. [subscriptions] is
-   * each player's plan read right now — "assinante até o início do torneio".
+   * each player's plan read right now — "assinante até o início do torneio";
+   * [referred] the players who came through an agent's code (bonus chips).
    * Returns the first round's tables.
    */
-  start(subscriptions: Map<string, Subscription>, at: Date = new Date()): MttTable[] {
+  start(
+    subscriptions: Map<string, Subscription>,
+    at: Date = new Date(),
+    referred: ReadonlySet<string> = new Set(),
+  ): MttTable[] {
     if (this.started) throw new Error('Already started.');
     this._startedAt = at;
+    this.referredAtStart = new Set(referred);
     const players = shuffle(this.entrantIds());
     for (const id of players) {
       this.subscriptionsAtStart.set(id, subscriptions.get(id) ?? this.entrants.get(id)!.subscription);
@@ -236,6 +244,15 @@ export class PromoBracket {
 
   subscriptionOf(userId: string): Subscription {
     return this.subscriptionsAtStart.get(userId) ?? 'NONE';
+  }
+
+  /**
+   * Chips the player sits down with at each of their tables: 1000, or more for
+   * a referred player by the plan held at the start (client, 2026-10-12). Every
+   * round deals fresh stacks, so the bonus is the same at every table.
+   */
+  startingStackOf(userId: string): number {
+    return promoStartingStack(this.subscriptionOf(userId), this.referredAtStart.has(userId));
   }
 
   /** The current-round table of a player still in the tournament. */

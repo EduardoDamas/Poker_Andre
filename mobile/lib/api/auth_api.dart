@@ -144,6 +144,7 @@ class AuthApi {
   /// Register a new account. Throws [AuthException] on validation errors.
   /// [password] is optional; when set, the user can log in with phone+password.
   /// [acceptedTerms] records that the player ticked the Termos + Privacidade box.
+  /// [referralCode] is the agent's code, when the player has one.
   Future<void> register({
     required String phone,
     required String displayName,
@@ -151,6 +152,7 @@ class AuthApi {
     required String birthDate,
     String? password,
     bool acceptedTerms = false,
+    String? referralCode,
   }) async {
     final res = await _send(() => _client.post(
           _u('/auth/register'),
@@ -162,6 +164,8 @@ class AuthApi {
             'birthDate': birthDate,
             if (password != null && password.isNotEmpty) 'password': password,
             'acceptedTerms': acceptedTerms,
+            if (referralCode != null && referralCode.trim().isNotEmpty)
+              'referralCode': referralCode.trim(),
           }),
         ));
     if (res.statusCode == 409) {

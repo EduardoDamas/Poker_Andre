@@ -63,6 +63,47 @@ export interface Player {
   limitDailyCents: string | null;
   limitWeeklyCents: string | null;
   limitMonthlyCents: string | null;
+  /** Code of the agent who brought the player (referral), if any. */
+  agentCode: string | null;
+}
+
+/** A sales agent and their totals (first subscription + first deposit of each player). */
+export interface Agent {
+  id: string;
+  name: string;
+  code: string;
+  phone: string | null;
+  /** Percent of the base; null = not agreed yet (commission left blank). */
+  commissionPct: number | null;
+  active: boolean;
+  createdAt: string;
+  players: number;
+  subscribers: number;
+  baseCents: string;
+  commissionCents: string | null;
+}
+
+export interface ReferredPlayer {
+  userId: string;
+  displayName: string;
+  phone: string;
+  linkedAt: string | null;
+  subscription: string;
+  firstSubscription: { plan: string; amountCents: string; at: string } | null;
+  firstDeposit: { amountCents: string; at: string; via: 'PIX' | 'CARTAO' } | null;
+  baseCents: string;
+  commissionCents: string | null;
+}
+
+export interface AgentReport extends Agent {
+  referred: ReferredPlayer[];
+}
+
+export interface NewAgent {
+  name: string;
+  code?: string;
+  phone?: string;
+  commissionPct?: number | null;
 }
 
 export interface Withdrawal {
@@ -253,6 +294,19 @@ export const api = {
     ),
   cancelPromoEvent: (token: string, id: string) =>
     request<PromoEvent>(`/admin/promo-events/${id}/cancel`, { method: 'POST' }, token),
+  // Agents & referral codes.
+  agents: (token: string) => request<Agent[]>('/admin/agents', {}, token),
+  createAgent: (token: string, agent: NewAgent) =>
+    request<Agent>('/admin/agents', { method: 'POST', body: JSON.stringify(agent) }, token),
+  updateAgent: (token: string, id: string, changes: Partial<Pick<Agent, 'name' | 'phone' | 'commissionPct' | 'active'>>) =>
+    request<Agent>(`/admin/agents/${id}`, { method: 'PATCH', body: JSON.stringify(changes) }, token),
+  agentReport: (token: string, id: string) => request<AgentReport>(`/admin/agents/${id}/report`, {}, token),
+  linkAgent: (token: string, userId: string, code: string | null) =>
+    request<{ ok: true; agentId: string | null; code: string | null }>(
+      `/admin/users/${userId}/agent`,
+      { method: 'POST', body: JSON.stringify({ code }) },
+      token,
+    ),
   // Subscription grant.
   grantSubscription: (token: string, id: string, subscription: SubscriptionTier, untilMs?: number) =>
     request<{ ok: true }>(

@@ -5,6 +5,7 @@ import { AuditModule } from '../audit/audit.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { PaymentsModule } from '../payments/payments.module';
 import { PromoModule } from '../promo/promo.module';
+import { ReferralModule } from '../referral/referral.module';
 import { AdminService } from './admin.service';
 import { AdminController } from './admin.controller';
 import { OtpRelayController } from './otp-relay.controller';
@@ -12,7 +13,7 @@ import { AdminGuard } from './admin.guard';
 
 @Module({
   // AuthModule exports JwtModule; PaymentsModule provides SubscriptionRequestService.
-  imports: [AuthModule, WalletModule, AuditModule, PrismaModule, PaymentsModule, PromoModule],
+  imports: [AuthModule, WalletModule, AuditModule, PrismaModule, PaymentsModule, PromoModule, ReferralModule],
   providers: [AdminService, AdminGuard],
   controllers: [AdminController, OtpRelayController],
 })
