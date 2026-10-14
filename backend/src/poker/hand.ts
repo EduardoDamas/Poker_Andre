@@ -40,6 +40,13 @@ export interface HandOutcome {
   seed: string;
 }
 
+export interface HandChips {
+  stacks: Record<string, number>;
+  bets: Record<string, number>;
+  pot: number;
+  folded: string[];
+}
+
 export class PokerHand {
   private readonly seatOrder: string[];
   private readonly initialStacks: Record<string, number>;
@@ -120,6 +127,28 @@ export class PokerHand {
     const id = this.round?.actingPlayerId;
     if (!id) return 0;
     return this.round?.players.find((p) => p.id === id)?.committed ?? 0;
+  }
+
+  /**
+   * The chips as the table shows them: each player's chips behind, what they
+   * have put in on THIS street (in front of them), who folded, and the pot
+   * gathered from earlier streets. Once the hand is over, the final stacks
+   * with nothing in front and an empty pot (it has been paid out).
+   */
+  get chips(): HandChips {
+    if (this.outcome) {
+      return { stacks: { ...this.outcome.finalStacks }, bets: {}, pot: 0, folded: [...this.folded] };
+    }
+    const stacks = { ...this.stacks };
+    const bets: Record<string, number> = {};
+    const folded = new Set(this.folded);
+    for (const p of this.round?.players ?? []) {
+      stacks[p.id] = p.stack;
+      if (p.committed > 0) bets[p.id] = p.committed;
+      if (p.folded) folded.add(p.id);
+    }
+    const pot = Object.values(this.totalContrib).reduce((a, b) => a + b, 0);
+    return { stacks, bets, pot, folded: [...folded] };
   }
 
   get currentBet(): number {

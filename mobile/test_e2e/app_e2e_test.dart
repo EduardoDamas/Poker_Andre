@@ -526,6 +526,15 @@ void main() {
       final seats = ps.map((p) => Seat(p, 'poker-l1', level: 1, maxSeats: 8)).toList();
       await Future.wait(seats.map((s) => s.until((s) => s.finished)));
       expect(seats.where((s) => s.saw(isChampion)), hasLength(1));
+      // Chips on the table: both phones saw bets in front of the players, and
+      // every state adds up to the two 1000-chip stacks — behind, in front or
+      // in the pot.
+      int chips(GameSnapshot x) => [...x.stacks.values, ...x.bets.values].fold(x.pot, (a, b) => a + b);
+      for (final s in seats) {
+        final betting = s.seen.where((x) => x.bets.isNotEmpty && x.stacks.length == 2).toList();
+        expect(betting, isNotEmpty);
+        expect(betting.map(chips).toSet(), {2000});
+      }
       final balances = [for (final p in ps) await auth.fetchBalance(p.token)];
       balances.sort();
       expect(balances.first, 8000, reason: 'the loser paid the R\$20 entry');

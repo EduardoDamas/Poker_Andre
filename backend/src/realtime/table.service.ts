@@ -97,6 +97,8 @@ export interface PublicTableState {
   maxSeats: number;
   handInProgress: boolean;
   seats: (PublicSeat | null)[];
+  /** Chips behind each seated player, when known (tournament tables, or mid-hand). */
+  stacks?: Record<string, number>;
 }
 
 export interface GameState {
@@ -107,6 +109,12 @@ export interface GameState {
   legalActions: ActionType[];
   actingStack: number; // chips behind the player to act (for sizing all-ins)
   actingCommitted: number; // chips they've already put in this street
+  // The chips on the table (client, 2026-10): everyone's chips behind, their
+  // bet this street, who folded, and the pot from earlier streets.
+  stacks: Record<string, number>;
+  bets: Record<string, number>;
+  pot: number;
+  folded: string[];
 }
 
 export interface TournamentStatus {
@@ -558,6 +566,11 @@ export class TableService {
       seats: table.seats.map((s, position) =>
         s ? { position, userId: s.userId, hasCards: table.handInProgress } : null,
       ),
+      ...(table.hand && table.handInProgress
+        ? { stacks: table.hand.chips.stacks }
+        : table.tournament
+          ? { stacks: { ...table.tournament.stacks } }
+          : {}),
     };
   }
 
@@ -571,6 +584,7 @@ export class TableService {
       legalActions: table.hand.legalActions(),
       actingStack: table.hand.actingStack,
       actingCommitted: table.hand.actingCommitted,
+      ...table.hand.chips,
     };
   }
 

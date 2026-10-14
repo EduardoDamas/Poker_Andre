@@ -557,9 +557,18 @@ describe('Promotion bracket (e2e)', () => {
     const sa = await connect(a, roomId, true);
     const sb = await connect(b, roomId, true);
     const table = new Promise<string>((r) => sa.once('tournament:table', (d: { tableId: string }) => r(d.tableId)));
+    type Chips = { stacks: Record<string, number>; bets: Record<string, number>; pot: number };
+    const firstState = new Promise<Chips>((r) => sb.once('game:state', r));
     await join(sa, roomId);
     await join(sb, roomId);
     const tableId = await table;
+
+    // What the app draws: chips behind + the blinds in front = the starting stacks.
+    const st = await firstState;
+    expect(st.pot).toBe(0);
+    expect(st.stacks[a.userId] + (st.bets[a.userId] ?? 0)).toBe(3000);
+    expect(st.stacks[b.userId] + (st.bets[b.userId] ?? 0)).toBe(1000);
+    expect(Object.values(st.bets).sort((x, y) => x - y)).toEqual([25, 50]);
 
     // Stacks are booked when a hand ends; both players are passive, so the
     // first hand is still open and these are the starting stacks.

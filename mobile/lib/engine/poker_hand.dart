@@ -89,6 +89,25 @@ class PokerHand {
     return p;
   }
 
+  /// The chips as the table shows them: chips behind, this street's bets in
+  /// front of each player, who folded, and the pot from earlier streets. Once
+  /// the hand is over: final stacks, nothing in front, pot paid out.
+  ({Map<String, int> stacks, Map<String, int> bets, int pot, Set<String> folded}) get chips {
+    final out = _outcome;
+    if (out != null) {
+      return (stacks: {...out.finalStacks}, bets: const {}, pot: 0, folded: {..._folded});
+    }
+    final stacks = {..._stacks};
+    final bets = <String, int>{};
+    final folded = {..._folded};
+    for (final p in _round?.players ?? const <PlayerState>[]) {
+      stacks[p.id] = p.stack;
+      if (p.committed > 0) bets[p.id] = p.committed;
+      if (p.folded) folded.add(p.id);
+    }
+    return (stacks: stacks, bets: bets, pot: _totalContrib.values.fold(0, (a, b) => a + b), folded: folded);
+  }
+
   List<String> get visibleBoard {
     switch (_street) {
       case Street.preflop:

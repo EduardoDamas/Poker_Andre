@@ -112,6 +112,7 @@ class LocalGameConnection implements GameConnection {
 
   void _emitState() {
     final acting = _hand.actingPlayerId;
+    final chips = _hand.chips;
     _emit(_snap.copyWith(
       status: ConnStatus.connected,
       street: _hand.currentStreet.name,
@@ -123,6 +124,11 @@ class LocalGameConnection implements GameConnection {
       handComplete: false,
       maxSeats: _capacity,
       seats: _seatList(true),
+      stacks: chips.stacks,
+      bets: chips.bets,
+      pot: chips.pot,
+      folded: chips.folded,
+      payouts: const {},
     ));
   }
 
@@ -150,6 +156,13 @@ class LocalGameConnection implements GameConnection {
       prizeCents: prize,
       maxSeats: _capacity,
       seats: _seatList(false),
+      stacks: out.finalStacks,
+      bets: const {},
+      pot: 0,
+      payouts: {
+        for (final e in out.payouts.entries)
+          if (e.value > 0) e.key: e.value,
+      },
     ));
   }
 

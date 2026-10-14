@@ -183,3 +183,50 @@ describe('PokerHand (full hand)', () => {
     expect(() => h.act('p0', { type: 'check' })).toThrow(/complete/);
   });
 });
+
+describe('PokerHand.chips (what the table shows)', () => {
+  const deck = () =>
+    makeDeck(['As', 'Ah', 'Kd', 'Kc', 'Qs', 'Qh', '2d', '2c', '7d', '9s', '3h', 'Jh', '5c', '4s']);
+  const total = (c: { stacks: Record<string, number>; bets: Record<string, number>; pot: number }) =>
+    sumValues(c.stacks) + sumValues(c.bets) + c.pot;
+
+  it('preflop: the blinds sit in front of their players; nothing in the pot yet', () => {
+    const h = new PokerHand(
+      [{ id: 'sb', stack: 1000 }, { id: 'bb', stack: 1500 }, { id: 'utg', stack: 3000 }],
+      { smallBlind: 25, bigBlind: 50, deck: deck() },
+    );
+    expect(h.chips).toEqual({ stacks: { sb: 975, bb: 1450, utg: 3000 }, bets: { sb: 25, bb: 50 }, pot: 0, folded: [] });
+  });
+
+  it('bets move into the pot when the street ends; a fold is shown; chips are conserved', () => {
+    const h = new PokerHand(
+      [{ id: 'sb', stack: 1000 }, { id: 'bb', stack: 1000 }, { id: 'utg', stack: 1000 }],
+      { smallBlind: 25, bigBlind: 50, deck: deck() },
+    );
+    h.act('utg', { type: 'raise', amount: 150 });
+    expect(h.chips.bets).toEqual({ sb: 25, bb: 50, utg: 150 });
+    h.act('sb', { type: 'fold' });
+    expect(h.chips.folded).toEqual(['sb']);
+    expect(h.chips.bets.sb).toBe(25); // a folded blind stays in front until the street ends
+    h.act('bb', { type: 'call' });
+
+    const flop = h.chips;
+    expect(h.currentStreet).toBe('flop');
+    expect(flop.bets).toEqual({});
+    expect(flop.pot).toBe(325);
+    expect(flop.stacks).toEqual({ sb: 975, bb: 850, utg: 850 });
+    expect(total(flop)).toBe(3000);
+  });
+
+  it('when the hand is over: final stacks, nothing in front, pot paid out', () => {
+    const h = new PokerHand(
+      [{ id: 'p0', stack: 100 }, { id: 'p1', stack: 100 }],
+      { smallBlind: 1, bigBlind: 2, deck: deck() },
+    );
+    playPassive(h);
+    const c = h.chips;
+    expect(c.bets).toEqual({});
+    expect(c.pot).toBe(0);
+    expect(c.stacks).toEqual(h.result().finalStacks);
+  });
+});

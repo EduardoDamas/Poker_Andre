@@ -60,6 +60,13 @@ class GameSnapshot {
   final bool finished; // the whole tournament has its champion
   final DateTime? turnDeadline; // when the table acts for you if you don't
 
+  // --- Chips on the table (client, 2026-10) ---
+  final Map<String, int> stacks; // chips behind each player, by userId
+  final Map<String, int> bets; // put in on this street, in front of them
+  final int pot; // gathered from the earlier streets
+  final Set<String> folded;
+  final Map<String, int> payouts; // what each won, once the hand is over
+
   const GameSnapshot({
     this.status = ConnStatus.connecting,
     this.error,
@@ -80,6 +87,11 @@ class GameSnapshot {
     this.out = false,
     this.finished = false,
     this.turnDeadline,
+    this.stacks = const {},
+    this.bets = const {},
+    this.pot = 0,
+    this.folded = const {},
+    this.payouts = const {},
   });
 
   /// Still in a running promotion bracket: leaving now would forfeit the place.
@@ -105,6 +117,11 @@ class GameSnapshot {
     bool? out,
     bool? finished,
     DateTime? turnDeadline,
+    Map<String, int>? stacks,
+    Map<String, int>? bets,
+    int? pot,
+    Set<String>? folded,
+    Map<String, int>? payouts,
   }) {
     return GameSnapshot(
       status: status ?? this.status,
@@ -126,6 +143,11 @@ class GameSnapshot {
       out: out ?? this.out,
       finished: finished ?? this.finished,
       turnDeadline: turnDeadline ?? this.turnDeadline,
+      stacks: stacks ?? this.stacks,
+      bets: bets ?? this.bets,
+      pot: pot ?? this.pot,
+      folded: folded ?? this.folded,
+      payouts: payouts ?? this.payouts,
     );
   }
 }

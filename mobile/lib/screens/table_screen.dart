@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../game/game_connection.dart';
 import '../game/game_snapshot.dart';
+import '../widgets/chips.dart';
 import '../widgets/playing_card.dart';
 import '../widgets/premium.dart';
 import '../widgets/waiting_panel.dart';
@@ -443,6 +444,9 @@ class _TableView extends StatelessWidget {
     // Landscape: the player panel docks to the RIGHT so the felt area keeps
     // roughly the artwork's 3:2 shape and the table fills the screen.
     final landscape = size.width > size.height;
+    // A phone on its side (about 360 dp tall) has no room for the actions
+    // stacked in the side panel: they go in one row there, as in portrait.
+    final stackActions = landscape && size.height >= 440;
 
     final felt = Container(
           decoration: BoxDecoration(
@@ -479,10 +483,6 @@ class _TableView extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // Characters seated around the table; absent players leave
-                      // an empty seat.
-                      if (s.seats.isNotEmpty)
-                        Positioned.fill(child: _TableSeats(snapshot: s)),
                       // Street chip + community board, pinned to the FELT
                       // centre of the artwork (the rail's centre sits at ~40%
                       // of the frame — the pedestal fills the lower part).
@@ -500,9 +500,20 @@ class _TableView extends StatelessWidget {
                                 border: Border.all(
                                     color: Brand.feltTrim.withValues(alpha: 0.5)),
                               ),
-                              child: Text(_streetLabels[s.street] ?? s.street,
-                                  style:
-                                      Brand.micro.copyWith(color: Brand.champagne)),
+                              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                                Text(_streetLabels[s.street] ?? s.street,
+                                    style: Brand.micro.copyWith(color: Brand.champagne)),
+                                // The pot gathered from the earlier streets.
+                                if (s.pot > 0) ...[
+                                  const SizedBox(width: 8),
+                                  PokerChip(size: 12, amount: s.pot),
+                                  const SizedBox(width: 4),
+                                  Text('Pote ${chipCount(s.pot)}',
+                                      key: const Key('potLabel'),
+                                      style: Brand.micro.copyWith(
+                                          color: Brand.gold, fontWeight: FontWeight.w800)),
+                                ],
+                              ]),
                             ),
                             const SizedBox(height: 10),
                             // Board: real cards once dealt; placeholders during
@@ -539,6 +550,15 @@ class _TableView extends StatelessWidget {
                     ]),
                   ),
                 ),
+                // Characters seated around the table (absent players leave an
+                // empty seat), then the bets in front of them and the chips
+                // flying to the pot and on to the winner. They use the whole
+                // felt area: in portrait the seats spread above and below the
+                // table, leaving the felt for the board, the bets and the pot.
+                if (s.seats.isNotEmpty)
+                  Positioned.fill(child: _TableSeats(snapshot: s)),
+                if (s.seats.isNotEmpty)
+                  Positioned.fill(child: IgnorePointer(child: _ChipLayer(snapshot: s))),
                 // Where the player is in a promotion bracket — above the table,
                 // clear of the seats.
                 if (s.stage != null)
@@ -638,7 +658,7 @@ class _TableView extends StatelessWidget {
               // appear here in-place (no separate popping panel). In landscape
               // (side panel) they stack vertically, full panel width.
               SizedBox(
-                height: landscape ? 184 : 112,
+                height: stackActions ? 184 : 112,
                 child: Center(
                   child: s.handComplete
                       ? Column(mainAxisSize: MainAxisSize.min, children: [
@@ -695,7 +715,7 @@ class _TableView extends StatelessWidget {
                       : s.isMyTurn
                           // ALL actions always visible, always in the same
                           // place: one row in portrait, stacked in landscape.
-                          ? (landscape
+                          ? (stackActions
                               ? Column(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
@@ -757,9 +777,92 @@ class _TableView extends StatelessWidget {
   }
 }
 
+/// Where things sit in the felt area: the seats round the table, each
+/// player's bet in front of them, and the pot in the middle. Shared by the
+/// seats and the chip layer so chips fly between the right places.
+///
+/// [box] is the whole felt area; the table artwork is the 3:2 rectangle
+/// centred in it (as the Center + AspectRatio above draws it).
+class _SeatGeometry {
+  final Size box;
+  final int max;
+  final int? myPos;
+  _SeatGeometry(this.box, this.max, this.myPos);
+
+  factory _SeatGeometry.of(GameSnapshot s, Size box) {
+    int? myPos;
+    for (final seat in s.seats) {
+      if (seat != null && seat.isMe) myPos = seat.position;
+    }
+    return _SeatGeometry(box, s.maxSeats > 0 ? s.maxSeats : s.seats.length, myPos);
+  }
+
+  // A final table of 10 needs smaller avatars to keep them apart.
+  double get seatSize => max > 8 ? 42.0 : 52.0;
+
+  Rect get table {
+    final w = math.min(box.width, box.height * 1.5);
+    final h = w / 1.5;
+    return Rect.fromLTWH((box.width - w) / 2, (box.height - h) / 2, w, h);
+  }
+
+  // Ellipse matched to the tbl-crimson-base artwork: the rail's center sits at
+  // ~40% of the frame height (the pedestal fills the lower part), spanning
+  // ~92% × 60% of it — so avatars straddle the leather rail. In portrait,
+  // where the table leaves room above and below, the seats spread out into
+  // it (up to the table's full height) so the felt stays clear for the chips.
+  Offset get middle => Offset(table.center.dx, table.top + table.height * 0.40);
+  double get _rx => table.width * 0.46;
+  double get _ry {
+    final rail = table.height * 0.30;
+    final half = seatSize / 2;
+    final room = math.min(middle.dy - half - 30, box.height - middle.dy - half - 30);
+    return room.clamp(rail, math.max(rail, table.height * 0.5));
+  }
+
+  double _angle(int position) {
+    // Rotate so that my seat (or seat 0) sits at the bottom (pi/2 on screen).
+    final offset = myPos == null ? position : position - myPos!;
+    return (math.pi / 2) + (offset / max) * 2 * math.pi;
+  }
+
+  Offset seat(int position) {
+    final a = _angle(position);
+    final half = seatSize / 2;
+    return Offset(
+      (middle.dx + _rx * math.cos(a)).clamp(half, math.max(half, box.width - half)),
+      (middle.dy + _ry * math.sin(a)).clamp(half, math.max(half, box.height - half)),
+    );
+  }
+
+  /// The street label, the pot and the five board cards — kept clear of bets.
+  Rect get _boardArea {
+    final cardW = max > 8 ? 34.0 : 42.0;
+    return Rect.fromCenter(center: middle, width: 5 * (cardW + 6) + 16, height: 22 + 10 + cardW * 1.4 + 10);
+  }
+
+  /// In front of the seat, toward the middle of the felt. Below a seat the
+  /// bet clears its chip plate; above one it sits just over the avatar. Where
+  /// that would land on the board (a phone on its side keeps the seats on the
+  /// rail), the bet sits beside the avatar instead, on the side facing the middle.
+  Offset bet(int position) {
+    final a = _angle(position);
+    final at = seat(position);
+    final down = -math.sin(a) > 0;
+    final inFront =
+        at + Offset(-math.cos(a) * (seatSize * 0.5 + 26), -math.sin(a) * (seatSize * 0.5 + (down ? 40 : 8)));
+    if (!_boardArea.overlaps(Rect.fromCenter(center: inFront, width: 64, height: 20))) return inFront;
+    final side = math.cos(a) > 0.2 ? -1.0 : 1.0; // right of a seat at the top or bottom
+    return at + Offset(side * (seatSize * 0.5 + 36), down ? 6 : -6);
+  }
+
+  /// The pot, next to the street label above the board.
+  Offset get pot => middle + Offset(0, max > 8 ? -30 : -36);
+}
+
 /// Lays out the seats evenly around the round table. Occupied seats show a
-/// character avatar; empty seats show a faint placeholder ring. The local
-/// player is anchored at the bottom of the table.
+/// character avatar with their chips; empty seats show a faint placeholder
+/// ring. The local player is anchored at the bottom of the table.
 class _TableSeats extends StatelessWidget {
   final GameSnapshot snapshot;
   const _TableSeats({required this.snapshot});
@@ -771,38 +874,32 @@ class _TableSeats extends StatelessWidget {
     if (max <= 0) return const SizedBox.shrink();
 
     final byPos = <int, SeatInfo>{};
-    int? myPos;
-    for (final seat in s.seats) {
-      if (seat == null) continue;
+    for (final seat in s.seats.whereType<SeatInfo>()) {
       byPos[seat.position] = seat;
-      if (seat.isMe) myPos = seat.position;
     }
 
     return LayoutBuilder(builder: (context, c) {
-      // A final table of 10 needs smaller avatars to keep them apart.
-      final seatSize = max > 8 ? 42.0 : 52.0;
-      // Ellipse matched to the tbl-crimson-base artwork: the rail's center sits
-      // at ~40% of the frame height (the pedestal fills the lower part), spanning
-      // ~92% × 60% of it — so avatars straddle the leather rail.
-      final cx = c.maxWidth / 2, cy = c.maxHeight * 0.40;
-      final rx = c.maxWidth * 0.46;
-      final ry = c.maxHeight * 0.30;
+      final g = _SeatGeometry.of(s, c.biggest);
+      final seatSize = g.seatSize;
       final children = <Widget>[];
       for (var i = 0; i < max; i++) {
-        // Rotate so that my seat (or seat 0) sits at the bottom (pi/2 on screen).
-        final offset = myPos == null ? i : i - myPos;
-        final angle = (math.pi / 2) + (offset / max) * 2 * math.pi;
-        final dx = cx + rx * math.cos(angle) - seatSize / 2;
-        final dy = cy + ry * math.sin(angle) - seatSize / 2;
+        final at = g.seat(i);
         final seat = byPos[i];
         final acting = seat != null && s.actingPlayerId == seat.userId;
         children.add(Positioned(
-          left: dx.clamp(0.0, c.maxWidth - seatSize),
-          top: dy.clamp(0.0, c.maxHeight - seatSize),
-          child: _SeatWidget(size: seatSize, seat: seat, acting: acting, compact: max > 8),
+          left: at.dx - seatSize / 2,
+          top: at.dy - seatSize / 2,
+          child: _SeatWidget(
+            size: seatSize,
+            seat: seat,
+            acting: acting,
+            compact: max > 8,
+            stack: seat == null ? null : s.stacks[seat.userId],
+            folded: seat != null && s.folded.contains(seat.userId),
+          ),
         ));
       }
-      return Stack(children: children);
+      return Stack(clipBehavior: Clip.none, children: children);
     });
   }
 }
@@ -814,7 +911,16 @@ class _SeatWidget extends StatelessWidget {
   // A table of 10: opponents drop the "Jogador" caption (it says nothing and,
   // at the side edges, would run into the seat below).
   final bool compact;
-  const _SeatWidget({required this.size, required this.seat, required this.acting, this.compact = false});
+  final int? stack; // chips behind; null when the server sends none
+  final bool folded;
+  const _SeatWidget({
+    required this.size,
+    required this.seat,
+    required this.acting,
+    this.compact = false,
+    this.stack,
+    this.folded = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -836,30 +942,219 @@ class _SeatWidget extends StatelessWidget {
     final ring = acting
         ? Brand.gold
         : (seat.isMe ? Brand.crimson : Brand.feltTrim.withValues(alpha: 0.7));
+    final stack = this.stack;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
+        // The avatar, with the chip count on a plate across its lower edge.
+        SizedBox(
           width: size,
           height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: ring, width: acting ? 3 : 2),
-            boxShadow: acting ? Brand.glow(Brand.gold) : Brand.cardShadow,
-          ),
-          child: ClipOval(
-            child: Image.asset(
-              'assets/characters/avatars/chr-avatar-default.png',
-              fit: BoxFit.cover,
-              filterQuality: FilterQuality.high,
+          child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
+            AnimatedOpacity(
+              duration: const Duration(milliseconds: 250),
+              opacity: folded ? 0.4 : 1,
+              child: Container(
+                width: size,
+                height: size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: ring, width: acting ? 3 : 2),
+                  boxShadow: acting ? Brand.glow(Brand.gold) : Brand.cardShadow,
+                ),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/characters/avatars/chr-avatar-default.png',
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.high,
+                  ),
+                ),
+              ),
             ),
-          ),
+            if (stack != null)
+              Positioned(
+                bottom: -7,
+                child: _StackPlate(stack: stack, highlight: seat.isMe),
+              ),
+          ]),
         ),
-        const SizedBox(height: 3),
-        if (seat.isMe || !compact)
+        SizedBox(height: stack != null ? 9 : 3),
+        // The chip plate already marks an opponent; "Jogador" is only shown
+        // to a server that sends no chips.
+        if (seat.isMe || (stack == null && !compact))
           Text(seat.isMe ? 'Você' : 'Jogador',
               style: Brand.micro.copyWith(color: seat.isMe ? Brand.champagne : Brand.textSec)),
       ],
+    );
+  }
+}
+
+/// The chips behind a player; counts up or down when the stack changes.
+class _StackPlate extends StatelessWidget {
+  final int stack;
+  final bool highlight;
+  const _StackPlate({required this.stack, this.highlight = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(end: stack.toDouble()),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.easeOutCubic,
+      builder: (context, v, _) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        decoration: BoxDecoration(
+          color: const Color(0xE6101014),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+              color: (highlight ? Brand.gold : Brand.feltTrim).withValues(alpha: 0.7), width: 1),
+        ),
+        child: Text(stack == 0 ? 'All-in' : chipCount(v.round()),
+            key: const Key('stackPlate'),
+            style: TextStyle(
+                color: highlight ? Brand.gold : Brand.textPri,
+                fontSize: 10.5,
+                fontWeight: FontWeight.w800,
+                height: 1.2)),
+      ),
+    );
+  }
+}
+
+/// One movement of chips across the felt.
+class _Flight {
+  final int id;
+  final Offset from;
+  final Offset to;
+  final int amount;
+  final Duration delay;
+  _Flight(this.id, this.from, this.to, this.amount, {this.delay = Duration.zero});
+}
+
+/// The bets in front of each player, and the chips' movements: a bet slides
+/// out from the seat, a street's bets sweep into the pot, and the pot goes to
+/// whoever won it.
+class _ChipLayer extends StatefulWidget {
+  final GameSnapshot snapshot;
+  const _ChipLayer({required this.snapshot});
+
+  @override
+  State<_ChipLayer> createState() => _ChipLayerState();
+}
+
+class _ChipLayerState extends State<_ChipLayer> {
+  static const _fly = Duration(milliseconds: 420);
+  final _flights = <_Flight>[];
+  var _next = 0;
+  Size _box = Size.zero;
+
+  Map<String, int> _positions(GameSnapshot s) => {
+        for (final seat in s.seats)
+          if (seat != null) seat.userId: seat.position,
+      };
+
+  @override
+  void didUpdateWidget(_ChipLayer old) {
+    super.didUpdateWidget(old);
+    final was = old.snapshot, now = widget.snapshot;
+    if (_box == Size.zero) return;
+    final g = _SeatGeometry.of(now, _box);
+    final pos = _positions(now);
+    final added = <_Flight>[];
+
+    // A bet made or raised: chips slide from the seat to the spot in front.
+    for (final e in now.bets.entries) {
+      final p = pos[e.key];
+      final before = was.bets[e.key] ?? 0;
+      if (p == null || e.value <= before) continue;
+      added.add(_Flight(_next++, g.seat(p), g.bet(p), e.value - before));
+    }
+    // The street (or the hand) ended: what was in front sweeps into the pot.
+    final swept = now.bets.isEmpty && was.bets.isNotEmpty;
+    if (swept) {
+      for (final e in was.bets.entries) {
+        final p = pos[e.key];
+        if (p != null) added.add(_Flight(_next++, g.bet(p), g.pot, e.value));
+      }
+    }
+    // The hand is over: the pot goes to the winner(s).
+    if (now.payouts.isNotEmpty && was.payouts.isEmpty) {
+      for (final e in now.payouts.entries) {
+        final p = pos[e.key];
+        if (p != null) {
+          added.add(_Flight(_next++, g.pot, g.seat(p), e.value, delay: swept ? _fly : Duration.zero));
+        }
+      }
+    }
+    if (added.isNotEmpty) setState(() => _flights.addAll(added));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, c) {
+      _box = c.biggest;
+      final s = widget.snapshot;
+      final g = _SeatGeometry.of(s, _box);
+      final pos = _positions(s);
+      final small = g.max > 8;
+      return Stack(clipBehavior: Clip.none, children: [
+        for (final e in s.bets.entries)
+          if (pos[e.key] != null)
+            _centeredAt(
+              g.bet(pos[e.key]!),
+              ChipStackLabel(key: ValueKey('bet-${e.key}'), amount: e.value, chipSize: small ? 12 : 14),
+            ),
+        for (final f in _flights)
+          _FlyingChips(
+            key: ValueKey('flight-${f.id}'),
+            flight: f,
+            duration: _fly,
+            size: small ? 12 : 14,
+            onDone: () {
+              if (mounted) setState(() => _flights.remove(f));
+            },
+          ),
+      ]);
+    });
+  }
+
+  // Centre [child] on [at] without knowing its size.
+  Widget _centeredAt(Offset at, Widget child) => Positioned(
+        left: at.dx - 60,
+        top: at.dy - 12,
+        width: 120,
+        height: 24,
+        child: Center(child: child),
+      );
+}
+
+class _FlyingChips extends StatelessWidget {
+  final _Flight flight;
+  final Duration duration;
+  final double size;
+  final VoidCallback onDone;
+  const _FlyingChips(
+      {super.key, required this.flight, required this.duration, required this.size, required this.onDone});
+
+  @override
+  Widget build(BuildContext context) {
+    final total = flight.delay + duration;
+    final wait = flight.delay.inMicroseconds / total.inMicroseconds;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: total,
+      onEnd: onDone,
+      builder: (context, t, child) {
+        final k = Curves.easeInOutCubic.transform(((t - wait) / (1 - wait)).clamp(0.0, 1.0));
+        final at = Offset.lerp(flight.from, flight.to, k)!;
+        return Positioned(
+          left: at.dx - size / 2,
+          top: at.dy - size / 2,
+          // Hidden while it waits its turn; fades as it lands.
+          child: Opacity(opacity: t < wait ? 0 : (k > 0.85 ? (1 - k) / 0.15 : 1), child: child),
+        );
+      },
+      child: ChipPile(amount: flight.amount, size: size),
     );
   }
 }

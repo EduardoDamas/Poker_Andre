@@ -214,4 +214,61 @@ void main() {
     await tester.pumpAndSettle();
     await shot(tester, '09-sair-pergunta');
   });
+
+  final seats8 = [
+    for (var i = 0; i < 8; i++) SeatInfo(position: i, userId: 'p$i', hasCards: true, isMe: i == 0),
+  ];
+
+  testWidgets('20 chips: 8 players on the flop, bets in front, the pot', (tester) async {
+    await table(tester, '20-fichas-8', GameSnapshot(
+      status: ConnStatus.connected, street: 'flop', board: const ['As', 'Kd', '7h'],
+      holeCards: const ['Qs', 'Qh'], maxSeats: 8, seats: seats8, actingPlayerId: 'p0', isMyTurn: true,
+      legalActions: const ['fold', 'call', 'raise'],
+      stacks: const {'p0': 1450, 'p1': 820, 'p2': 0, 'p3': 2300, 'p4': 975, 'p5': 1000, 'p6': 3000, 'p7': 600},
+      bets: const {'p1': 100, 'p2': 380, 'p3': 380, 'p6': 1200, 'p7': 100, 'p4': 50, 'p5': 380},
+      pot: 650, folded: const {'p4'},
+    ));
+  });
+
+  testWidgets('21 chips: heads-up, the blinds', (tester) async {
+    final two = [
+      const SeatInfo(position: 0, userId: 'me', hasCards: true, isMe: true),
+      const SeatInfo(position: 4, userId: 'op', hasCards: true),
+    ];
+    await table(tester, '21-fichas-heads-up', GameSnapshot(
+      status: ConnStatus.connected, street: 'preflop', holeCards: const ['Ah', 'Kh'], maxSeats: 8,
+      seats: [...two], actingPlayerId: 'op',
+      stacks: const {'me': 2975, 'op': 950}, bets: const {'me': 25, 'op': 50},
+    ));
+  });
+
+  testWidgets('23 chips: landscape, 8 players', (tester) async {
+    tester.view.physicalSize = const Size(2340, 1080); // 780×360 dp
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(app(TableScreen(
+        connection: FakeConnection(GameSnapshot(
+          status: ConnStatus.connected, street: 'river', board: const ['As', 'Kd', '7h', '2c', '9s'],
+          holeCards: const ['Qs', 'Qh'], maxSeats: 8, seats: seats8, actingPlayerId: 'p0', isMyTurn: true,
+          legalActions: const ['fold', 'call', 'raise'],
+          stacks: const {'p0': 1450, 'p1': 820, 'p2': 0, 'p3': 2300, 'p4': 975, 'p5': 1000, 'p6': 3000, 'p7': 600},
+          bets: const {'p1': 100, 'p2': 380, 'p3': 380, 'p6': 1200, 'p7': 100, 'p4': 50, 'p5': 380},
+          pot: 650,
+        )),
+        title: 'Poker — Nível 1')));
+    await precache(tester);
+    await tester.pump();
+    await shot(tester, '23-fichas-paisagem');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('22 chips: table of 10, my turn', (tester) async {
+    await table(tester, '22-fichas-10', GameSnapshot(
+      status: ConnStatus.connected, stage: 'Rodada 1', street: 'turn', board: const ['As', 'Kd', '7h', '2c'],
+      holeCards: const ['Qs', 'Qh'], maxSeats: 10, seats: seats10, actingPlayerId: 'p0', isMyTurn: true,
+      legalActions: const ['fold', 'call', 'raise'],
+      stacks: {for (var i = 0; i < 10; i++) 'p$i': 400 + i * 230},
+      bets: const {'p2': 200, 'p5': 200, 'p8': 600, 'p9': 600}, pot: 1250,
+    ));
+  });
 }

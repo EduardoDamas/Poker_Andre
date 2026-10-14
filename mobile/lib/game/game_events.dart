@@ -23,6 +23,8 @@ class GameEvents {
         notice: s.notice,
         out: s.out,
         finished: s.finished,
+        // Chips behind carry over; nothing is in front or in the pot yet.
+        stacks: s.stacks,
       );
 
   /// The connection dropped, or a reconnect attempt failed. Once the player has
@@ -58,8 +60,13 @@ class GameEvents {
         isMe: uid == userId,
       );
     }).toList();
-    return s.copyWith(maxSeats: max, seats: seats);
+    final stacks = _ints(data['stacks']);
+    return s.copyWith(maxSeats: max, seats: seats, stacks: stacks.isEmpty ? null : stacks);
   }
+
+  static Map<String, int> _ints(Object? raw) => raw is Map
+      ? {for (final e in raw.entries) '${e.key}': (e.value as num?)?.toInt() ?? 0}
+      : const {};
 
   /// Whose turn it is. On a promotion table the server acts for a player who
   /// runs out of time (`turnMs`), so the app can count it down.
@@ -75,6 +82,11 @@ class GameEvents {
       actingPlayerId: acting,
       legalActions: (data['legalActions'] as List? ?? const []).cast<String>(),
       isMyTurn: mine,
+      // Servers before the chips (and old payloads) send none: keep what we have.
+      stacks: data['stacks'] is Map ? _ints(data['stacks']) : null,
+      bets: data['stacks'] is Map ? _ints(data['bets']) : null,
+      pot: (data['pot'] as num?)?.toInt(),
+      folded: data['folded'] is List ? {...(data['folded'] as List).map((e) => '$e')} : null,
     );
     return _withDeadline(next, deadline);
   }
@@ -120,6 +132,13 @@ class GameEvents {
         resultText: text,
         prizeCents: prizeCents,
         finished: tourn?['over'] == true,
+        stacks: data['finalStacks'] is Map ? _ints(data['finalStacks']) : null,
+        bets: const {},
+        pot: 0,
+        payouts: {
+          for (final e in _ints(payouts).entries)
+            if (e.value > 0) e.key: e.value,
+        },
       ),
       null,
     );
@@ -207,5 +226,10 @@ class GameEvents {
         out: s.out,
         finished: s.finished,
         turnDeadline: deadline,
+        stacks: s.stacks,
+        bets: s.bets,
+        pot: s.pot,
+        folded: s.folded,
+        payouts: s.payouts,
       );
 }

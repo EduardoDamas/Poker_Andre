@@ -98,7 +98,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **518 passing / 64 suites** (app: 85 tests; panel: 47; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
+Full suite is **521 passing / 64 suites** (app: 94 tests; panel: 47; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
@@ -146,6 +146,20 @@ changes, together with the APK release. The session lives in memory: reloading t
 login again. On iPhone, Safari → "Adicionar à Tela de Início" opens it like an app.
 Checked in headless Chrome at iPhone size against a local server: login, lobby, the promotion
 dialog, waiting room, a full table with the turn countdown, 21 actions, no page errors.
+
+### 5c. Chips on the table (client, 2026-10; app 1.0.11)
+
+The server now sends the chips with every `game:state`: `stacks` (chips behind each player),
+`bets` (put in on this street), `pot` (gathered from earlier streets) and `folded`, from
+`PokerHand.chips`; `table:state` carries `stacks` between hands on tournament tables. All
+additive — older apps ignore them, and the app keeps working against a server without them.
+The app shows each stack on a plate under the avatar (counts up/down), the bets in front of the
+players, "Pote N" next to the street label, and animates bets sliding out, sweeping into the pot
+and the pot flying to the winner (`_ChipLayer` in table_screen.dart; chips drawn in code in the
+design sheet's style, `widgets/chips.dart`). In portrait the seats spread into the room above and
+below the table artwork so the felt stays clear; a phone on its side keeps them on the rail and
+moves bets beside the avatar when they would land on the board. Screens:
+`test_e2e/screens_test.dart` shots 20–23.
 
 ---
 
