@@ -5,6 +5,7 @@ import '../theme.dart';
 import '../format.dart';
 import '../widgets/premium.dart';
 import 'points_screen.dart';
+import 'login_screen.dart';
 import 'settings_screen.dart';
 
 /// Perfil — player identity, stats, and account actions.
@@ -157,9 +158,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               }),
             ],
             const SizedBox(height: 24),
-            GradientButton('Sair', variant: BtnVariant.glass, icon: Icons.logout, onPressed: () {
-              Navigator.of(context).popUntil((r) => r.isFirst);
-            }),
+            GradientButton('Sair',
+                key: const Key('logoutBtn'),
+                variant: BtnVariant.glass,
+                icon: Icons.logout,
+                onPressed: () => logOut(context)),
           ],
         ),
       ),

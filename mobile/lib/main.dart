@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'api/auth_api.dart';
+import 'api/session_store.dart';
 import 'screens/splash_screen.dart';
 import 'theme.dart';
 
@@ -9,6 +10,8 @@ void main() {
   // Full-screen game: hide the system status/navigation bars everywhere.
   // "Sticky" brings them back only briefly on an edge swipe, then re-hides.
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+  // Stay logged in between launches (and page reloads on the web).
+  SessionStore.instance = PrefsSessionStore();
   runApp(CapaContestApp(api: AuthApi()));
 }
 

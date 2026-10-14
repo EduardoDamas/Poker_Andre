@@ -98,7 +98,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **523 passing / 65 suites** (app: 100 tests; panel: 47; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
+Full suite is **523 passing / 65 suites** (app: 111 tests; panel: 47; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
@@ -142,8 +142,8 @@ robocopy build\web ..\backend\web /E /XD canvaskit /XF .last_build_id
 ```
 `backend/web` (~12.6 MB) is committed and copied into the Docker image; `main.ts` serves it with
 `Cache-Control: no-cache` so a deploy reaches players at once. Re-copy it whenever the app
-changes, together with the APK release. The session lives in memory: reloading the page asks for
-login again. On iPhone, Safari → "Adicionar à Tela de Início" opens it like an app.
+changes, together with the APK release. The session is kept (see 5e), so a reload stays logged
+in. On iPhone, Safari → "Adicionar à Tela de Início" opens it like an app.
 Checked in headless Chrome at iPhone size against a local server: login, lobby, the promotion
 dialog, waiting room, a full table with the turn countdown, 21 actions, no page errors.
 
@@ -171,6 +171,16 @@ room id and it is routed to their bracket table, like actions), at most one per 
 `EMOTE_COOLDOWN_MS` (3 s), and broadcasts `table:emote {tableId, userId, emote}` to the table. The app
 shows it over the sender's seat for ~2.6 s; the button rests 3 s after sending. Keep the id list in
 `mobile/lib/widgets/emotes.dart` and `backend/src/realtime/emotes.ts` in step. Screens 24–25.
+
+### 5e. Staying logged in (2026-10; app 1.0.11)
+
+Before, every launch (and every page reload on the web) asked for phone and password. Now the
+session from login / password reset is saved on the device (`lib/api/session_store.dart` —
+`shared_preferences`: Android SharedPreferences, browser localStorage). The splash checks it with
+`GET /auth/me`: accepted → straight to the lobby; 401/403 or a BLOCKED account → forgotten, login;
+no connection → the saved one is used. "Sair" (Perfil) and "Sair da conta" (Configurações) forget it
+and leave only the login on the stack. The token is the server's 7-day JWT, so a player logs in
+again at most weekly. Checked in headless Chrome: log in → reload → lobby; a refused token → login.
 
 ---
 

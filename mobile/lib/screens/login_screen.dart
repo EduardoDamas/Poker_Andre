@@ -8,6 +8,18 @@ import 'lobby_screen.dart';
 import 'register_screen.dart';
 import 'solo_setup_screen.dart';
 
+/// "Sair": forget the session saved on this device and go back to the login,
+/// with nothing behind it to go back to.
+Future<void> logOut(BuildContext context) async {
+  final api = AuthApi();
+  await api.logout();
+  if (!context.mounted) return;
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute(builder: (_) => LoginScreen(api: api)),
+    (_) => false,
+  );
+}
+
 /// Phone + password login. (OTP login remains available in the API for later.)
 class LoginScreen extends StatefulWidget {
   final AuthApi api;

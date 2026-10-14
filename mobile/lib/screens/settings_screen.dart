@@ -5,6 +5,7 @@ import '../config.dart';
 import '../theme.dart';
 import '../widgets/premium.dart';
 import 'limits_screen.dart';
+import 'login_screen.dart';
 
 /// Configurações — local preferences + account actions.
 class SettingsScreen extends StatefulWidget {
@@ -68,8 +69,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 url: '${AppConfig.apiBase}/legal/privacidade'),
             _link('Versão ${AppConfig.appVersion}', Icons.info_outline),
             const SizedBox(height: 24),
-            GradientButton('Sair da conta', variant: BtnVariant.danger, icon: Icons.logout,
-                onPressed: () => Navigator.of(context).popUntil((r) => r.isFirst)),
+            GradientButton('Sair da conta',
+                key: const Key('logoutBtn'),
+                variant: BtnVariant.danger,
+                icon: Icons.logout,
+                onPressed: () => logOut(context)),
           ],
         ),
       ),

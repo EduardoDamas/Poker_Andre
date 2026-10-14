@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../api/auth_api.dart';
 import '../theme.dart';
+import 'lobby_screen.dart';
 import 'login_screen.dart';
 
 /// Branded first-load / splash screen.
@@ -21,14 +22,27 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    Timer(const Duration(milliseconds: 2200), () {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 450),
-        pageBuilder: (_, a, _) =>
-            FadeTransition(opacity: a, child: LoginScreen(api: widget.api)),
-      ));
-    });
+    _go();
+  }
+
+  /// A session saved on this device opens straight into the lobby; otherwise
+  /// the login. The splash shows for at least its usual moment either way.
+  Future<void> _go() async {
+    final results = await Future.wait<Object?>([
+      Future<void>.delayed(const Duration(milliseconds: 2200)),
+      widget.api.restoreSession(),
+    ]);
+    if (!mounted) return;
+    final session = results[1] as AuthSession?;
+    Navigator.of(context).pushReplacement(PageRouteBuilder(
+      transitionDuration: const Duration(milliseconds: 450),
+      pageBuilder: (_, a, _) => FadeTransition(
+        opacity: a,
+        child: session != null
+            ? LobbyScreen(session: session, authApi: widget.api)
+            : LoginScreen(api: widget.api),
+      ),
+    ));
   }
 
   @override

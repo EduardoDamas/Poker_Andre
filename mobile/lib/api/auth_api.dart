@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../config.dart';
+import 'session_store.dart';
 
 /// Result of a successful OTP verification.
 class AuthSession {
@@ -50,6 +51,47 @@ class AuthApi {
     }
   }
 
+  /// A session from the server's answer, saved on this device for next time.
+  Future<AuthSession> _keep(Map<String, dynamic> body) async {
+    final user = body['user'] as Map<String, dynamic>;
+    final session = AuthSession(
+      accessToken: body['accessToken'] as String,
+      userId: user['id'] as String,
+      displayName: user['displayName'] as String,
+    );
+    await SessionStore.instance.save(session);
+    return session;
+  }
+
+  /// The session saved on this device, if the server still takes it — so the
+  /// player opens straight into the lobby. One the server refuses (older than
+  /// 7 days, or the account blocked) is forgotten and they log in again. With
+  /// no connection the saved one is used; the lobby says what is wrong.
+  Future<AuthSession?> restoreSession() async {
+    final saved = await SessionStore.instance.load();
+    if (saved == null) return null;
+    try {
+      final res = await _client
+          .get(_u('/auth/me'), headers: {'Authorization': 'Bearer ${saved.accessToken}'})
+          .timeout(_timeout);
+      final refused = res.statusCode == 401 || res.statusCode == 403;
+      final me = res.statusCode == 200 ? jsonDecode(res.body) as Map<String, dynamic> : const {};
+      if (refused || me['status'] == 'BLOCKED') {
+        await SessionStore.instance.clear();
+        return null;
+      }
+      final name = me['displayName'];
+      return name is String && name != saved.displayName
+          ? AuthSession(accessToken: saved.accessToken, userId: saved.userId, displayName: name)
+          : saved;
+    } catch (_) {
+      return saved;
+    }
+  }
+
+  /// "Sair": forget the session saved on this device.
+  Future<void> logout() => SessionStore.instance.clear();
+
   /// Request a one-time login code for [phone] (E.164, e.g. +5511999998888).
   Future<void> requestOtp(String phone) async {
     final res = await _send(() => _client.post(
@@ -75,13 +117,7 @@ class AuthApi {
     if (res.statusCode != 200) {
       throw AuthException('Invalid or expired code.');
     }
-    final body = jsonDecode(res.body) as Map<String, dynamic>;
-    final user = body['user'] as Map<String, dynamic>;
-    return AuthSession(
-      accessToken: body['accessToken'] as String,
-      userId: user['id'] as String,
-      displayName: user['displayName'] as String,
-    );
+    return _keep(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
   /// Log in with phone + password; returns the session (JWT + user) on success.
@@ -94,13 +130,7 @@ class AuthApi {
     if (res.statusCode != 200) {
       throw AuthException('Telefone ou senha inválidos.');
     }
-    final body = jsonDecode(res.body) as Map<String, dynamic>;
-    final user = body['user'] as Map<String, dynamic>;
-    return AuthSession(
-      accessToken: body['accessToken'] as String,
-      userId: user['id'] as String,
-      displayName: user['displayName'] as String,
-    );
+    return _keep(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
   /// "Esqueci minha senha", step 1: ask for a code. The answer is the same
@@ -132,13 +162,7 @@ class AuthApi {
     if (res.statusCode != 200) {
       throw AuthException('Código inválido ou expirado.');
     }
-    final body = jsonDecode(res.body) as Map<String, dynamic>;
-    final user = body['user'] as Map<String, dynamic>;
-    return AuthSession(
-      accessToken: body['accessToken'] as String,
-      userId: user['id'] as String,
-      displayName: user['displayName'] as String,
-    );
+    return _keep(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
   /// Register a new account. Throws [AuthException] on validation errors.
