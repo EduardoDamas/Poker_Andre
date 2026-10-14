@@ -35,6 +35,15 @@ class PromoLobby {
   });
 }
 
+/// A quick reaction someone at the table just sent (`table:emote`). Each one
+/// is a new object, so the table shows it once even if the same player sends
+/// the same reaction again.
+class TableEmote {
+  final String userId;
+  final String emote;
+  TableEmote(this.userId, this.emote);
+}
+
 /// Immutable view of the table as the player sees it. Built from socket events
 /// (game:state / hand:hole / hand:result) by the GameConnection.
 class GameSnapshot {
@@ -67,6 +76,8 @@ class GameSnapshot {
   final Set<String> folded;
   final Map<String, int> payouts; // what each won, once the hand is over
 
+  final TableEmote? emote; // the latest reaction at the table
+
   const GameSnapshot({
     this.status = ConnStatus.connecting,
     this.error,
@@ -92,6 +103,7 @@ class GameSnapshot {
     this.pot = 0,
     this.folded = const {},
     this.payouts = const {},
+    this.emote,
   });
 
   /// Still in a running promotion bracket: leaving now would forfeit the place.
@@ -122,6 +134,7 @@ class GameSnapshot {
     int? pot,
     Set<String>? folded,
     Map<String, int>? payouts,
+    TableEmote? emote,
   }) {
     return GameSnapshot(
       status: status ?? this.status,
@@ -148,6 +161,7 @@ class GameSnapshot {
       pot: pot ?? this.pot,
       folded: folded ?? this.folded,
       payouts: payouts ?? this.payouts,
+      emote: emote ?? this.emote,
     );
   }
 }

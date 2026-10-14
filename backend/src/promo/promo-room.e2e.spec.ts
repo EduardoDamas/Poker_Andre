@@ -576,4 +576,21 @@ describe('Promotion bracket (e2e)', () => {
     expect(stacks[a.userId]).toBe(3000);
     expect(stacks[b.userId]).toBe(1000);
   }, 30000);
+
+  it('a reaction sent under the promo room id reaches the bracket table', async () => {
+    const e = await event(-1000);
+    const roomId = promoRoomId(e.id);
+    const a = await player();
+    const sa = await connect(a, roomId, true);
+    const sb = await connect(await player(), roomId, true);
+    const table = new Promise<string>((r) => sa.once('tournament:table', (d: { tableId: string }) => r(d.tableId)));
+    await join(sa, roomId);
+    await join(sb, roomId);
+    const tableId = await table;
+
+    const seen = new Promise<{ tableId: string; userId: string; emote: string }>((r) => sb.once('table:emote', r));
+    const res = await new Promise<{ ok: boolean }>((r) => sa.emit('table:emote', { tableId: roomId, emote: 'wave' }, r));
+    expect(res.ok).toBe(true);
+    expect(await seen).toEqual({ tableId, userId: a.userId, emote: 'wave' });
+  }, 30000);
 });

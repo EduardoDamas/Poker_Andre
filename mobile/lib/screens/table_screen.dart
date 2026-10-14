@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../game/game_connection.dart';
 import '../game/game_snapshot.dart';
 import '../widgets/chips.dart';
+import '../widgets/emotes.dart';
 import '../widgets/playing_card.dart';
 import '../widgets/premium.dart';
 import '../widgets/waiting_panel.dart';
@@ -71,11 +72,33 @@ class _TableScreenState extends State<TableScreen> {
   @override
   void dispose() {
     _winWatch?.cancel();
+    _emoteTimer?.cancel();
     widget.connection.dispose();
     super.dispose();
   }
 
   void _act(String type, {int? amount}) => widget.connection.act(type, amount: amount);
+
+  // The server takes one reaction every 3 s; the button rests in between.
+  static const _emoteRest = Duration(seconds: 3);
+  bool _emoteResting = false;
+  Timer? _emoteTimer;
+
+  Future<void> _openEmotes() async {
+    if (_emoteResting) return;
+    final id = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Brand.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (ctx) => EmotePicker(onPick: (id) => Navigator.pop(ctx, id)),
+    );
+    if (id == null || !mounted) return;
+    widget.connection.emote(id);
+    setState(() => _emoteResting = true);
+    _emoteTimer = Timer(_emoteRest, () {
+      if (mounted) setState(() => _emoteResting = false);
+    });
+  }
 
   Future<void> _shareWin() async {
     final fn = widget.onShareWin;
@@ -218,7 +241,8 @@ class _TableScreenState extends State<TableScreen> {
               onAct: _act,
               onAmount: _promptAmount,
               onLeave: _leave,
-              onShare: widget.onShareWin == null ? null : _shareWin);
+              onShare: widget.onShareWin == null ? null : _shareWin,
+              onEmotes: _emoteResting ? null : _openEmotes);
         },
       ),
     );
@@ -429,13 +453,15 @@ class _TableView extends StatelessWidget {
   final Future<void> Function(String type) onAmount;
   final Future<void> Function() onLeave;
   final Future<void> Function()? onShare;
+  final Future<void> Function()? onEmotes; // null while the last one rests
   const _TableView(
       {required this.snapshot,
       required this.roomName,
       required this.onAct,
       required this.onAmount,
       required this.onLeave,
-      this.onShare});
+      this.onShare,
+      this.onEmotes});
 
   @override
   Widget build(BuildContext context) {
@@ -559,6 +585,16 @@ class _TableView extends StatelessWidget {
                   Positioned.fill(child: _TableSeats(snapshot: s)),
                 if (s.seats.isNotEmpty)
                   Positioned.fill(child: IgnorePointer(child: _ChipLayer(snapshot: s))),
+                // Reactions popping up over the seats.
+                if (s.seats.isNotEmpty)
+                  Positioned.fill(child: IgnorePointer(child: _EmoteLayer(snapshot: s))),
+                // React — only seated, with the table in view.
+                if (s.seats.any((seat) => seat?.isMe ?? false) && !_waitingToStart(s) && s.notice == null)
+                  Positioned(
+                    right: 10,
+                    bottom: 10,
+                    child: _EmoteButton(onTap: onEmotes),
+                  ),
                 // Where the player is in a promotion bracket — above the table,
                 // clear of the seats.
                 if (s.stage != null)
@@ -1156,5 +1192,95 @@ class _FlyingChips extends StatelessWidget {
       },
       child: ChipPile(amount: flight.amount, size: size),
     );
+  }
+}
+
+/// Opens the reactions; dimmed while the last one rests.
+class _EmoteButton extends StatelessWidget {
+  final Future<void> Function()? onTap;
+  const _EmoteButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final ready = onTap != null;
+    return Semantics(
+      button: true,
+      label: 'Reagir',
+      child: GestureDetector(
+        key: const Key('emoteBtn'),
+        onTap: onTap,
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 200),
+          opacity: ready ? 1 : 0.4,
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.black.withValues(alpha: 0.55),
+              border: Border.all(color: Brand.gold.withValues(alpha: 0.7)),
+              boxShadow: Brand.cardShadow,
+            ),
+            child: const Icon(Icons.emoji_emotions_outlined, color: Brand.gold, size: 24),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Reactions over the seats of whoever sent them, a couple of seconds each;
+/// a new one from the same player replaces theirs.
+class _EmoteLayer extends StatefulWidget {
+  final GameSnapshot snapshot;
+  const _EmoteLayer({required this.snapshot});
+
+  @override
+  State<_EmoteLayer> createState() => _EmoteLayerState();
+}
+
+class _EmoteLayerState extends State<_EmoteLayer> {
+  final _shown = <String, ({int id, String emote})>{}; // by userId
+  var _next = 0;
+
+  @override
+  void didUpdateWidget(_EmoteLayer old) {
+    super.didUpdateWidget(old);
+    final e = widget.snapshot.emote;
+    if (e != null && !identical(e, old.snapshot.emote)) {
+      setState(() => _shown[e.userId] = (id: _next++, emote: e.emote));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.snapshot;
+    return LayoutBuilder(builder: (context, c) {
+      final g = _SeatGeometry.of(s, c.biggest);
+      final pos = <String, int>{
+        for (final seat in s.seats.whereType<SeatInfo>()) seat.userId: seat.position,
+      };
+      final size = g.max > 8 ? 24.0 : 28.0;
+      return Stack(clipBehavior: Clip.none, children: [
+        for (final MapEntry(key: uid, value: b) in _shown.entries)
+          if (pos[uid] != null)
+            Positioned(
+              // Centred on the avatar, a little above it.
+              left: g.seat(pos[uid]!).dx - 40,
+              top: g.seat(pos[uid]!).dy - g.seatSize * 0.5 - size - 4,
+              width: 80,
+              child: Center(
+                child: EmoteBubble(
+                  key: ValueKey('emote-${b.id}'),
+                  id: b.emote,
+                  size: size,
+                  onDone: () {
+                    if (mounted && _shown[uid]?.id == b.id) setState(() => _shown.remove(uid));
+                  },
+                ),
+              ),
+            ),
+      ]);
+    });
   }
 }

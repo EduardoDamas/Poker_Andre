@@ -27,14 +27,21 @@ const fontsDir = 'C:/flutter/bin/cache/artifacts/material_fonts';
 
 class FakeConnection implements GameConnection {
   final _ctrl = StreamController<GameSnapshot>.broadcast();
-  final GameSnapshot _snap;
+  GameSnapshot _snap;
   FakeConnection(this._snap);
+  void push(GameSnapshot s) {
+    _snap = s;
+    _ctrl.add(s);
+  }
+
   @override
   Stream<GameSnapshot> get stream => _ctrl.stream;
   @override
   GameSnapshot get current => _snap;
   @override
   void act(String type, {int? amount}) {}
+  @override
+  void emote(String id) {}
   @override
   Future<void> leaveTable() async {}
   @override
@@ -270,5 +277,28 @@ void main() {
       stacks: {for (var i = 0; i < 10; i++) 'p$i': 400 + i * 230},
       bets: const {'p2': 200, 'p5': 200, 'p8': 600, 'p9': 600}, pot: 1250,
     ));
+  });
+
+  testWidgets('24 reactions: the picker, and the mascot over a seat', (tester) async {
+    phone(tester);
+    addTearDown(tester.view.reset);
+    final c = FakeConnection(GameSnapshot(
+      status: ConnStatus.connected, street: 'flop', board: const ['As', 'Kd', '7h'],
+      holeCards: const ['Qs', 'Qh'], maxSeats: 8, seats: seats8, actingPlayerId: 'p3',
+      stacks: const {'p0': 1450, 'p1': 820, 'p2': 1200, 'p3': 2300, 'p4': 975, 'p5': 1000, 'p6': 3000, 'p7': 600},
+      bets: const {'p3': 100}, pot: 300,
+    ));
+    await tester.pumpWidget(app(TableScreen(connection: c, title: 'Poker — Nível 1')));
+    await tester.runAsync(() => precacheImage(const AssetImage('assets/emotes/emo-capa.png'), _key.currentContext!));
+    await precache(tester);
+    await tester.pump();
+    c.push(c.current.copyWith(emote: TableEmote('p2', 'capa')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    await shot(tester, '24-reacao-na-mesa');
+    await tester.tap(find.byKey(const Key('emoteBtn')));
+    await tester.pumpAndSettle();
+    await shot(tester, '25-reagir');
+    await tester.pumpWidget(const SizedBox());
   });
 }

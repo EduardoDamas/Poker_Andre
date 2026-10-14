@@ -10,6 +10,9 @@ abstract class GameConnection {
   GameSnapshot get current;
   void act(String type, {int? amount});
 
+  /// Send a quick reaction (one of the fixed set in widgets/emotes.dart).
+  void emote(String id);
+
   /// Leave the table so the seat is freed on the server (updates room occupancy).
   /// Safe to call after a hand ends; a no-op for the offline solo game.
   Future<void> leaveTable();
@@ -82,6 +85,7 @@ class SocketGameConnection implements GameConnection {
     _socket.on('table:state', (data) => _emit(_events.tableState(_snapshot, data as Map)));
     _socket.on('game:state', (data) => _emit(_events.gameState(_snapshot, data as Map)));
     _socket.on('hand:result', (data) => _emit(_events.handResult(_snapshot, data as Map)));
+    _socket.on('table:emote', (data) => _emit(_events.emote(_snapshot, data as Map)));
     // Promotion bracket: waiting room, table moves, knockouts, the champion.
     _socket.on('promo:lobby', (data) => _emit(_events.lobby(_snapshot, data as Map)));
     _socket.on('tournament:table', (data) => _emit(_events.movedToTable(_snapshot, data as Map)));
@@ -112,6 +116,10 @@ class SocketGameConnection implements GameConnection {
     if (amount != null) action['amount'] = amount;
     _socket.emit('hand:action', {'tableId': tableId, 'action': action});
   }
+
+  // The server relays it to everyone at the table, this phone included.
+  @override
+  void emote(String id) => _socket.emit('table:emote', {'tableId': tableId, 'emote': id});
 
   bool _left = false;
 

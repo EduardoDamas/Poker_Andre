@@ -188,6 +188,12 @@ class LocalGameConnection implements GameConnection {
     _advance();
   }
 
+  /// Offline: the reaction shows over my seat at once.
+  @override
+  void emote(String id) {
+    if (!_disposed) _emit(_snap.copyWith(emote: TableEmote(userId, id)));
+  }
+
   @override
   Future<void> leaveTable() async {
     // Offline solo game — nothing to release on a server.

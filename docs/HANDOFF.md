@@ -98,7 +98,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **521 passing / 64 suites** (app: 94 tests; panel: 47; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
+Full suite is **523 passing / 65 suites** (app: 100 tests; panel: 47; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
@@ -160,6 +160,17 @@ design sheet's style, `widgets/chips.dart`). In portrait the seats spread into t
 below the table artwork so the felt stays clear; a phone on its side keeps them on the rail and
 moves bets beside the avatar when they would land on the board. Screens:
 `test_e2e/screens_test.dart` shots 20–23.
+
+### 5d. Reactions at the table — emojis (client, 2026-10; app 1.0.11)
+
+A button at the lower right of the felt opens 12 emojis plus the CAPA mascot
+(`assets/emotes/emo-capa.png`, from the design's only drawn emote). The app sends
+`table:emote {tableId, emote}`; the server accepts only ids from `realtime/emotes.ts` (nothing typed
+by a player is relayed), only from a player seated at that table (a promotion player sends the promo
+room id and it is routed to their bracket table, like actions), at most one per player every
+`EMOTE_COOLDOWN_MS` (3 s), and broadcasts `table:emote {tableId, userId, emote}` to the table. The app
+shows it over the sender's seat for ~2.6 s; the button rests 3 s after sending. Keep the id list in
+`mobile/lib/widgets/emotes.dart` and `backend/src/realtime/emotes.ts` in step. Screens 24–25.
 
 ---
 

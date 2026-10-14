@@ -144,6 +144,10 @@ class GameEvents {
     );
   }
 
+  /// `table:emote` — someone at the table reacted.
+  GameSnapshot emote(GameSnapshot s, Map data) =>
+      s.copyWith(emote: TableEmote('${data['userId']}', '${data['emote']}'));
+
   // --- Promotion bracket ---
 
   /// `promo:lobby` — places held, the minimum, and when it may start.
@@ -231,5 +235,6 @@ class GameEvents {
         pot: s.pot,
         folded: s.folded,
         payouts: s.payouts,
+        emote: s.emote,
       );
 }

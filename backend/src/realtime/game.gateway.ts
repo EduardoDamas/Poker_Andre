@@ -22,6 +22,7 @@ import { PromoService, promoEventIdOf, promoOpensAt } from '../promo/promo.servi
 import { promoTime, promoWhenLong } from '../promo/promo-format';
 import { PromoBracket, PromoBrackets } from '../promo/promo-bracket';
 import { Subscription } from '../tournament/subscription';
+import { EMOTES, emoteCooldownMs } from './emotes';
 
 const room = (tableId: string) => `table:${tableId}`;
 
@@ -78,6 +79,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   // Promotion rooms: the clock checks that may start them, and rooms mid-start.
   private readonly promoTimers = new Map<string, NodeJS.Timeout[]>();
   private readonly promoStarting = new Set<string>();
+  /** When each player last sent a reaction (flood guard). */
+  private readonly lastEmote = new Map<string, number>();
   // Bracket tables: the running turn clock, one per table.
   private readonly turnTimers = new Map<string, NodeJS.Timeout>();
 
@@ -831,6 +834,30 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       this.logger.warn(`action REJECTED ${tableId} user=${user.sub} type=${body.action?.type}: ${(err as Error).message}`);
       return { ok: false, error: (err as Error).message };
     }
+  }
+
+  /**
+   * A quick reaction (client, 2026-10): one of a fixed set, shown over the
+   * sender's seat to everyone at their table. Only a seated player, at most
+   * one every few seconds. A promotion player sends it under the promo room's
+   * id, like their actions; it goes to the table they are playing at.
+   */
+  @SubscribeMessage('table:emote')
+  onEmote(@ConnectedSocket() client: Socket, @MessageBody() body: { tableId: string; emote: string }): Ack {
+    const user = (client.data as SocketData).user;
+    if (!EMOTES.has(body?.emote)) return { ok: false, error: 'Emoji inválido.' };
+    const tableId = this.brackets.get(body.tableId)?.tableOf(user.sub) ?? body.tableId;
+    const table = this.tables.getTable(tableId);
+    if (!table?.seats.some((seat) => seat?.userId === user.sub)) {
+      return { ok: false, error: 'Você não está nesta mesa.' };
+    }
+    const now = Date.now();
+    if (now - (this.lastEmote.get(user.sub) ?? 0) < emoteCooldownMs()) {
+      return { ok: false, error: 'Aguarde um instante.' };
+    }
+    this.lastEmote.set(user.sub, now);
+    this.server.to(room(tableId)).emit('table:emote', { tableId, userId: user.sub, emote: body.emote });
+    return { ok: true };
   }
 
   @SubscribeMessage('table:rejoin')

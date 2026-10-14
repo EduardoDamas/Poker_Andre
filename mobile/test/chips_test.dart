@@ -195,6 +195,8 @@ class _Fake implements GameConnection {
   @override
   void act(String type, {int? amount}) {}
   @override
+  void emote(String id) {}
+  @override
   Future<void> leaveTable() async {}
   @override
   void dispose() => _ctrl.close();

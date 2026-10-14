@@ -524,6 +524,12 @@ void main() {
         expect(await auth.fetchBalance(p.token), 10000);
       }
       final seats = ps.map((p) => Seat(p, 'poker-l1', level: 1, maxSeats: 8)).toList();
+      // A reaction reaches the other phone at the table.
+      await Future.wait(seats.map((s) => s.until((x) => x.seats.whereType<SeatInfo>().length == 2)));
+      seats[0].conn.emote('wave');
+      final reacted = await seats[1].until((x) => x.emote != null, timeout: const Duration(seconds: 10));
+      expect(reacted.emote!.emote, 'wave');
+      expect(reacted.emote!.userId, ps[0].id);
       await Future.wait(seats.map((s) => s.until((s) => s.finished)));
       expect(seats.where((s) => s.saw(isChampion)), hasLength(1));
       // Chips on the table: both phones saw bets in front of the players, and
