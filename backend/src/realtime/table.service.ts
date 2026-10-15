@@ -63,6 +63,7 @@ interface TournamentCtx {
   capacity: number; // seats defining 100% occupancy (= maxSeats)
   entries: Map<string, Subscription>; // real players who paid, by userId
   stacks: Record<string, number>; // persistent chip stacks across hands
+  starts: Record<string, number>; // each entry's starting stack (referral bonus)
   eliminated: Set<string>;
   started: boolean;
   settled: boolean;
@@ -193,6 +194,7 @@ export class TableService {
         capacity: table.maxSeats,
         entries: new Map(),
         stacks: {},
+        starts: {},
         eliminated: new Set(),
         started: false,
         settled: false,
@@ -218,6 +220,7 @@ export class TableService {
     if (!t.entries.has(userId)) {
       t.entries.set(userId, subscription);
       t.stacks[userId] = stack;
+      t.starts[userId] = stack;
     }
   }
 
@@ -226,7 +229,12 @@ export class TableService {
    * fresh chip stack. Idempotent: a reconnecting/duplicate join does not
    * double-charge. Throws (insufficient balance) only on the first entry.
    */
-  async enterTournament(table: Table, userId: string, subscription: Subscription): Promise<void> {
+  async enterTournament(
+    table: Table,
+    userId: string,
+    subscription: Subscription,
+    stack: number = TOURNEY_STARTING_STACK,
+  ): Promise<void> {
     const t = table.tournament;
     if (!t) return;
     if (t.entries.has(userId)) {
@@ -238,7 +246,7 @@ export class TableService {
       // Not started (e.g. the table reverted to waiting): the paid entry is
       // still valid — reinstate with a fresh stack.
       t.eliminated.delete(userId);
-      t.stacks[userId] = TOURNEY_STARTING_STACK;
+      t.stacks[userId] = t.starts[userId] ?? TOURNEY_STARTING_STACK;
       return;
     }
     await this.tournament.escrowEntry({
@@ -247,7 +255,7 @@ export class TableService {
       level: t.level,
       subscription,
     });
-    this.recordTournamentEntry(table, userId, subscription);
+    this.recordTournamentEntry(table, userId, subscription, stack);
   }
 
   /** Real, paid, not-yet-eliminated players still in the tournament. */
@@ -273,7 +281,7 @@ export class TableService {
     t.handsPlayed = 0;
     table.hand = null;
     table.handInProgress = false;
-    for (const id of this.liveEntrants(table)) t.stacks[id] = TOURNEY_STARTING_STACK;
+    for (const id of this.liveEntrants(table)) t.stacks[id] = t.starts[id] ?? TOURNEY_STARTING_STACK;
   }
 
   join(

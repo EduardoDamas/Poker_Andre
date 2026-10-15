@@ -1,8 +1,14 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { randomInt } from 'crypto';
-import { Agent, Prisma } from '@prisma/client';
+import { Agent, Prisma, Subscription, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { commissionCents, isValidReferralCode, normalizeReferralCode, suggestReferralCode } from './referral';
+import {
+  commissionCents,
+  isValidReferralCode,
+  MEMBER_COMMISSION_PCT,
+  normalizeReferralCode,
+  suggestReferralCode,
+} from './referral';
 
 /** BigInt-free view of an agent, with their totals. */
 export interface AgentSummary {
@@ -38,6 +44,41 @@ export interface AgentReport extends AgentSummary {
   referred: ReferredPlayer[];
 }
 
+/** A player who invited friends with their own code, with the totals. */
+export interface MemberReferrer {
+  userId: string;
+  displayName: string;
+  phone: string;
+  code: string | null;
+  invited: number;
+  /** Friends who bought a plan — the only ones that pay a commission. */
+  subscribers: number;
+  commissionCents: string;
+}
+
+/** One friend in a member's report. */
+export interface MemberReferral {
+  userId: string;
+  displayName: string;
+  phone: string;
+  referredAt: Date | null;
+  subscription: string;
+  firstSubscription: { plan: string; amountCents: string; at: Date } | null;
+  /** What they actually paid for their first paid tournament (refunded ones don't count). */
+  firstEntry: { amountCents: string; at: Date } | null;
+  /** By the plan of the first subscription: 5 / 10 / 15 / 20 %. */
+  pct: number;
+  baseCents: string;
+  commissionCents: string;
+}
+
+export interface MemberReport extends MemberReferrer {
+  referred: MemberReferral[];
+}
+
+/** Who a typed code belongs to: an agent, or another player. */
+export type CodeOwner = { agent: Agent } | { referrer: Pick<User, 'id' | 'displayName'> };
+
 @Injectable()
 export class ReferralService {
   constructor(private readonly prisma: PrismaService) {}
@@ -50,6 +91,58 @@ export class ReferralService {
     return agent?.active ? agent : null;
   }
 
+  /** The agent (active) or the player behind a typed code, or null. */
+  async resolveCode(raw: string): Promise<CodeOwner | null> {
+    const code = normalizeReferralCode(raw);
+    if (!isValidReferralCode(code)) return null;
+    const agent = await this.agentByCode(code);
+    if (agent) return { agent };
+    const referrer = await this.prisma.user.findUnique({
+      where: { referralCode: code },
+      select: { id: true, displayName: true },
+    });
+    return referrer ? { referrer } : null;
+  }
+
+  /**
+   * The player's own code to invite friends, made the first time they ask for
+   * it (from their first name, e.g. MARIA47), and how many have signed up with it.
+   */
+  async myCode(userId: string): Promise<{ code: string; invited: number }> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Jogador não encontrado.');
+    let code = user.referralCode;
+    for (let i = 0; !code && i < 50; i++) {
+      const candidate = suggestReferralCode(user.displayName, randomInt(100));
+      if (await this.codeTaken(candidate)) continue;
+      try {
+        // Only if they still have none (a parallel request may have made one).
+        const set = await this.prisma.user.updateMany({
+          where: { id: userId, referralCode: null },
+          data: { referralCode: candidate },
+        });
+        code = set.count === 1 ? candidate : ((await this.prisma.user.findUnique({ where: { id: userId } }))?.referralCode ?? null);
+      } catch (err) {
+        // Someone took that code a moment ago — or this player got one in a
+        // parallel request: use theirs.
+        if (!(err instanceof Prisma.PrismaClientKnownRequestError)) throw err;
+        code = (await this.prisma.user.findUnique({ where: { id: userId } }))?.referralCode ?? null;
+      }
+    }
+    if (!code) throw new ConflictException('Não foi possível criar seu código agora. Tente de novo.');
+    const invited = await this.prisma.user.count({ where: { referredById: userId } });
+    return { code, invited };
+  }
+
+  /** An agent's or a player's — the two share one set of codes. */
+  private async codeTaken(code: string): Promise<boolean> {
+    const [agent, user] = await Promise.all([
+      this.prisma.agent.findUnique({ where: { code } }),
+      this.prisma.user.findUnique({ where: { referralCode: code } }),
+    ]);
+    return Boolean(agent || user);
+  }
+
   async create(input: { name: string; code?: string; phone?: string; commissionPct?: number | null }): Promise<AgentSummary> {
     const name = input.name.trim();
     if (name.length < 2) throw new BadRequestException('Informe o nome do agente.');
@@ -59,8 +152,8 @@ export class ReferralService {
       if (!isValidReferralCode(code)) {
         throw new BadRequestException('Código: de 3 a 20 letras ou números, sem acentos.');
       }
-      if (await this.prisma.agent.findUnique({ where: { code } })) {
-        throw new ConflictException(`O código ${code} já é de outro agente.`);
+      if (await this.codeTaken(code)) {
+        throw new ConflictException(`O código ${code} já está em uso.`);
       }
     } else {
       code = await this.freeSuggestedCode(name);
@@ -107,24 +200,124 @@ export class ReferralService {
   }
 
   /**
-   * Link a player to the agent behind [code], or unlink with null. For players
-   * who signed up without typing it (the client controls these by hand until
-   * the app asks for the code).
+   * Link a player to the agent or player behind [code], or unlink with null —
+   * for those who signed up without typing it, or typed the wrong one. A
+   * player has one or the other, never both.
    */
-  async link(userId: string, code: string | null): Promise<{ agentId: string | null; code: string | null }> {
+  async link(
+    userId: string,
+    code: string | null,
+  ): Promise<{ agentId: string | null; referredById: string | null; code: string | null }> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('Jogador não encontrado.');
+    const none = { agentId: null, agentLinkedAt: null, referredById: null, referredAt: null };
     if (code === null || code.trim() === '') {
-      await this.prisma.user.update({ where: { id: userId }, data: { agentId: null, agentLinkedAt: null } });
-      return { agentId: null, code: null };
+      await this.prisma.user.update({ where: { id: userId }, data: none });
+      return { agentId: null, referredById: null, code: null };
     }
-    const agent = await this.prisma.agent.findUnique({ where: { code: normalizeReferralCode(code) } });
-    if (!agent) throw new BadRequestException('Código de indicação inválido.');
+    const normalized = normalizeReferralCode(code);
+    // An inactive agent's code still links by hand (the admin decides).
+    const agent = await this.prisma.agent.findUnique({ where: { code: normalized } });
+    if (agent) {
+      await this.prisma.user.update({
+        where: { id: userId },
+        data: { ...none, agentId: agent.id, agentLinkedAt: user.agentId === agent.id ? user.agentLinkedAt : new Date() },
+      });
+      return { agentId: agent.id, referredById: null, code: agent.code };
+    }
+    const referrer = await this.prisma.user.findUnique({ where: { referralCode: normalized } });
+    if (!referrer) throw new BadRequestException('Código de indicação inválido.');
+    if (referrer.id === userId) throw new BadRequestException('O jogador não pode indicar a si mesmo.');
     await this.prisma.user.update({
       where: { id: userId },
-      data: { agentId: agent.id, agentLinkedAt: user.agentId === agent.id ? user.agentLinkedAt : new Date() },
+      data: { ...none, referredById: referrer.id, referredAt: user.referredById === referrer.id ? user.referredAt : new Date() },
     });
-    return { agentId: agent.id, code: agent.code };
+    return { agentId: null, referredById: referrer.id, code: normalized };
+  }
+
+  // --- Member referrals: who invited whom, and what each has earned ---
+
+  /** Every player who has invited someone, most commission first. */
+  async memberReferrers(): Promise<MemberReferrer[]> {
+    const referrers = await this.prisma.user.findMany({ where: { referred: { some: {} } } });
+    const rows = await this.memberRows(referrers.map((r) => r.id));
+    return referrers
+      .map((r) => this.summarizeMember(r, rows.get(r.id) ?? []))
+      .sort((a, b) => Number(BigInt(b.commissionCents) - BigInt(a.commissionCents)) || b.invited - a.invited);
+  }
+
+  async memberReport(userId: string): Promise<MemberReport> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Jogador não encontrado.');
+    const rows = (await this.memberRows([userId])).get(userId) ?? [];
+    return { ...this.summarizeMember(user, rows), referred: rows };
+  }
+
+  private summarizeMember(u: User, rows: MemberReferral[]): MemberReferrer {
+    return {
+      userId: u.id,
+      displayName: u.displayName,
+      phone: u.phone,
+      code: u.referralCode,
+      invited: rows.length,
+      subscribers: rows.filter((r) => r.firstSubscription).length,
+      commissionCents: rows.reduce((sum, r) => sum + BigInt(r.commissionCents), 0n).toString(),
+    };
+  }
+
+  /**
+   * Each referrer's friends with their FIRST confirmed subscription and FIRST
+   * paid tournament entry. The commission is a share of both, by the plan of
+   * that first subscription (client, 2026-10-14) — renewals, later entries and
+   * friends with no plan earn nothing. An entry given back (the room never
+   * started) doesn't count: the ledger marks those references "#refunded-".
+   */
+  private async memberRows(referrerIds: string[]): Promise<Map<string, MemberReferral[]>> {
+    const out = new Map<string, MemberReferral[]>();
+    if (referrerIds.length === 0) return out;
+    const friends = await this.prisma.user.findMany({
+      where: { referredById: { in: referrerIds } },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        subscriptionRequests: { where: { status: 'CONFIRMED' }, orderBy: { settledAt: 'asc' }, take: 1 },
+        account: true,
+      },
+    });
+    for (const f of friends) {
+      const sub = f.subscriptionRequests[0];
+      const entry = f.account
+        ? await this.prisma.ledgerEntry.findFirst({
+            where: {
+              accountId: f.account.id,
+              amountCents: { lt: 0 },
+              transaction: { kind: 'TOURNAMENT_BUYIN', NOT: { referenceId: { contains: '#refunded-' } } },
+            },
+            orderBy: { createdAt: 'asc' },
+          })
+        : null;
+      const subCents = sub?.amountCents ?? 0n;
+      const entryCents = entry ? -entry.amountCents : 0n;
+      const pct = MEMBER_COMMISSION_PCT[(sub?.plan ?? 'NONE') as Subscription];
+      const base = subCents + entryCents;
+      const row: MemberReferral = {
+        userId: f.id,
+        displayName: f.displayName,
+        phone: f.phone,
+        referredAt: f.referredAt,
+        subscription: f.subscription,
+        firstSubscription: sub
+          ? { plan: sub.plan, amountCents: subCents.toString(), at: sub.settledAt ?? sub.requestedAt }
+          : null,
+        firstEntry: entry ? { amountCents: entryCents.toString(), at: entry.createdAt } : null,
+        pct,
+        baseCents: base.toString(),
+        commissionCents: (commissionCents(base, pct) ?? 0n).toString(),
+      };
+      const list = out.get(f.referredById!) ?? [];
+      list.push(row);
+      out.set(f.referredById!, list);
+    }
+    return out;
   }
 
   private async agentOr404(id: string): Promise<Agent> {
@@ -136,7 +329,7 @@ export class ReferralService {
   private async freeSuggestedCode(name: string): Promise<string> {
     for (let i = 0; i < 50; i++) {
       const code = suggestReferralCode(name, randomInt(100));
-      if (!(await this.prisma.agent.findUnique({ where: { code } }))) return code;
+      if (!(await this.codeTaken(code))) return code;
     }
     throw new ConflictException('Não achei um código livre — digite um.');
   }

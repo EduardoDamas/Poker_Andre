@@ -50,9 +50,10 @@ export class AuthService {
 
     // Checked before anything is written: a wrong code fails the sign-up so
     // the player can fix it, instead of creating an account with no agent.
+    // The code can be an agent's or another player's.
     const code = dto.referralCode?.trim();
-    const agent = code ? await this.referrals.agentByCode(code) : null;
-    if (code && !agent) {
+    const owner = code ? await this.referrals.resolveCode(code) : null;
+    if (code && !owner) {
       throw new BadRequestException('Código de indicação inválido.');
     }
 
@@ -71,7 +72,8 @@ export class AuthService {
           ...(dto.acceptedTerms === true
             ? { termsAcceptedAt: new Date(), termsVersion: LEGAL_VERSION }
             : {}),
-          ...(agent ? { agentId: agent.id, agentLinkedAt: new Date() } : {}),
+          ...(owner && 'agent' in owner ? { agentId: owner.agent.id, agentLinkedAt: new Date() } : {}),
+          ...(owner && 'referrer' in owner ? { referredById: owner.referrer.id, referredAt: new Date() } : {}),
         },
       });
       // Every player gets a wallet account at registration.
@@ -146,6 +148,11 @@ export class AuthService {
       data: { passwordHash: hashPassword(newPassword) },
     });
     return session;
+  }
+
+  /** The player's own code to invite friends, and how many signed up with it. */
+  referralCode(userId: string): Promise<{ code: string; invited: number }> {
+    return this.referrals.myCode(userId);
   }
 
   /** The current user's public profile + wallet balance (for GET /auth/me). */

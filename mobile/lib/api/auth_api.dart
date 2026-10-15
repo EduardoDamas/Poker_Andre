@@ -205,6 +205,15 @@ class AuthApi {
     }
   }
 
+  /// My code to invite friends (made by the server the first time) and how
+  /// many signed up with it. Throws [AuthException] when unavailable.
+  Future<({String code, int invited})> fetchReferral(String token) async {
+    final res = await _send(() => _client.get(_u('/auth/referral'), headers: {'Authorization': 'Bearer $token'}));
+    if (res.statusCode != 200) throw AuthException('Código indisponível no momento.');
+    final body = jsonDecode(res.body) as Map<String, dynamic>;
+    return (code: '${body['code']}', invited: (body['invited'] as num?)?.toInt() ?? 0);
+  }
+
   /// Current wallet balance in cents (GET /auth/me). 0 on any error.
   Future<int> fetchBalance(String token) async {
     final me = await fetchMe(token);

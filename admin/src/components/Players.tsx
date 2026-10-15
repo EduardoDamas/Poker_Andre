@@ -80,11 +80,12 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
     run(p.id, () => api.grantSubscription(token, p.id, sub, untilMs));
   }
 
-  // Link a player who signed up without the agent's code (or fix/remove it).
+  // Link a player who signed up without a code (or fix/remove it): an
+  // agent's code, or the code of the player who invited them.
   async function changeAgent(p: Player) {
     const code = prompt(
-      `Código do agente de ${p.displayName} (deixe vazio para desvincular):`,
-      p.agentCode ?? '',
+      `Código de indicação de ${p.displayName} — de um agente ou de outro jogador (deixe vazio para desvincular):`,
+      p.agentCode ?? p.referrerCode ?? '',
     );
     if (code === null) return;
     setBusy(p.id);
@@ -111,7 +112,7 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
           <th>Telefone</th>
           <th>Status</th>
           <th>Assinatura</th>
-          <th>Agente</th>
+          <th>Indicação</th>
           <th>Limites</th>
           <th>Saldo</th>
           <th>Ações</th>
@@ -143,9 +144,17 @@ export function Players({ token, onForbidden }: { token: string; onForbidden: ()
                 <span className="muted">—</span>
               ) : (
                 <>
-                  {p.agentCode ? <strong>{p.agentCode}</strong> : <span className="muted">—</span>}{' '}
+                  {p.agentCode ? (
+                    <strong title="Agente">{p.agentCode}</strong>
+                  ) : p.referrerCode ? (
+                    <span title="Indicado por um jogador">
+                      <strong>{p.referrerCode}</strong> <span className="muted">({p.referrerName})</span>
+                    </span>
+                  ) : (
+                    <span className="muted">—</span>
+                  )}{' '}
                   <button disabled={busy === p.id} onClick={() => changeAgent(p)}>
-                    {p.agentCode ? 'Alterar' : 'Vincular'}
+                    {p.agentCode || p.referrerCode ? 'Alterar' : 'Vincular'}
                   </button>
                 </>
               )}

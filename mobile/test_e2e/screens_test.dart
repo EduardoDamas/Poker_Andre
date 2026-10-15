@@ -19,6 +19,7 @@ import 'package:capa_contest/api/tables_api.dart';
 import 'package:capa_contest/game/game_connection.dart';
 import 'package:capa_contest/game/game_snapshot.dart';
 import 'package:capa_contest/screens/lobby_screen.dart';
+import 'package:capa_contest/screens/profile_screen.dart';
 import 'package:capa_contest/screens/table_screen.dart';
 import 'package:capa_contest/theme.dart';
 
@@ -300,5 +301,23 @@ void main() {
     await tester.pumpAndSettle();
     await shot(tester, '25-reagir');
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('26 profile: my code to invite friends', (tester) async {
+    phone(tester);
+    addTearDown(tester.view.reset);
+    final mock = MockClient((req) async {
+      final body = req.url.path == '/auth/referral'
+          ? {'code': 'MARIA47', 'invited': 3}
+          : {'id': 'u1', 'displayName': 'Maria Souza', 'phone': '+5511999998888', 'status': 'ACTIVE', 'balanceCents': '4500'};
+      return http.Response(jsonEncode(body), 200, headers: {'content-type': 'application/json; charset=utf-8'});
+    });
+    await tester.pumpWidget(app(ProfileScreen(
+      session: AuthSession(accessToken: 't', userId: 'u1', displayName: 'Maria Souza'),
+      authApi: AuthApi(client: mock),
+    )));
+    await tester.runAsync(() => precacheImage(const AssetImage('assets/environments/env-profile.webp'), _key.currentContext!));
+    await tester.pumpAndSettle();
+    await shot(tester, '26-perfil-convite');
   });
 }

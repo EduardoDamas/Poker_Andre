@@ -23,6 +23,7 @@ import { promoTime, promoWhenLong } from '../promo/promo-format';
 import { PromoBracket, PromoBrackets } from '../promo/promo-bracket';
 import { Subscription } from '../tournament/subscription';
 import { EMOTES, emoteCooldownMs } from './emotes';
+import { referralStartingStack } from '../referral/referral';
 
 const room = (tableId: string) => `table:${tableId}`;
 
@@ -118,13 +119,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     return user.subscription;
   }
 
-  /** Which of these players came through an agent's referral code. */
-  private async _referred(userIds: string[]): Promise<Set<string>> {
-    const rows = await this.prisma.user.findMany({
-      where: { id: { in: userIds }, agentId: { not: null } },
-      select: { id: true },
+  /**
+   * Chips a player starts a PAID tournament with: more for a player who came
+   * through a referral code (an agent's or another player's) and holds a plan
+   * right now — renewing or changing plan changes it, a lapsed plan is 1000.
+   */
+  private async _startingStack(userId: string, subscription: Subscription): Promise<number> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { agentId: true, referredById: true },
     });
-    return new Set(rows.map((r) => r.id));
+    return referralStartingStack(subscription, Boolean(user?.agentId || user?.referredById));
   }
 
   async handleConnection(client: Socket): Promise<void> {
@@ -202,7 +207,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         }
         const t = this.tables.enableTournament(body.tableId, body.level, body.maxSeats);
         const sub = await this._subscriptionOf(user.sub);
-        await this.tables.enterTournament(t, user.sub, sub);
+        await this.tables.enterTournament(t, user.sub, sub, await this._startingStack(user.sub, sub));
       }
 
       const { table, position, rejoined } = this.tables.join(
@@ -537,11 +542,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       if (!(await this.promo.openEvent(bracket.eventId))) return false; // cancelled meanwhile
       const subs = new Map<string, Subscription>();
       for (const id of bracket.entrantIds()) subs.set(id, await this._subscriptionOf(id));
-      const referred = await this._referred(bracket.entrantIds());
       // Re-check: players may have left while we were reading.
       if (!bracket.shouldStart(Date.now())) return false;
       bracket.addRobots(); // rehearsal only
-      const tables = bracket.start(subs, new Date(), referred);
+      const tables = bracket.start(subs);
       this.promoTimers.get(bracket.roomId)?.forEach(clearTimeout);
       void this.promo
         .markStarted(bracket.eventId, bracket.startedAt!, bracket.startedWith)
@@ -566,7 +570,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect, On
         subTable: true,
       });
       for (const pid of mt.players) {
-        this.tables.recordTournamentEntry(table, pid, bracket.subscriptionOf(pid), bracket.startingStackOf(pid));
+        this.tables.recordTournamentEntry(table, pid, bracket.subscriptionOf(pid));
         if (bracket.isRobot(pid)) {
           this.tables.seatRobot(mt.id, pid);
           continue;

@@ -1,22 +1,23 @@
 import {
-  BASE_PROMO_STACK,
+  BASE_STACK,
   commissionCents,
   isValidReferralCode,
+  MEMBER_COMMISSION_PCT,
   normalizeReferralCode,
-  promoStartingStack,
+  referralStartingStack,
   suggestReferralCode,
 } from './referral';
 
 describe('referral rules', () => {
   it('starting stack follows the client table: code + plan, else 1000', () => {
-    expect(promoStartingStack('NONE', false)).toBe(1000);
-    expect(promoStartingStack('ANNUAL', false)).toBe(1000); // plan but no code
-    expect(promoStartingStack('NONE', true)).toBe(1000); // code but no plan
-    expect(promoStartingStack('MONTHLY', true)).toBe(1500);
-    expect(promoStartingStack('QUARTERLY', true)).toBe(2000);
-    expect(promoStartingStack('SEMIANNUAL', true)).toBe(2500);
-    expect(promoStartingStack('ANNUAL', true)).toBe(3000);
-    expect(BASE_PROMO_STACK).toBe(1000);
+    expect(referralStartingStack('NONE', false)).toBe(1000);
+    expect(referralStartingStack('ANNUAL', false)).toBe(1000); // plan but no code
+    expect(referralStartingStack('NONE', true)).toBe(1000); // code but no plan
+    expect(referralStartingStack('MONTHLY', true)).toBe(1500);
+    expect(referralStartingStack('QUARTERLY', true)).toBe(2000);
+    expect(referralStartingStack('SEMIANNUAL', true)).toBe(2500);
+    expect(referralStartingStack('ANNUAL', true)).toBe(3000);
+    expect(BASE_STACK).toBe(1000);
   });
 
   it('normalizes and validates typed codes', () => {
@@ -32,6 +33,10 @@ describe('referral rules', () => {
     expect(suggestReferralCode('Maximiliano Souza', 5)).toBe('MAXIMILI05');
     expect(suggestReferralCode('  ', 12)).toBe('AGENTE12');
     expect(isValidReferralCode(suggestReferralCode('Zé', 3))).toBe(true);
+  });
+
+  it('member commission by the plan of the first subscription: 5/10/15/20%, none without a plan', () => {
+    expect(MEMBER_COMMISSION_PCT).toEqual({ NONE: 0, MONTHLY: 5, QUARTERLY: 10, SEMIANNUAL: 15, ANNUAL: 20 });
   });
 
   it('commission rounds down and is blank with no percentage', () => {

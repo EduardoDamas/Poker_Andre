@@ -544,7 +544,7 @@ describe('Promotion bracket (e2e)', () => {
     expect(res.ok).toBe(false);
   }, 30000);
 
-  it('a referred annual subscriber starts with 3000 chips; a plain player with 1000', async () => {
+  it('a free promotion has no bonus chips: a referred annual subscriber starts with 1000 like everyone', async () => {
     const e = await event(-1000);
     const roomId = promoRoomId(e.id);
     const agent = await prisma.agent.create({ data: { name: 'João', code: 'JOAO10' } });
@@ -566,14 +566,14 @@ describe('Promotion bracket (e2e)', () => {
     // What the app draws: chips behind + the blinds in front = the starting stacks.
     const st = await firstState;
     expect(st.pot).toBe(0);
-    expect(st.stacks[a.userId] + (st.bets[a.userId] ?? 0)).toBe(3000);
+    expect(st.stacks[a.userId] + (st.bets[a.userId] ?? 0)).toBe(1000);
     expect(st.stacks[b.userId] + (st.bets[b.userId] ?? 0)).toBe(1000);
     expect(Object.values(st.bets).sort((x, y) => x - y)).toEqual([25, 50]);
 
     // Stacks are booked when a hand ends; both players are passive, so the
     // first hand is still open and these are the starting stacks.
     const stacks = app.get(TableService).getTable(tableId)!.tournament!.stacks;
-    expect(stacks[a.userId]).toBe(3000);
+    expect(stacks[a.userId]).toBe(1000); // client, 2026-10-15: bonus only in paid tournaments
     expect(stacks[b.userId]).toBe(1000);
   }, 30000);
 

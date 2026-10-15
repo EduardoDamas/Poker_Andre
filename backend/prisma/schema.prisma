@@ -48,6 +48,14 @@ model User {
   agent         Agent?    @relation(fields: [agentId], references: [id])
   agentId       String?
   agentLinkedAt DateTime?
+  // Member referrals (client, 2026-10-14): every player has their own code to
+  // invite friends (created the first time they look at it); a friend who signs
+  // up with it is linked here. A player has an agent OR a referrer, never both.
+  referralCode String?   @unique
+  referredBy   User?     @relation("MemberReferrals", fields: [referredById], references: [id])
+  referredById String?
+  referredAt   DateTime?
+  referred     User[]    @relation("MemberReferrals")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -64,6 +72,7 @@ model User {
 
   @@index([status])
   @@index([agentId])
+  @@index([referredById])
 }
 
 // A sales agent (client, 2026-10-12). Players type the agent's code at sign-up

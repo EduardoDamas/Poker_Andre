@@ -181,3 +181,68 @@ describe('Players tab — agent column', () => {
     expect(calls.find((c) => c.method === 'POST')!.body).toEqual({ code: null });
   });
 });
+
+describe('Agents tab — players who invite players', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  const maria = {
+    userId: 'm1', displayName: 'Maria', phone: '+5511911110000', code: 'MARIA47',
+    invited: 3, subscribers: 2, commissionCents: '11900',
+  };
+  const report = {
+    ...maria,
+    referred: [
+      {
+        userId: 'a1', displayName: 'Ana', phone: '+5511922220000', referredAt: '2026-10-15T12:00:00Z', subscription: 'QUARTERLY',
+        firstSubscription: { plan: 'QUARTERLY', amountCents: '15000', at: '2026-10-15T12:00:00Z' },
+        firstEntry: { amountCents: '4000', at: '2026-10-16T12:00:00Z' },
+        pct: 10, baseCents: '19000', commissionCents: '1900',
+      },
+      {
+        userId: 'b1', displayName: 'Bruno', phone: '+5511933330000', referredAt: null, subscription: 'NONE',
+        firstSubscription: null, firstEntry: { amountCents: '2000', at: '2026-10-16T12:00:00Z' },
+        pct: 0, baseCents: '2000', commissionCents: '0',
+      },
+    ],
+  };
+
+  it('lists who invited whom and opens the commission report', async () => {
+    stubFetch((u) => ({
+      status: 200,
+      body: u.endsWith('/admin/referrals') ? [maria] : u.includes('/admin/referrals/m1') ? report : [],
+    }));
+    render(<Agents token="tok" onForbidden={() => {}} />);
+    const section = await screen.findByRole('region', { name: 'Indicações de jogadores' });
+    const row = (await within(section).findByText('MARIA47')).closest('tr') as HTMLElement;
+    expect(within(row).getByText('R$ 119,00')).toBeInTheDocument();
+    expect(within(section).getByText(/Anual 20%/)).toBeInTheDocument();
+
+    await userEvent.click(within(row).getByRole('button', { name: 'Relatório' }));
+    const rep = await screen.findByRole('region', { name: 'Indicados de Maria' });
+    const ana = within(rep).getByText('Ana').closest('tr') as HTMLElement;
+    expect(within(ana).getByText('10%')).toBeInTheDocument();
+    expect(within(ana).getByText('R$ 19,00')).toBeInTheDocument();
+    const bruno = within(rep).getByText('Bruno').closest('tr') as HTMLElement;
+    expect(within(bruno).getByText('R$ 0,00')).toBeInTheDocument();
+  });
+});
+
+describe('Players tab — invited by a player', () => {
+  beforeEach(() => vi.restoreAllMocks());
+
+  it('shows the code and name of who invited them', async () => {
+    stubFetch(() => ({
+      status: 200,
+      body: [{
+        id: 'u9', displayName: 'Bruno', phone: '+5511900000009', status: 'ACTIVE', role: 'PLAYER',
+        subscription: 'NONE', createdAt: '2026-10-01T12:00:00Z', balanceCents: '0', blocked: false,
+        blockedUntil: null, blockReason: null, selfExcludedUntil: null, limitDailyCents: null,
+        limitWeeklyCents: null, limitMonthlyCents: null, agentCode: null, referrerCode: 'MARIA47', referrerName: 'Maria',
+      }],
+    }));
+    render(<Players token="tok" onForbidden={() => {}} />);
+    expect(await screen.findByText('MARIA47')).toBeInTheDocument();
+    expect(screen.getByText('(Maria)')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Alterar' })).toBeInTheDocument();
+  });
+});

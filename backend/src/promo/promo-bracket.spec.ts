@@ -213,32 +213,6 @@ describe('PromoBracket', () => {
     });
   });
 
-  describe('starting chips (referral code, client 2026-10-12)', () => {
-    it('a referred player gets the bonus of the plan held at the start; others 1000', () => {
-      const b = bracket({ minPlayers: 2, robots: 1 });
-      fill(b, 5);
-      b.addRobots();
-      b.start(
-        new Map<string, Subscription>([['p0', 'ANNUAL'], ['p1', 'MONTHLY'], ['p2', 'NONE'], ['p3', 'QUARTERLY']]),
-        new Date(START),
-        new Set(['p0', 'p1', 'p2']),
-      );
-      expect(b.startingStackOf('p0')).toBe(3000); // code + annual
-      expect(b.startingStackOf('p1')).toBe(1500); // code + monthly
-      expect(b.startingStackOf('p2')).toBe(1000); // code, no plan
-      expect(b.startingStackOf('p3')).toBe(1000); // plan, no code
-      expect(b.startingStackOf('p4')).toBe(1000); // neither
-      expect(b.startingStackOf('robot-1')).toBe(1000);
-    });
-
-    it('with no referred set (as before), everyone starts with 1000', () => {
-      const b = bracket({ minPlayers: 2 });
-      fill(b, 2);
-      b.start(new Map<string, Subscription>([['p0', 'ANNUAL']]));
-      expect(b.startingStackOf('p0')).toBe(1000);
-    });
-  });
-
   describe('rehearsal robots', () => {
     it('fill up to the places at the start, once, and are known as robots', () => {
       const b = bracket({ minPlayers: 2, maxPlayers: 20, robots: 30 });

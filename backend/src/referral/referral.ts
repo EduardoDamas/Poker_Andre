@@ -1,29 +1,45 @@
 import { Subscription } from '../tournament/subscription';
 
 /**
- * Referral codes (client, 2026-10-12): each agent has a code; a player types it
- * at sign-up so the admin knows which agent brought them.
+ * Referral codes. Agents have codes the admin creates (client, 2026-10-12);
+ * every player also has one to invite friends (2026-10-14). A player types
+ * either at sign-up.
  *
- * The code itself changes no price. In promotions, a referred player who holds
- * a plan when the tournament starts gets a bigger starting stack; with no plan
- * (or no code) it is the normal 1000.
+ * The code changes no price. In PAID tournaments a referred player — whoever
+ * brought them — who holds a plan when the tournament starts gets a bigger
+ * starting stack, by that plan (renewing or changing plan changes it; a lapsed
+ * plan goes back to 1000). Free tournaments (promotions): 1000 for everyone.
  */
 
-/** Normal promotion starting stack — no code, or a code but no plan. */
-export const BASE_PROMO_STACK = 1000;
+/** Normal starting stack — no code, or a code but no plan, or a free tournament. */
+export const BASE_STACK = 1000;
 
 const REFERRED_STACK: Record<Subscription, number> = {
-  NONE: BASE_PROMO_STACK,
+  NONE: BASE_STACK,
   MONTHLY: 1500,
   QUARTERLY: 2000,
   SEMIANNUAL: 2500,
   ANNUAL: 3000,
 };
 
-/** Chips a player starts a promotion table with, by their plan at the start. */
-export function promoStartingStack(subscription: Subscription, referred: boolean): number {
-  return referred ? REFERRED_STACK[subscription] : BASE_PROMO_STACK;
+/** Chips a player starts a paid tournament with, by their plan at the start. */
+export function referralStartingStack(subscription: Subscription, referred: boolean): number {
+  return referred ? REFERRED_STACK[subscription] : BASE_STACK;
 }
+
+/**
+ * What a player earns for each friend they brought (client, 2026-10-14, fixed):
+ * a share of the friend's FIRST subscription plus the same share of what the
+ * friend paid for their FIRST paid tournament — by the plan of that first
+ * subscription. No plan, no commission.
+ */
+export const MEMBER_COMMISSION_PCT: Record<Subscription, number> = {
+  NONE: 0,
+  MONTHLY: 5,
+  QUARTERLY: 10,
+  SEMIANNUAL: 15,
+  ANNUAL: 20,
+};
 
 /**
  * Canonical form of a typed code: trimmed, upper-case, spaces dropped. So

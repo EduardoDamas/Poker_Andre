@@ -98,7 +98,7 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **523 passing / 65 suites** (app: 111 tests; panel: 47; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
+Full suite is **529 passing / 66 suites** (app: 118 tests; panel: 49; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
@@ -172,6 +172,12 @@ room id and it is routed to their bracket table, like actions), at most one per 
 shows it over the sender's seat for ~2.6 s; the button rests 3 s after sending. Keep the id list in
 `mobile/lib/widgets/emotes.dart` and `backend/src/realtime/emotes.ts` in step. Screens 24–25.
 
+### 5f. Payment pages in the browser (2026-10-15)
+
+iPhone Safari blocks a new tab opened after a server call, so on the web a card deposit or a
+subscription purchase shows an "Abrir pagamento" step once the server has created the InfinitePay link; the tap opens the checkout in a new tab and the app stays in its own (`util/payment_link.dart`).
+The Android app opens the page at once, as before.
+
 ### 5e. Staying logged in (2026-10; app 1.0.11)
 
 Before, every launch (and every page reload on the web) asked for phone and password. Now the
@@ -206,10 +212,23 @@ Check the bundle has no `localhost` before committing `backend/panel/`.
   first). Renewals, later deposits and plans granted by hand (no price) don't count. The % is per
   agent and optional — blank shows the base with no commission. The panel only reports; paying the
   agent happens outside the app.
-- **Promotion bonus chips** (`referral/referral.ts`): a referred player starts each promotion
-  table with 1500 / 2000 / 2500 / 3000 chips for Mensal / Trimestral / Semestral / Anual held when
-  the tournament starts; no plan or no code = 1000. Bracket rounds deal fresh stacks, so the bonus
-  applies at every table. Paid 10-minute rooms are unchanged (always 1000).
+- **Bonus chips — PAID tournaments only** (client, 2026-10-15; `referral/referral.ts`): a referred
+  player (agent code OR another player's code) who holds a plan when the tournament starts begins
+  with 1500 / 2000 / 2500 / 3000 chips for Mensal / Trimestral / Semestral / Anual; no plan or no
+  code = 1000. The plan is re-read at every entry, so a renewal / plan change takes effect and a
+  lapsed plan is 1000. Free promotions: 1000 for everyone. Each entry keeps its own starting stack
+  (`TournamentCtx.starts`) for table resets. **The Regulamento must say this** — a draft clause is in
+  `docs/legal/PROPOSTA_REGULAMENTO_FICHAS_INDICACAO.md`, waiting for the client's approval.
+- **Players invite players** (client, 2026-10-14): every player has their own code
+  (`User.referralCode`, made on first `GET /auth/referral` from the first name, e.g. MARIA47; agent
+  and player codes share one namespace). Perfil shows it with the count and "Convidar no WhatsApp".
+  A friend who signs up with it gets `referredById` (a player has an agent OR a referrer, never both;
+  the Players tab "Indicação" column links either kind by hand). **Fixed commission** for the
+  referrer, by the plan of the friend's FIRST confirmed subscription — 5 / 10 / 15 / 20 % — of that
+  subscription + what the friend paid for their FIRST paid tournament (ledger `TOURNAMENT_BUYIN`;
+  refunded entries, tagged `#refunded-`, don't count). No plan, no commission. Panel: Agentes tab →
+  "Indicações de jogadores" (`GET /admin/referrals`, `/admin/referrals/:userId`). Paying it is
+  outside the app.
 - Code: `backend/src/referral/` (rules, service, e2e), admin endpoints `/admin/agents*` and
   `/admin/users/:id/agent`, panel `admin/src/components/Agents.tsx`. Migration `20261013100000_agents`.
 

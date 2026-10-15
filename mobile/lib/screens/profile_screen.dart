@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../api/auth_api.dart';
 import '../api/points_api.dart';
+import '../config.dart';
 import '../theme.dart';
 import '../format.dart';
 import '../widgets/premium.dart';
@@ -22,6 +25,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Map<String, dynamic> _me = {};
   final _pointsApi = PointsApi();
   PointsStatus? _points;
+  ({String code, int invited})? _referral;
 
   @override
   void initState() {
@@ -30,6 +34,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) setState(() => _me = m);
     });
     _loadPoints();
+    widget.authApi.fetchReferral(widget.session.accessToken).then((r) {
+      if (mounted) setState(() => _referral = r);
+    }).catchError((_) {
+      // The card stays hidden if the code can't be read right now.
+    });
   }
 
   Future<void> _loadPoints() async {
@@ -109,6 +118,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Expanded(child: _stat('Status', status == 'ACTIVE' ? 'Ativo' : status)),
             ]),
             const SizedBox(height: 12),
+            if (_referral != null) ...[
+              _InviteCard(code: _referral!.code, invited: _referral!.invited),
+              const SizedBox(height: 12),
+            ],
             Row(children: [
               Expanded(child: _stat('Mãos', '—')),
               const SizedBox(width: 12),
@@ -177,4 +190,86 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(label, style: Brand.micro),
         ]),
       );
+}
+
+/// The player's own code to invite friends (client, 2026-10-14): copy it, or
+/// send the invitation straight to WhatsApp with the code and the link.
+class _InviteCard extends StatelessWidget {
+  final String code;
+  final int invited;
+  const _InviteCard({required this.code, required this.invited});
+
+  String get _message => 'Vem jogar no CAPA CONTEST comigo! Torneios de Poker valendo prêmio. '
+      'Use meu código $code no cadastro. Assinando um plano, você começa os torneios pagos com mais fichas. '
+      'Baixe o app: ${AppConfig.apiBase}/baixar — ou jogue no navegador: ${AppConfig.apiBase}/jogar/';
+
+  Future<void> _whatsApp(BuildContext context) async {
+    final uri = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(_message)}');
+    var ok = false;
+    try {
+      ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (_) {}
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Não foi possível abrir o WhatsApp.')));
+    }
+  }
+
+  Future<void> _copy(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: code));
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Código $code copiado.')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GlassCard(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          const Icon(Icons.card_giftcard, size: 18, color: Brand.gold),
+          const SizedBox(width: 6),
+          Expanded(child: Text('Convide amigos', style: Brand.label, overflow: TextOverflow.ellipsis)),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              invited == 0 ? 'Nenhum amigo ainda' : invited == 1 ? '1 amigo cadastrado' : '$invited amigos cadastrados',
+              key: const Key('invitedCount'),
+              overflow: TextOverflow.ellipsis,
+              style: Brand.micro.copyWith(color: Brand.champagne),
+            ),
+          ),
+        ]),
+        const SizedBox(height: 10),
+        Row(children: [
+          Text('Seu código', style: Brand.micro),
+          const SizedBox(width: 10),
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: SelectableText(code,
+                  key: const Key('myReferralCode'),
+                  style: Brand.h2.copyWith(color: Brand.gold, letterSpacing: 2)),
+            ),
+          ),
+          IconButton(
+            key: const Key('copyCode'),
+            tooltip: 'Copiar código',
+            icon: const Icon(Icons.copy, color: Brand.textSec, size: 20),
+            onPressed: () => _copy(context),
+          ),
+        ]),
+        const SizedBox(height: 6),
+        Text('Quem se cadastrar com o seu código fica vinculado a você.', style: Brand.micro),
+        const SizedBox(height: 12),
+        GradientButton('Convidar no WhatsApp',
+            key: const Key('inviteWhatsApp'),
+            icon: Icons.chat,
+            variant: BtnVariant.gold,
+            onPressed: () => _whatsApp(context)),
+      ]),
+    );
+  }
 }

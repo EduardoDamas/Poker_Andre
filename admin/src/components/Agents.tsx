@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { api, Agent, AgentReport, ApiError } from '../api';
+import { api, Agent, AgentReport, ApiError, MemberReferrer, MemberReport } from '../api';
 import { formatBRL } from '../money';
 
 const PLAN_LABELS: Record<string, string> = {
@@ -181,7 +181,137 @@ export function Agents({ token, onForbidden }: { token: string; onForbidden: () 
       )}
 
       {report && <Report report={report} onClose={() => setReport(null)} />}
+
+      <Members token={token} />
     </>
+  );
+}
+
+/// Players who invited friends with their own code (client, 2026-10-14). The
+/// commission is fixed: by the plan of the friend's first subscription, a share
+/// of that subscription + of the friend's first paid tournament entry.
+function Members({ token }: { token: string }) {
+  const [list, setList] = useState<MemberReferrer[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [report, setReport] = useState<MemberReport | null>(null);
+
+  useEffect(() => {
+    api.memberReferrers(token).then(setList).catch(() => setError('Falha ao carregar as indicações de jogadores.'));
+  }, [token]);
+
+  async function open(m: MemberReferrer) {
+    try {
+      setReport(await api.memberReport(token, m.userId));
+    } catch (e) {
+      alert(e instanceof ApiError ? e.message : 'Falha ao carregar o relatório.');
+    }
+  }
+
+  return (
+    <section aria-label="Indicações de jogadores">
+      <h2>Indicações de jogadores</h2>
+      <p className="muted">
+        Cada jogador tem um código próprio (no Perfil do app). Comissão de quem indica, pelo plano da 1ª
+        assinatura do indicado: Mensal 5% · Trimestral 10% · Semestral 15% · Anual 20% — sobre a 1ª
+        assinatura + a inscrição do 1º torneio pago. Sem assinatura, sem comissão.
+      </p>
+      {error ? (
+        <p className="error">{error}</p>
+      ) : !list ? (
+        <p className="muted">Carregando…</p>
+      ) : list.length === 0 ? (
+        <p className="muted">Nenhum jogador indicou alguém ainda.</p>
+      ) : (
+        <table>
+          <thead>
+            <tr>
+              <th>Jogador</th>
+              <th>Código</th>
+              <th>Indicados</th>
+              <th>Assinantes</th>
+              <th>Comissão</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((m) => (
+              <tr key={m.userId}>
+                <td>
+                  {m.displayName}
+                  <div className="muted">{m.phone}</div>
+                </td>
+                <td><strong>{m.code ?? '—'}</strong></td>
+                <td>{m.invited}</td>
+                <td>{m.subscribers}</td>
+                <td>{formatBRL(m.commissionCents)}</td>
+                <td className="actions">
+                  <button onClick={() => open(m)}>Relatório</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {report && <MemberReportView report={report} onClose={() => setReport(null)} />}
+    </section>
+  );
+}
+
+function MemberReportView({ report, onClose }: { report: MemberReport; onClose: () => void }) {
+  return (
+    <section aria-label={`Indicados de ${report.displayName}`}>
+      <h2>
+        Indicados de {report.displayName} ({report.code}) <button onClick={onClose}>Fechar</button>
+      </h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Indicado</th>
+            <th>Telefone</th>
+            <th>1ª assinatura</th>
+            <th>1º torneio pago</th>
+            <th>%</th>
+            <th>Comissão</th>
+          </tr>
+        </thead>
+        <tbody>
+          {report.referred.map((r) => (
+            <tr key={r.userId}>
+              <td>{r.displayName}</td>
+              <td>{r.phone}</td>
+              <td>
+                {r.firstSubscription ? (
+                  <>
+                    {PLAN_LABELS[r.firstSubscription.plan] ?? r.firstSubscription.plan} · {formatBRL(r.firstSubscription.amountCents)}
+                    <div className="muted">{day(r.firstSubscription.at)}</div>
+                  </>
+                ) : (
+                  <span className="muted">—</span>
+                )}
+              </td>
+              <td>
+                {r.firstEntry ? (
+                  <>
+                    {formatBRL(r.firstEntry.amountCents)}
+                    <div className="muted">{day(r.firstEntry.at)}</div>
+                  </>
+                ) : (
+                  <span className="muted">—</span>
+                )}
+              </td>
+              <td>{r.pct ? `${r.pct}%` : <span className="muted">—</span>}</td>
+              <td>{formatBRL(r.commissionCents)}</td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colSpan={5}><strong>Total</strong></td>
+            <td><strong>{formatBRL(report.commissionCents)}</strong></td>
+          </tr>
+        </tfoot>
+      </table>
+    </section>
   );
 }
 

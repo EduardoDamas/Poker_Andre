@@ -17,7 +17,13 @@ import { PromoService, promoRoomId } from '../promo/promo.service';
 import { PromoBracket, PromoBrackets } from '../promo/promo-bracket';
 import { CreatePromoEventDto, ReschedulePromoEventDto } from './dto/create-promo-event.dto';
 import { CreateAgentDto, LinkAgentDto, UpdateAgentDto } from './dto/agent.dto';
-import { AgentReport, AgentSummary, ReferralService } from '../referral/referral.service';
+import {
+  AgentReport,
+  AgentSummary,
+  MemberReferrer,
+  MemberReport,
+  ReferralService,
+} from '../referral/referral.service';
 
 /** BigInt-free view of a promotion, with its live bracket when there is one. */
 function serializePromo(
@@ -376,6 +382,18 @@ export class AdminController {
   @Get('agents/:id/report')
   agentReport(@Param('id') id: string): Promise<AgentReport> {
     return this.referrals.report(id);
+  }
+
+  /** Players who invited friends with their own code, with the commission due. */
+  @Get('referrals')
+  memberReferrers(): Promise<MemberReferrer[]> {
+    return this.referrals.memberReferrers();
+  }
+
+  /** One player's friends: first subscription, first paid entry, % and commission. */
+  @Get('referrals/:userId')
+  memberReport(@Param('userId') userId: string): Promise<MemberReport> {
+    return this.referrals.memberReport(userId);
   }
 
   // Link a player who signed up without the code (or fix a wrong one).

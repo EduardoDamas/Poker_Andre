@@ -24,8 +24,11 @@ export interface AdminPlayer {
   limitDailyCents: string | null;
   limitWeeklyCents: string | null;
   limitMonthlyCents: string | null;
-  // The agent who brought the player (referral code), if any.
+  // Who brought the player (referral code), if anyone: an agent's code, or
+  // the code of the player who invited them.
   agentCode: string | null;
+  referrerCode: string | null;
+  referrerName: string | null;
 }
 
 export interface AdminWithdrawal {
@@ -49,7 +52,7 @@ export class AdminService {
   async listPlayers(): Promise<AdminPlayer[]> {
     const users = await this.prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { limits: true, agent: true },
+      include: { limits: true, agent: true, referredBy: { select: { referralCode: true, displayName: true } } },
     });
     const now = Date.now();
     return Promise.all(
@@ -77,6 +80,8 @@ export class AdminService {
           blockedUntil: u.blockedUntil,
           blockReason: u.blockReason,
           agentCode: u.agent?.code ?? null,
+          referrerCode: u.referredBy?.referralCode ?? null,
+          referrerName: u.referredBy?.displayName ?? null,
         };
       }),
     );

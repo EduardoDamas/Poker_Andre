@@ -65,6 +65,37 @@ export interface Player {
   limitMonthlyCents: string | null;
   /** Code of the agent who brought the player (referral), if any. */
   agentCode: string | null;
+  /** …or the code and name of the player who invited them. */
+  referrerCode?: string | null;
+  referrerName?: string | null;
+}
+
+/** A player who invited friends with their own code. */
+export interface MemberReferrer {
+  userId: string;
+  displayName: string;
+  phone: string;
+  code: string | null;
+  invited: number;
+  subscribers: number;
+  commissionCents: string;
+}
+
+export interface MemberReferral {
+  userId: string;
+  displayName: string;
+  phone: string;
+  referredAt: string | null;
+  subscription: string;
+  firstSubscription: { plan: string; amountCents: string; at: string } | null;
+  firstEntry: { amountCents: string; at: string } | null;
+  pct: number;
+  baseCents: string;
+  commissionCents: string;
+}
+
+export interface MemberReport extends MemberReferrer {
+  referred: MemberReferral[];
 }
 
 /** A sales agent and their totals (first subscription + first deposit of each player). */
@@ -301,6 +332,8 @@ export const api = {
   updateAgent: (token: string, id: string, changes: Partial<Pick<Agent, 'name' | 'phone' | 'commissionPct' | 'active'>>) =>
     request<Agent>(`/admin/agents/${id}`, { method: 'PATCH', body: JSON.stringify(changes) }, token),
   agentReport: (token: string, id: string) => request<AgentReport>(`/admin/agents/${id}/report`, {}, token),
+  memberReferrers: (token: string) => request<MemberReferrer[]>('/admin/referrals', {}, token),
+  memberReport: (token: string, userId: string) => request<MemberReport>(`/admin/referrals/${userId}`, {}, token),
   linkAgent: (token: string, userId: string, code: string | null) =>
     request<{ ok: true; agentId: string | null; code: string | null }>(
       `/admin/users/${userId}/agent`,

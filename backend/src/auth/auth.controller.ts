@@ -58,6 +58,13 @@ export class AuthController {
     return this.auth.resetPassword(dto.phone, dto.code, dto.password);
   }
 
+  /** My code to invite friends (made the first time), and how many used it. */
+  @Get('referral')
+  @UseGuards(JwtAuthGuard)
+  referral(@CurrentUser() user: JwtPayload): Promise<{ code: string; invited: number }> {
+    return this.auth.referralCode(user.sub);
+  }
+
   // Protected: requires a valid JWT.
   @Get('me')
   @UseGuards(JwtAuthGuard)
