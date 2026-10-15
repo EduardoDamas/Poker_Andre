@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../api/auth_api.dart';
 import '../theme.dart';
 import '../format.dart';
+import '../util/payment_link.dart';
 import '../widgets/premium.dart';
 
 /// Carteira — balance + Pix deposit/withdraw entry points (Phase 1: manual).
@@ -74,7 +74,8 @@ class _WalletScreenState extends State<WalletScreen> {
       // Mint a hosted checkout link and open it; the wallet is credited
       // automatically once the payment is confirmed (gateway webhook).
       final url = await widget.authApi.createCardDeposit(widget.session.accessToken, cents);
-      final ok = await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      if (!mounted) return;
+      final ok = await openPaymentPage(context, url, title: 'Depósito ${brl(cents)}');
       if (!ok) {
         _toast('Não foi possível abrir a página de pagamento.');
         return;

@@ -5,6 +5,7 @@ import '../api/auth_api.dart';
 import '../api/payments_api.dart';
 import '../format.dart';
 import '../theme.dart';
+import '../util/payment_link.dart';
 import '../widgets/premium.dart';
 
 /// Torneios — pick a room level and pay the entry via InfinitePay (card only for now),
@@ -155,6 +156,19 @@ class _TournamentsScreenState extends State<TournamentsScreen> {
       _busyPlan = null;
     });
 
+    const explanation = 'Depois de concluir o pagamento, seu plano é liberado assim que confirmarmos '
+        'o recebimento. Você verá o desconto nas inscrições assim que isso acontecer.';
+    // In the browser the checkout opens from a tap in its own dialog (iPhone
+    // Safari blocks it otherwise), which also carries the explanation.
+    if (req.url.isNotEmpty && paymentsInBrowser) {
+      final ok = await openPaymentPage(context, req.url,
+          title: 'Assinatura ${_planName(plan.plan)}', message: explanation);
+      if (!ok && mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Não foi possível abrir o pagamento.')));
+      }
+      return;
+    }
     try {
       // Open the checkout without blocking: the explanation shows right away,
       // and a launch failure surfaces its own message.
@@ -165,8 +179,7 @@ class _TournamentsScreenState extends State<TournamentsScreen> {
           backgroundColor: Brand.surface,
           title: Text('Assinatura ${_planName(plan.plan)}', style: Brand.h3),
           content: Text(
-            'Depois de concluir o pagamento, seu plano é liberado assim que confirmarmos '
-            'o recebimento. Você verá o desconto nas inscrições assim que isso acontecer.',
+            explanation,
             style: Brand.body,
           ),
           actions: [
