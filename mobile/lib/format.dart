@@ -12,3 +12,7 @@ String brl(int cents) {
   }
   return '${negative ? '-' : ''}R\$ $buf,$ct';
 }
+
+/// Points with Brazilian thousands dots, e.g. 2000 -> "2.000".
+String pts(int n) =>
+    n.toString().replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (m) => '.');

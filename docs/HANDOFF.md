@@ -98,11 +98,23 @@ machine — tests were run on **5544**:
 # start PG on 5544, then:
 TEST_DATABASE_URL="postgresql://capa:capa_dev_password@localhost:5544/capa_contest_test?schema=public" npx jest --runInBand
 ```
-Full suite is **529 passing / 66 suites** (app: 118 tests; panel: 49; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
+Full suite is **529 passing / 66 suites** (app: 120 tests; panel: 49; app end-to-end: 10 scenarios, see `docs/E2E.md`). On the 2026-09 machine port 5434 works fine
 (PostgreSQL 17 installed locally), so the plain `.env` setup is used there. On a healthy machine, plain `npx jest` with the
 `.env` `DATABASE_URL` works (the jest globalSetup runs `prisma migrate deploy`). The two
 80-entrant multi-table specs take ~25-60s each, so they need `--testTimeout=120000` on a
 slower machine (the default is 20s).
+
+**Trying the app on an emulator (BlueStacks) against the local backend** — no test
+accounts in production. Debug builds allow plain http (`src/debug/AndroidManifest.xml`);
+release builds stay https-only.
+```
+node backend/dist/main.js                       # local backend on :3000
+adb connect 127.0.0.1:5555                      # BlueStacks: Settings → Advanced → ADB on
+adb reverse tcp:3000 tcp:3000
+flutter build apk --debug --dart-define=API_BASE=http://127.0.0.1:3000
+adb install -r build/app/outputs/flutter-apk/app-debug.apk
+```
+Create players with `POST /auth/register` on the local backend, log in with phone + password.
 
 Migrations apply automatically on Render boot (`prisma migrate deploy` in the Docker CMD).
 

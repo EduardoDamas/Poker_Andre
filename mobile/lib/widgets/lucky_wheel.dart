@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../api/points_api.dart';
+import '../format.dart';
 import '../theme.dart';
 import 'premium.dart';
 
@@ -81,8 +82,8 @@ class _LuckyWheelDialogState extends State<_LuckyWheelDialog>
   String get _prizeText {
     final o = _outcome!;
     if (o.freePoints == 0 && o.paidPoints == 0) return 'Hoje não foi dessa vez…';
-    if (o.paidPoints > 0) return '+${o.paidPoints} pontos pagos!';
-    return '+${o.freePoints} pontos grátis!';
+    if (o.paidPoints > 0) return '+${pts(o.paidPoints)} pontos pagos!';
+    return '+${pts(o.freePoints)} pontos grátis!';
   }
 
   @override
@@ -90,7 +91,9 @@ class _LuckyWheelDialogState extends State<_LuckyWheelDialog>
     return Dialog(
       backgroundColor: Brand.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Padding(
+      // Scrolls when the screen is short (landscape, small phones, the streak
+      // bonus line) so "Receber" is always reachable.
+      child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text('Roleta Diária', style: Brand.h2),
@@ -98,26 +101,33 @@ class _LuckyWheelDialogState extends State<_LuckyWheelDialog>
           Text('Um giro por dia. Todo dia conta para a sua sequência!',
               textAlign: TextAlign.center, style: Brand.caption),
           const SizedBox(height: 18),
-          SizedBox(
-            width: 260,
-            height: 276,
-            child: Stack(alignment: Alignment.topCenter, children: [
-              Positioned(
-                top: 16,
-                child: AnimatedBuilder(
-                  animation: _controller,
-                  builder: (_, _) => Transform.rotate(
-                    angle: _rotation?.value ?? 0,
-                    child: CustomPaint(
-                      size: const Size(260, 260),
-                      painter: _WheelPainter(widget.segments),
+          // Scales down on narrow phones: at 360dp the dialog leaves ~240dp,
+          // which used to cut both sides of the 260dp wheel.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: SizedBox(
+              key: const Key('wheelBox'),
+              width: 260,
+              height: 276,
+              child: Stack(alignment: Alignment.topCenter, children: [
+                Positioned(
+                  top: 16,
+                  child: AnimatedBuilder(
+                    animation: _controller,
+                    builder: (_, _) => Transform.rotate(
+                      angle: _rotation?.value ?? 0,
+                      child: CustomPaint(
+                        key: const Key('wheelPaint'),
+                        size: const Size(260, 260),
+                        painter: _WheelPainter(widget.segments),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              // Pointer.
-              CustomPaint(size: const Size(26, 22), painter: _PointerPainter()),
-            ]),
+                // Pointer.
+                CustomPaint(size: const Size(26, 22), painter: _PointerPainter()),
+              ]),
+            ),
           ),
           const SizedBox(height: 14),
           if (_error != null) ...[
@@ -132,7 +142,7 @@ class _LuckyWheelDialogState extends State<_LuckyWheelDialog>
               const SizedBox(height: 6),
               Text(
                 'Bônus de sequência (${_outcome!.milestone!.days} dias): '
-                '+${_outcome!.milestone!.paidPoints > 0 ? '${_outcome!.milestone!.paidPoints} pontos pagos' : '${_outcome!.milestone!.freePoints} pontos grátis'}!',
+                '+${_outcome!.milestone!.paidPoints > 0 ? '${pts(_outcome!.milestone!.paidPoints)} pontos pagos' : '${pts(_outcome!.milestone!.freePoints)} pontos grátis'}!',
                 textAlign: TextAlign.center,
                 style: Brand.caption.copyWith(color: Brand.champagne),
               ),
