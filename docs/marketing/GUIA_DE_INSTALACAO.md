@@ -60,9 +60,9 @@ Basta baixar e instalar a versão mais nova pelo mesmo link — ela atualiza por
 O CAPA CONTEST é **exclusivo para maiores de 18 anos**. Jogue com responsabilidade.
 
 ## Documentos oficiais
-- Política de Privacidade: https://capa-contest-api.onrender.com/legal/privacidade
-- Termos de Uso: https://capa-contest-api.onrender.com/legal/termos
-- Regulamento dos Torneios: https://capa-contest-api.onrender.com/legal/regulamento
+- Política de Privacidade: https://capa-contest-api-production-895bebf9.up.railway.app/legal/privacidade
+- Termos de Uso: https://capa-contest-api-production-895bebf9.up.railway.app/legal/termos
+- Regulamento dos Torneios: https://capa-contest-api-production-895bebf9.up.railway.app/legal/regulamento
 
 ---
 *Precisa de ajuda para instalar? Fale com o suporte pelo canal oficial da campanha.*

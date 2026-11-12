@@ -101,6 +101,6 @@ Regras importantes (transparência):
 - Sempre presente: **+18** e **jogo responsável**.
 
 ## Documentos oficiais (para dar credibilidade no site)
-- Regulamento dos Torneios: https://capa-contest-api.onrender.com/legal/regulamento
-- Termos de Uso: https://capa-contest-api.onrender.com/legal/termos
-- Política de Privacidade: https://capa-contest-api.onrender.com/legal/privacidade
+- Regulamento dos Torneios: https://capa-contest-api-production-895bebf9.up.railway.app/legal/regulamento
+- Termos de Uso: https://capa-contest-api-production-895bebf9.up.railway.app/legal/termos
+- Política de Privacidade: https://capa-contest-api-production-895bebf9.up.railway.app/legal/privacidade

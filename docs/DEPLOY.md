@@ -3,6 +3,9 @@
 Goal: a public backend + hosted Postgres so the Play Store internal-testing build works
 for real testers, and the privacy-policy URL resolves.
 
+> **Since 2026-11-12 production runs on Railway**, not Render — see `docs/HANDOFF.md` §7 for the
+> current setup and how to deploy. The Render steps below are kept for reference.
+
 ## 1. Backend + Postgres on Render (blueprint)
 The repo ships `render.yaml` (web service + free Postgres + Redis).
 

@@ -31,6 +31,6 @@ Pacote de materiais para o site informativo e a campanha. Atualizado para o buil
 - [ ] Prints novos do build 1.0.3+9, se a agência quiser as telas mais recentes.
 
 ## Documentos legais (dão credibilidade ao site)
-- Regulamento: https://capa-contest-api.onrender.com/legal/regulamento
-- Termos de Uso: https://capa-contest-api.onrender.com/legal/termos
-- Privacidade: https://capa-contest-api.onrender.com/legal/privacidade
+- Regulamento: https://capa-contest-api-production-895bebf9.up.railway.app/legal/regulamento
+- Termos de Uso: https://capa-contest-api-production-895bebf9.up.railway.app/legal/termos
+- Privacidade: https://capa-contest-api-production-895bebf9.up.railway.app/legal/privacidade

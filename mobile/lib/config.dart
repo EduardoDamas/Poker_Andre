@@ -14,7 +14,8 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 /// For local dev use: --dart-define=API_BASE=http://10.0.2.2:3000
 class AppConfig {
   static const String _defineApiBase = String.fromEnvironment('API_BASE');
-  static const String _defaultApiBase = 'https://capa-contest-api.onrender.com';
+  static const String _defaultApiBase =
+      'https://capa-contest-api-production-895bebf9.up.railway.app';
 
   static final String apiBase = _defineApiBase.isNotEmpty
       ? _defineApiBase

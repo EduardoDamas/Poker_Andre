@@ -30,9 +30,9 @@ decision for you + André.
 | App bundle (AAB) | `mobile/build/app/outputs/bundle/release/app-release.aab` |
 | Package name | `com.capacontest.capa_contest` |
 | Version | `1.0.0` (versionCode 1) |
-| Privacy policy URL | `https://capa-contest-api.onrender.com/legal/privacidade` |
-| Terms URL | `https://capa-contest-api.onrender.com/legal/termos` |
-| Tournament rules URL | `https://capa-contest-api.onrender.com/legal/regulamento` |
+| Privacy policy URL | `https://capa-contest-api-production-895bebf9.up.railway.app/legal/privacidade` |
+| Terms URL | `https://capa-contest-api-production-895bebf9.up.railway.app/legal/termos` |
+| Tournament rules URL | `https://capa-contest-api-production-895bebf9.up.railway.app/legal/regulamento` |
 | Support email | mastercred962@gmail.com (or André's preferred) |
 | Company | ANDRE LUIZ LABADESSA LTDA — CNPJ 67.550.569/0001-00 |
 

@@ -52,11 +52,17 @@ place at the same paths. Without them you cannot deploy, push, or sign the app.
 > Render key → Render dashboard; keystore → **cannot be regenerated** (see the release-keystore note).
 
 Live credentials you'll also need (keep out of git):
-- **Admin panel** `https://capa-contest-api.onrender.com/panel` → username and password are the
-  `ADMIN_USERNAME` / `ADMIN_PASSWORD` env vars on Render. Rotated 2026-09-17 to values only the
-  client holds — ask him, or set new ones in Render (then redeploy). Case-sensitive.
-- **Render**: owner `mastercred962@gmail.com`, service `srv-d9rlhdf40ujc73bpamj0`.
-- **InfinitePay**: handle `andre-luiz-g4j`; `INFINITEPAY_WEBHOOK_SECRET` is set on Render.
+- **Admin panel** `https://capa-contest-api-production-895bebf9.up.railway.app/panel` → username
+  and password are the `ADMIN_USERNAME` / `ADMIN_PASSWORD` env vars on the hosting (copied from
+  Render to Railway unchanged on 2026-11-12). Rotated 2026-09-17 to values only the client holds —
+  ask him, or set new ones in Railway (then redeploy). Case-sensitive.
+- **Railway** (hosting since 2026-11-12): Google login `wisdom.lifegood0101@gmail.com`, workspace
+  "winner-dev123's Projects", project `capa-contest` (see §7). A workspace token for scripts goes in
+  `.railway-token.txt` (gitignored, never printed).
+- **Render** (old hosting, suspended for billing since 2026-10-29): owner `mastercred962@gmail.com`,
+  service `srv-d9rlhdf40ujc73bpamj0`, Postgres `dpg-d9rlff710e5c738bm1p0-a` — holds the player
+  data until it is exported (§7).
+- **InfinitePay**: handle `andre-luiz-g4j`; `INFINITEPAY_WEBHOOK_SECRET` is set on the hosting.
 
 ---
 
@@ -137,7 +143,9 @@ signing — a debug-signed APK will NOT install over the real one). Verify:
 # expect SHA-1 51:80:26:...:31:8F
 ```
 Staged builds are copied to `mobile/dist/capa-contest-<version>.apk` (gitignored).
-Default backend URL is baked in `mobile/lib/config.dart` → `https://capa-contest-api.onrender.com`.
+Default backend URL is baked in `mobile/lib/config.dart` →
+`https://capa-contest-api-production-895bebf9.up.railway.app` (since 2026-11-12; the 1.0.10 APK
+players have still calls the old Render address, so a hosting move means a new APK).
 
 Launcher icon: `flutter_launcher_icons` config in pubspec → `dart run flutter_launcher_icons`.
 
@@ -205,7 +213,7 @@ again at most weekly. Checked in headless Chrome: log in → reload → lobby; a
 ## 6. Admin panel
 
 Local: `cd admin && npm install && npm run dev` → http://localhost:5173 (point at prod with
-`VITE_API_BASE=https://capa-contest-api.onrender.com`). Hosted: the built panel is bundled into
+`VITE_API_BASE=https://capa-contest-api-production-895bebf9.up.railway.app`). Hosted: the built panel is bundled into
 `backend/panel/` and served at **`/panel`** (rebuild with `npm run build` in admin/, copy `dist`
 → `backend/panel/`, redeploy). Login is `ADMIN_USERNAME` + `ADMIN_PASSWORD` (hosting env).
 The hosted panel and `/jogar` call **the server that serves them** (no host baked in, since
@@ -247,32 +255,41 @@ Only the Android app has the server address built in (`mobile/lib/config.dart`).
 
 ---
 
-## 7. Deploy (backend → Render)
+## 7. Deploy (backend → Railway)
 
-**Deploys are manual in practice.** The Render API reports `autoDeploy: yes`, but a push to
-`main` did NOT trigger a deploy (2026-09-16) — the GitHub webhook is not reaching Render, so
-reconnect the repo in the service's Settings → Build & Deploy if you want pushes to deploy.
-Until then, after pushing, deploy by hand: dashboard → `capa-contest-api` → **Manual Deploy** →
-**Deploy latest commit**, or via the API:
+Hosting moved from Render to **Railway** on 2026-11-12 (Render suspended both services for
+billing on 2026-10-29). Railway project `capa-contest` (`2c24a5ae-e172-4dad-9b8c-d238e665752c`),
+environment `production` (`22eb5ace-dfa3-4d74-9a19-39dfadd789e1`), region US East (Virginia —
+closer to Brazil than Render's Oregon):
+- **`capa-contest-api`** (`651976c9-b662-46ef-bfb3-e70f632cf144`): this repo, branch `main`, root
+  directory `/backend`, built from `backend/Dockerfile`. Health check `/health`, `PORT=3000`.
+  Public URL `https://capa-contest-api-production-895bebf9.up.railway.app`.
+- **`Postgres`** (`69e4c916-7673-4913-aba9-a5f376343398`): Railway's Postgres template pinned to
+  **17** (the pg tools on the dev machine are 17, and pg_dump refuses newer servers). The API's
+  `DATABASE_URL` is the reference `${{Postgres.DATABASE_URL}}` (private network).
+- Env vars were copied from Render as-is, except `DATABASE_URL` (above) and `PUBLIC_BASE_URL`
+  (the Railway URL — InfinitePay's webhook URL is derived from it, so InfinitePay needs no change).
+
+**Deploys are manual.** The repo is connected as a public repo without Railway's GitHub app, so
+a push to `main` does not deploy. After pushing: dashboard → `capa-contest` → `capa-contest-api`
+→ **Deployments** → deploy the latest commit, or via the API:
 ```
-rk=$(tr -d '\r\n' < .render-key.txt)
-sid="srv-d9rlhdf40ujc73bpamj0"
-curl -s -X POST -H "Authorization: Bearer ${rk}" -H "Content-Type: application/json" \
-  "https://api.render.com/v1/services/${sid}/deploys" -d '{}'
-# poll GET .../deploys/<id> until "live"; then check /health
-curl -s https://capa-contest-api.onrender.com/health
+rt=$(tr -d '\r\n' < .railway-token.txt)
+curl -s https://backboard.railway.com/graphql/v2 -H "Authorization: Bearer ${rt}" \
+  -H "Content-Type: application/json" -d '{"query":"mutation { serviceInstanceDeploy(serviceId: \"651976c9-b662-46ef-bfb3-e70f632cf144\", environmentId: \"22eb5ace-dfa3-4d74-9a19-39dfadd789e1\", latestCommit: true) }"}'
+# then check /health
+curl -s https://capa-contest-api-production-895bebf9.up.railway.app/health
 ```
-Read logs (ownerId `tea-d9rkvfv40ujc73bo5pc0`):
-```
-curl -s -H "Authorization: Bearer ${rk}" \
-  "https://api.render.com/v1/logs?ownerId=tea-d9rkvfv40ujc73bo5pc0&resource=${sid}&limit=50"
-```
-Set an env var (e.g. to rotate the panel password):
-```
-curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/json" \
-  "https://api.render.com/v1/services/${sid}/env-vars/ADMIN_PASSWORD" -d '{"value":"<new>"}'
-# then trigger a deploy for it to take effect
-```
+Logs and env vars: dashboard → `capa-contest-api` → **Deployments → View logs** / **Variables**
+(after changing a variable, deploy for it to take effect). The `railway` CLI also works once the
+machine's Winsock is clean (§8); with Astrill's LSP installed it segfaults on any network call.
+
+**Player data is still on Render.** Render refuses to export a suspended database. To bring it
+over: pay the Render invoice once → `capa-postgres` resumes → export it (dashboard → Recovery →
+Export, or `pg_dump -Fc` with its external URL) → restore into Railway's Postgres
+(`pg_restore --clean --if-exists --no-owner`, through a temporary TCP proxy on the Postgres
+service) with the API stopped → check counts → cancel Render. Until then Railway's database is
+empty: don't send players there.
 
 ---
 
@@ -282,7 +299,10 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
   into the JVM and **crashes every Gradle build**. Fix: `netsh winsock reset` (admin) + reboot;
   keep Astrill on **WireGuard/OpenVPN**, never OpenWeb. Also: Astrill **severs large uploads** —
   the 60 MB GitHub-release APK upload fails via CLI; use the **GitHub web UI** to attach the APK,
-  or turn Astrill off for the upload.
+  or turn Astrill off for the upload. On the current machine (2026-11-12) the same LSP is
+  installed again and makes **Prisma's query engine and the `railway` CLI segfault** (exit 139 /
+  0xC0000005) on any network call — so the backend and its jest suite won't run locally until
+  the Winsock reset. Check with `netsh winsock show catalog` (look for `ASProxy`).
 - **Port 5434 is broken** at the OS level ("could not bind ... Permission denied") — Postgres
   won't listen there. Use another port (we used **5544**) for local tests.
 - **Android emulator crashes** on the old machine (GPU/`UpdateLayeredWindowIndirect` + socket
@@ -295,8 +315,10 @@ curl -s -X PUT -H "Authorization: Bearer ${rk}" -H "Content-Type: application/js
 
 ## 9. Current state & what's live
 
-- **Prod API:** https://capa-contest-api.onrender.com — commit `59d46d7` (2026-09-17).
-- **Install page:** https://capa-contest-api.onrender.com/baixar — shows operator identity
+- **Prod API:** https://capa-contest-api-production-895bebf9.up.railway.app (Railway, from
+  2026-11-12; database still empty until the Render data is restored — §7). The old Render API
+  `capa-contest-api.onrender.com` (commit `59d46d7`) is suspended for billing since 2026-10-29.
+- **Install page:** https://capa-contest-api-production-895bebf9.up.railway.app/baixar — shows operator identity
   (ANDRE LUIZ LABADESSA LTDA · CNPJ 67.550.569/0001-00), support WhatsApp (13) 99600-1429 and
   LABA29@YAHOO.COM, matching the legal documents. Says "deposite com cartão, saque por Pix".
 - **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.10/CAPA-CONTEST.apk`
