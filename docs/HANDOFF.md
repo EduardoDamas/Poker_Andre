@@ -143,6 +143,25 @@ signing — a debug-signed APK will NOT install over the real one). Verify:
 # expect SHA-1 51:80:26:...:31:8F
 ```
 Staged builds are copied to `mobile/dist/capa-contest-<version>.apk` (gitignored).
+
+**When Gradle can't run locally** (Astrill installed — §8), build on GitHub and sign here; the
+release keystore never goes to GitHub:
+1. Push, then **Actions → Build APK → Run workflow** (`.github/workflows/build-apk.yml`, manual
+   only; or `POST /repos/EduardoDamas/Poker_Andre/actions/workflows/build-apk.yml/dispatches`
+   `{"ref":"main"}` with the token). It runs the app tests and builds in ~6 min.
+2. Download the run's artifact `app-release-unsigned` (debug-signed — will not install over the
+   players' app), unzip it into an empty folder, then:
+```
+BT=/c/Tools/android-sdk/build-tools/36.0.0; KP=mobile/android/key.properties
+"$BT/zipalign.exe" -p -f 4 app-release.apk aligned.apk
+KS_PASS=$(grep '^storePassword=' $KP | cut -d= -f2- | tr -d '\r') \
+KEY_PASS=$(grep '^keyPassword=' $KP | cut -d= -f2- | tr -d '\r') \
+"$BT/apksigner.bat" sign --ks mobile/android/upload-keystore.jks --ks-key-alias upload \
+  --ks-pass env:KS_PASS --key-pass env:KEY_PASS --out capa-contest-<version>.apk aligned.apk
+"$BT/apksigner.bat" verify --print-certs capa-contest-<version>.apk   # SHA-1 51:80:26:...:31:8F
+```
+   (apksigner and zipalign don't open sockets, so Astrill doesn't break them.) 1.0.11 was built
+   this way on 2026-11-12 (run 43293254686), checked on BlueStacks against Railway.
 Default backend URL is baked in `mobile/lib/config.dart` →
 `https://capa-contest-api-production-895bebf9.up.railway.app` (since 2026-11-12; the 1.0.10 APK
 players have still calls the old Render address, so a hosting move means a new APK).
@@ -300,9 +319,13 @@ removed in the next one — in case that decision is ever reversed.)
   keep Astrill on **WireGuard/OpenVPN**, never OpenWeb. Also: Astrill **severs large uploads** —
   the 60 MB GitHub-release APK upload fails via CLI; use the **GitHub web UI** to attach the APK,
   or turn Astrill off for the upload. On the current machine (2026-11-12) the same LSP is
-  installed again and makes **Prisma's query engine and the `railway` CLI segfault** (exit 139 /
-  0xC0000005) on any network call — so the backend and its jest suite won't run locally until
-  the Winsock reset. Check with `netsh winsock show catalog` (look for `ASProxy`).
+  installed again, and Astrill must stay (Eduardo needs it). It crashes anything that waits on
+  sockets through Windows' AFD polling: **Gradle** (Java's `WEPoll` selector dies in
+  `ASProxy64.dll`; the `select()` fallback, `-Djava.nio.channels.spi.SelectorProvider=
+  sun.nio.ch.WindowsSelectorProvider`, fails with "not a socket"), **Prisma's query engine** and
+  the **`railway` CLI** (exit 139 / 0xC0000005). Node, curl, psql/pg_dump, apksigner work.
+  So: APKs are built on GitHub (§5), Railway is driven through its GraphQL API (§7), and the
+  backend's jest suite doesn't run locally. Check with `netsh winsock show catalog` (`ASProxy`).
 - **Port 5434 is broken** at the OS level ("could not bind ... Permission denied") — Postgres
   won't listen there. Use another port (we used **5544**) for local tests.
 - **Android emulator crashes** on the old machine (GPU/`UpdateLayeredWindowIndirect` + socket
