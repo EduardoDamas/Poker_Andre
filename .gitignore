@@ -48,6 +48,7 @@ coverage/
 .docker-data/
 .render-key.txt
 .gh-token.txt
+.railway-token.txt
 .twilio.txt
 
 # Handoff / restore docs — contain credentials or client PII, keep local only
