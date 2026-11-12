@@ -59,9 +59,9 @@ Live credentials you'll also need (keep out of git):
 - **Railway** (hosting since 2026-11-12): Google login `wisdom.lifegood0101@gmail.com`, workspace
   "winner-dev123's Projects", project `capa-contest` (see §7). A workspace token for scripts goes in
   `.railway-token.txt` (gitignored, never printed).
-- **Render** (old hosting, suspended for billing since 2026-10-29): owner `mastercred962@gmail.com`,
-  service `srv-d9rlhdf40ujc73bpamj0`, Postgres `dpg-d9rlff710e5c738bm1p0-a` — holds the player
-  data until it is exported (§7).
+- **Render** (old hosting, suspended for billing since 2026-10-29, **abandoned** 2026-11-12 —
+  don't use it): owner `mastercred962@gmail.com`, service `srv-d9rlhdf40ujc73bpamj0`, Postgres
+  `dpg-d9rlff710e5c738bm1p0-a`.
 - **InfinitePay**: handle `andre-luiz-g4j`; `INFINITEPAY_WEBHOOK_SECRET` is set on the hosting.
 
 ---
@@ -284,19 +284,12 @@ Logs and env vars: dashboard → `capa-contest-api` → **Deployments → View l
 (after changing a variable, deploy for it to take effect). The `railway` CLI also works once the
 machine's Winsock is clean (§8); with Astrill's LSP installed it segfaults on any network call.
 
-**Player data is still on Render.** Render refuses to export a suspended database. Until it is
-copied, Railway's database is empty: don't send players there. To bring it over:
-1. Pay the Render invoice once → `capa-postgres` and `capa-contest-api` resume.
-2. Suspend Render's **web service** (dashboard → `capa-contest-api` → Settings → Suspend) so no
-   game or deposit lands on Render after the copy. Its database stays up.
-3. `node backend/scripts/move-db-to-railway.js` (check only), then the same with `--go`. It
-   dumps Render to `C:\Tools\backups\`, stops the Railway API, restores through a temporary TCP
-   proxy in one transaction, compares every table's row count plus the balance/ledger/points
-   totals, closes the proxy and redeploys the API (which applies any newer migrations). It
-   stops at the first problem and refuses to overwrite a Railway database that has players.
-   Rehearsed on 2026-11-12 with `--go --from-local --reset-after` (local dev DB → Railway →
-   emptied again): all counts matched, ~4 minutes.
-4. Publish the app with the Railway address, then cancel Render.
+**Railway starts with a fresh database — Render is abandoned (Eduardo, 2026-11-12).** The old
+player data stays on the suspended Render database and is not brought over: players register
+again, and agents/referral codes and promotions are re-created in the panel. Any balance or plan
+a player had on Render must be re-credited by hand from the client's records. Don't use Render
+for anything any more. (A Render→Railway copy script existed briefly — commit `fcef757`,
+removed in the next one — in case that decision is ever reversed.)
 
 ---
 
@@ -323,7 +316,7 @@ copied, Railway's database is empty: don't send players there. To bring it over:
 ## 9. Current state & what's live
 
 - **Prod API:** https://capa-contest-api-production-895bebf9.up.railway.app (Railway, from
-  2026-11-12; database still empty until the Render data is restored — §7). The old Render API
+  2026-11-12, fresh database — the Render data is not brought over, §7). The old Render API
   `capa-contest-api.onrender.com` (commit `59d46d7`) is suspended for billing since 2026-10-29.
 - **Install page:** https://capa-contest-api-production-895bebf9.up.railway.app/baixar — shows operator identity
   (ANDRE LUIZ LABADESSA LTDA · CNPJ 67.550.569/0001-00), support WhatsApp (13) 99600-1429 and
@@ -549,9 +542,9 @@ copied, Railway's database is empty: don't send players there. To bring it over:
       to go back to Opção 1 (fixed links + admin confirms). The app needs no new build either way.
 - [ ] **Repo hygiene** — untracked theme-asset `.zip`s + duplicated extract folders under
       `mobile/assets/` should be gitignored/removed.
-- [ ] **Fix Render auto-deploy** — the GitHub webhook does not reach Render (every deploy this
-      month was a manual click). Reconnect the repo in Settings → Build & Deploy.
-- [ ] **CAPA domain** — bought by the client, not pointed yet. Point it at the service, then move
+- [ ] **CAPA domain** — bought by the client, not pointed yet (its name isn't recorded here —
+      ask). Point it at Railway (custom domain on `capa-contest-api`: the client adds the CNAME +
+      TXT records Railway gives), build the app with it as `_defaultApiBase`, then move
       the legal URLs, the landing page and ideally the support/DPO e-mail (today a Yahoo address)
       onto it. Ad platforms prefer policy and site on the same domain; Search Console needs it.
 - [ ] **Google Ads category** — asked the client's agency whether the ad is reviewed under the
