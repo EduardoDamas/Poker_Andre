@@ -344,10 +344,10 @@ removed in the next one — in case that decision is ever reversed.)
 - **Install page:** https://capa-contest-api-production-895bebf9.up.railway.app/baixar — shows operator identity
   (ANDRE LUIZ LABADESSA LTDA · CNPJ 67.550.569/0001-00), support WhatsApp (13) 99600-1429 and
   LABA29@YAHOO.COM, matching the legal documents. Says "deposite com cartão, saque por Pix".
-- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.10/CAPA-CONTEST.apk`
+- **APK download:** `https://github.com/EduardoDamas/Poker_Andre/releases/download/v1.0.11/CAPA-CONTEST.apk`
   (GitHub Release asset). To publish a build: create a new release with the APK, then update the
   link in `backend/public/install.html` (+ `docs/marketing/install.html`) and deploy — the public
-  `/baixar` URL never changes. Releases so far: v1.0.3, v1.0.5, v1.0.6, v1.0.7, v1.0.8, v1.0.9, v1.0.10.
+  `/baixar` URL never changes. Releases so far: v1.0.3, v1.0.5, v1.0.6, v1.0.7, v1.0.8, v1.0.9, v1.0.10, v1.0.11 (2026-11-12, first on Railway).
 - **Card payments (InfinitePay):** LIVE + validated with a real R$1 charge. Card-only for now
   (Pix disabled at InfinitePay per client). Deposit button mints a checkout link; webhook credits
   the wallet (`parseWebhook` treats `paid_amount`+`transaction_nsu` as paid). Deposits are capped
