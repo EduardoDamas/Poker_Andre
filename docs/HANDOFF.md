@@ -284,12 +284,19 @@ Logs and env vars: dashboard → `capa-contest-api` → **Deployments → View l
 (after changing a variable, deploy for it to take effect). The `railway` CLI also works once the
 machine's Winsock is clean (§8); with Astrill's LSP installed it segfaults on any network call.
 
-**Player data is still on Render.** Render refuses to export a suspended database. To bring it
-over: pay the Render invoice once → `capa-postgres` resumes → export it (dashboard → Recovery →
-Export, or `pg_dump -Fc` with its external URL) → restore into Railway's Postgres
-(`pg_restore --clean --if-exists --no-owner`, through a temporary TCP proxy on the Postgres
-service) with the API stopped → check counts → cancel Render. Until then Railway's database is
-empty: don't send players there.
+**Player data is still on Render.** Render refuses to export a suspended database. Until it is
+copied, Railway's database is empty: don't send players there. To bring it over:
+1. Pay the Render invoice once → `capa-postgres` and `capa-contest-api` resume.
+2. Suspend Render's **web service** (dashboard → `capa-contest-api` → Settings → Suspend) so no
+   game or deposit lands on Render after the copy. Its database stays up.
+3. `node backend/scripts/move-db-to-railway.js` (check only), then the same with `--go`. It
+   dumps Render to `C:\Tools\backups\`, stops the Railway API, restores through a temporary TCP
+   proxy in one transaction, compares every table's row count plus the balance/ledger/points
+   totals, closes the proxy and redeploys the API (which applies any newer migrations). It
+   stops at the first problem and refuses to overwrite a Railway database that has players.
+   Rehearsed on 2026-11-12 with `--go --from-local --reset-after` (local dev DB → Railway →
+   emptied again): all counts matched, ~4 minutes.
+4. Publish the app with the Railway address, then cancel Render.
 
 ---
 
