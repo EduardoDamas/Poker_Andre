@@ -15,6 +15,7 @@ import 'tournaments_screen.dart';
 import 'wallet_screen.dart';
 import 'profile_screen.dart';
 import 'solo_setup_screen.dart';
+import '../config.dart';
 
 /// Premium lobby: hero header (balance + tier), quick-play, and room cards.
 class LobbyScreen extends StatefulWidget {
@@ -142,7 +143,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   /// share reward (server grants it once per settled win). Returns the points
   /// awarded, or throws with the server's message.
   Future<int> _shareWin() async {
-    const page = 'https://capa-contest-api.onrender.com/baixar';
+    final page = '${AppConfig.apiBase}/baixar';
     final quote = Uri.encodeComponent(
         'Acabei de vencer um torneio no CAPA CONTEST! Baixe e venha jogar: $page');
     await launchUrl(

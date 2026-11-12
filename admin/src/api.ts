@@ -1,9 +1,11 @@
 // Client for the CAPA CONTEST admin/auth endpoints.
-// Defaults to the live Render production backend; override with VITE_API_BASE
-// (e.g. http://localhost:3000 for local backend dev).
+// The hosted panel is served by the backend at /panel, so by default it talks to
+// the server it was loaded from — no host baked in, nothing to change when the
+// hosting moves. Set VITE_API_BASE to point elsewhere (e.g. http://localhost:3000
+// in admin/.env for local dev); .env.production leaves it empty on purpose.
 const BASE: string =
-  (import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE ??
-  'https://capa-contest-api.onrender.com';
+  (import.meta as { env?: Record<string, string> }).env?.VITE_API_BASE ||
+  window.location.origin;
 
 export class ApiError extends Error {
   status: number;

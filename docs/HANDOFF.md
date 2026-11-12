@@ -207,10 +207,11 @@ again at most weekly. Checked in headless Chrome: log in → reload → lobby; a
 Local: `cd admin && npm install && npm run dev` → http://localhost:5173 (point at prod with
 `VITE_API_BASE=https://capa-contest-api.onrender.com`). Hosted: the built panel is bundled into
 `backend/panel/` and served at **`/panel`** (rebuild with `npm run build` in admin/, copy `dist`
-→ `backend/panel/`, redeploy). Login is `ADMIN_USERNAME` + `ADMIN_PASSWORD` (Render env).
-**Build the hosted panel with `VITE_API_BASE=https://capa-contest-api.onrender.com`** — `admin/.env`
-points at localhost and Vite applies it to production builds too, which would break the live panel.
-Check the bundle has no `localhost` before committing `backend/panel/`.
+→ `backend/panel/`, redeploy). Login is `ADMIN_USERNAME` + `ADMIN_PASSWORD` (hosting env).
+The hosted panel and `/jogar` call **the server that serves them** (no host baked in, since
+2026-11-12), so a hosting move needs no rebuild of either. `admin/.env.production` keeps
+`VITE_API_BASE` empty on purpose; check the bundle has no `localhost` before committing `backend/panel/`.
+Only the Android app has the server address built in (`mobile/lib/config.dart`).
 
 ### 6b. Agents & referral codes — tab "Agentes" (client, 2026-10-12)
 
